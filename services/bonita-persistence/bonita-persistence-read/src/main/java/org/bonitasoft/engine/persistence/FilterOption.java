@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -43,9 +43,7 @@ public class FilterOption implements Serializable {
 
     public FilterOption(final Class<? extends PersistentObject> persistentClass, final String fieldName, final Object value,
             final FilterOperationType operatorType) {
-        super();
-        this.persistentClass = persistentClass;
-        this.fieldName = fieldName;
+        this(persistentClass, fieldName);
         this.value = value;
         operationType = operatorType;
     }
@@ -53,6 +51,11 @@ public class FilterOption implements Serializable {
     public FilterOption(final Class<? extends PersistentObject> persistentClass, final String fieldName, final Object value) {
         // EQUALS operation by default:
         this(persistentClass, fieldName, value, FilterOperationType.EQUALS);
+    }
+
+    public FilterOption(final Class<? extends PersistentObject> persistentClass, final String fieldName) {
+        this.persistentClass = persistentClass;
+        this.fieldName = fieldName;
     }
 
     public FilterOption(final Class<? extends PersistentObject> persistentClass, final String fieldName, final Object from, final Object to) {
@@ -181,4 +184,34 @@ public class FilterOption implements Serializable {
         return in;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof FilterOption)) return false;
+
+        FilterOption that = (FilterOption) o;
+
+        if (fieldName != null ? !fieldName.equals(that.fieldName) : that.fieldName != null) return false;
+        if (from != null ? !from.equals(that.from) : that.from != null) return false;
+        if (in != null ? !in.equals(that.in) : that.in != null) return false;
+        if (operationType != that.operationType) return false;
+        if (persistentClass != null ? !persistentClass.equals(that.persistentClass) : that.persistentClass != null)
+            return false;
+        if (to != null ? !to.equals(that.to) : that.to != null) return false;
+        if (value != null ? !value.equals(that.value) : that.value != null) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = persistentClass != null ? persistentClass.hashCode() : 0;
+        result = 31 * result + (fieldName != null ? fieldName.hashCode() : 0);
+        result = 31 * result + (value != null ? value.hashCode() : 0);
+        result = 31 * result + (to != null ? to.hashCode() : 0);
+        result = 31 * result + (from != null ? from.hashCode() : 0);
+        result = 31 * result + (in != null ? in.hashCode() : 0);
+        result = 31 * result + (operationType != null ? operationType.hashCode() : 0);
+        return result;
+    }
 }

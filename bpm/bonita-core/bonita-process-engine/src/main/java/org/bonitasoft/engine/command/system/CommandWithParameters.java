@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -21,6 +21,7 @@ import org.bonitasoft.engine.command.TenantCommand;
 
 /**
  * @author Elias Ricken de Medeiros
+ * @author Celine Souchet
  */
 public abstract class CommandWithParameters extends TenantCommand {
 
@@ -29,14 +30,22 @@ public abstract class CommandWithParameters extends TenantCommand {
             throws SCommandParameterizationException {
         try {
             return (T) parameters.get(parameterName);
-        } catch (final Throwable e) {
+        } catch (final Exception e) {
             throw new SCommandParameterizationException(message);
         }
     }
 
+    protected <T> T getParameter(final Map<String, Serializable> parameters, final String parameterName) throws SCommandParameterizationException {
+        return getParameter(parameters, parameterName, "An error occurred while parsing " + parameterName);
+    }
+
     protected Long getLongMandadoryParameter(final Map<String, Serializable> parameters, final String field) throws SCommandParameterizationException {
         final String message = "Parameters map must contain an entry " + field + " with a long value.";
-        return getMandatoryParameter(parameters, field, message);
+        final Long mandatoryParameter = getMandatoryParameter(parameters, field, message);
+        if (mandatoryParameter == 0L) {
+            throw new SCommandParameterizationException(message);
+        }
+        return mandatoryParameter;
     }
 
     protected Integer getIntegerMandadoryParameter(final Map<String, Serializable> parameters, final String field) throws SCommandParameterizationException {

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -20,10 +20,10 @@ import org.bonitasoft.engine.search.impl.SearchFilter;
 import org.bonitasoft.engine.search.impl.SearchOptionsImpl;
 
 /**
- * Builder for SearchOptions objects. Defines 'pagination'.
- * When several filters are added, implicit AND operators are used if not specified.
+ * Builder for {@link SearchOptions} objects. It can be used to define paged searches returning {@link SearchResult}s.
+ * When several filters are added, implicit {@code AND} operators are used if not specified.
  * See {@link SearchOptions} for deeper details on search mechanism options.
- * 
+ *
  * @author Matthieu Chaffotte
  * @author Emmanuel Duchastenier
  * @author Celine Souchet
@@ -34,12 +34,15 @@ public class SearchOptionsBuilder {
     private final SearchOptionsImpl options;
 
     /**
-     * Builds a new <code>SearchOptions</code> with results limited to startIndex and maxResults
-     * 
-     * @param startIndex
-     *            the first result to return
-     * @param maxResults
-     *            the maximum results to return. The actual number can be smaller, if the end of the list has been reached.
+     * Builds a new {@link SearchOptions} with results limited to {@code startIndex} and {@code maxResults}. If you are interested only in the number of
+     * elements matching with the given criteria without knowing the elements details, it's possible to use zero as {@code maxResults}:
+     * {@link SearchResult#getResult()} will send an empty list and {@link SearchResult#getCount()} will return the number of matching elements.
+     *
+     * @param startIndex the first result to return
+     * @param maxResults the maximum results to return. The actual number can be smaller, if the end of the list has been reached.
+     * @see SearchOptions
+     * @see SearchResult#getResult()
+     * @see SearchResult#getCount()
      */
     public SearchOptionsBuilder(final int startIndex, final int maxResults) {
         options = new SearchOptionsImpl(startIndex, maxResults);
@@ -47,7 +50,7 @@ public class SearchOptionsBuilder {
 
     /**
      * Creates a new <code>SearchOptionsBuilder</code> from another instance by
-     * 
+     *
      * @param searchOptions
      */
     public SearchOptionsBuilder(final SearchOptions searchOptions) {
@@ -59,11 +62,12 @@ public class SearchOptionsBuilder {
 
     /**
      * Filter the results to the specific value for the specific field (equality)
-     * 
+     *
      * @param field
-     *            the field name to filter
+     *        The name of the field to filter on. Depending on the search parameter, specify the field by accessing the relevant xxxSearchDescriptor classes.
+     *        For example, <code>HumanTaskInstanceSearchDescriptor.NAME</code> and <code>HumanTaskInstanceSearchDescriptor.PROCESS_DEFINITION_ID</code>.
      * @param value
-     *            the single value to filter on that field name
+     *        the single value to filter on that field name
      * @return this builder itself
      * @since 6.0
      */
@@ -74,12 +78,13 @@ public class SearchOptionsBuilder {
 
     /**
      * Filters search results with a greaterThan comparison operation.
-     * 
+     *
      * @param field
-     *            the field name to compare to.
+     *        the field name to compare to.
      * @param value
-     *            the value to compare.
+     *        the value to compare.
      * @return this builder itself
+     * @see SearchOptionsBuilder#filter(String, java.io.Serializable) for field values
      */
     public SearchOptionsBuilder greaterThan(final String field, final Serializable value) {
         options.addGreaterThanFilter(field, value);
@@ -90,6 +95,7 @@ public class SearchOptionsBuilder {
      * @param field
      * @param value
      * @return this builder itself
+     * @see SearchOptionsBuilder#filter(String, java.io.Serializable) for field values
      */
     public SearchOptionsBuilder greaterOrEquals(final String field, final Serializable value) {
         options.addGreaterOrEqualsFilter(field, value);
@@ -97,9 +103,10 @@ public class SearchOptionsBuilder {
     }
 
     /**
-     * @param field
+     * @param field the field that should be less than
      * @param value
      * @return this builder itself
+     * @see SearchOptionsBuilder#filter(String, java.io.Serializable) for field values
      */
     public SearchOptionsBuilder lessThan(final String field, final Serializable value) {
         options.addLessThanFilter(field, value);
@@ -107,9 +114,10 @@ public class SearchOptionsBuilder {
     }
 
     /**
-     * @param field
-     * @param value
+     * @param field the field that should be less or equals
+     * @param value the value
      * @return this builder itself
+     * @see SearchOptionsBuilder#filter(String, java.io.Serializable) for field values
      */
     public SearchOptionsBuilder lessOrEquals(final String field, final Serializable value) {
         options.addLessOrEqualsFilter(field, value);
@@ -117,10 +125,11 @@ public class SearchOptionsBuilder {
     }
 
     /**
-     * @param field
-     * @param from
-     * @param to
+     * @param field the field that should be between
+     * @param from from this value
+     * @param to to this value
      * @return this builder itself
+     * @see SearchOptionsBuilder#filter(String, java.io.Serializable) for field values
      */
     public SearchOptionsBuilder between(final String field, final Serializable from, final Serializable to) {
         options.addBetweenFilter(field, from, to);
@@ -131,6 +140,7 @@ public class SearchOptionsBuilder {
      * @param field
      * @param value
      * @return this builder itself
+     * @see SearchOptionsBuilder#filter(String, java.io.Serializable) for field values
      */
     public SearchOptionsBuilder differentFrom(final String field, final Serializable value) {
         options.addDifferentFromFilter(field, value);
@@ -159,8 +169,18 @@ public class SearchOptionsBuilder {
         return this;
     }
 
+    public SearchOptionsBuilder leftParenthesis() {
+        options.addLeftParenthesis();
+        return this;
+    }
+
+    public SearchOptionsBuilder rightParenthesis() {
+        options.addRightParenthesis();
+        return this;
+    }
+
     /**
-     * @param value
+     * @param value the search term
      * @return this builder itself
      */
     public SearchOptionsBuilder searchTerm(final String value) {
@@ -170,11 +190,11 @@ public class SearchOptionsBuilder {
 
     /**
      * Adds a sort order option to the list of sort options
-     * 
+     *
      * @param field
-     *            the field name to sort by
+     *        the field name to sort by
      * @param order
-     *            the order of the sort (ASCENDING, DESCENDING)
+     *        the order of the sort (ASCENDING, DESCENDING)
      * @return the current SearchOptionsBuilder
      */
     public SearchOptionsBuilder sort(final String field, final Order order) {
@@ -183,7 +203,7 @@ public class SearchOptionsBuilder {
     }
 
     /**
-     * @param filters
+     * @param filters the filters to set
      * @return this builder itself
      */
     public SearchOptionsBuilder setFilters(final List<SearchFilter> filters) {
@@ -192,7 +212,7 @@ public class SearchOptionsBuilder {
     }
 
     /**
-     * @param sorts
+     * @param sorts the sorts to set
      * @return this builder itself
      */
     public SearchOptionsBuilder setSort(final List<Sort> sorts) {

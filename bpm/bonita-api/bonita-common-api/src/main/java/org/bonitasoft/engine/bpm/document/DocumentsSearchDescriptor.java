@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -22,6 +22,10 @@ public final class DocumentsSearchDescriptor {
 
     public static final String DOCUMENT_NAME = "documentName";
 
+    public static final String DOCUMENT_VERSION = "version";
+
+    public static final String DOCUMENT_DESCRIPTION = "documentDescription";
+
     public static final String DOCUMENT_AUTHOR = "documentAuthor";
 
     public static final String DOCUMENT_CREATIONDATE = "documentCreationDate";
@@ -35,5 +39,7 @@ public final class DocumentsSearchDescriptor {
     public static final String CONTENT_STORAGE_ID = "contentStorageId";
 
     public static final String DOCUMENT_URL = "documentURL";
+
+    public static final String LIST_INDEX = "index";
 
 }

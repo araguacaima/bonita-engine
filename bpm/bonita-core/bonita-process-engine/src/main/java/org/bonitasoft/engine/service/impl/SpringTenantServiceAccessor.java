@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
- * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
+ * Copyright (C) 2015 Bonitasoft S.A.
+ * Bonitasoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
  * version 2.1 of the License.
@@ -11,213 +11,128 @@
  * program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
  * Floor, Boston, MA 02110-1301, USA.
  **/
+
 package org.bonitasoft.engine.service.impl;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-
 import org.bonitasoft.engine.actor.mapping.ActorMappingService;
-import org.bonitasoft.engine.actor.mapping.model.SActorBuilders;
-import org.bonitasoft.engine.actor.xml.ActorBinding;
-import org.bonitasoft.engine.actor.xml.ActorMappingBinding;
-import org.bonitasoft.engine.actor.xml.ActorMembershipBinding;
-import org.bonitasoft.engine.actor.xml.GroupPathsBinding;
-import org.bonitasoft.engine.actor.xml.RoleNamesBinding;
-import org.bonitasoft.engine.actor.xml.UserNamesBinding;
-import org.bonitasoft.engine.api.impl.resolver.DependencyResolver;
-import org.bonitasoft.engine.api.impl.transaction.actor.ImportActorMapping;
+import org.bonitasoft.engine.api.impl.TenantConfiguration;
+import org.bonitasoft.engine.api.impl.resolver.BusinessArchiveArtifactsManager;
 import org.bonitasoft.engine.archive.ArchiveService;
+import org.bonitasoft.engine.authentication.GenericAuthenticationService;
+import org.bonitasoft.engine.authentication.GenericAuthenticationServiceAccessor;
+import org.bonitasoft.engine.bar.BusinessArchiveService;
 import org.bonitasoft.engine.bpm.model.impl.BPMInstancesCreator;
+import org.bonitasoft.engine.business.application.ApplicationService;
+import org.bonitasoft.engine.business.data.BusinessDataModelRepository;
+import org.bonitasoft.engine.business.data.BusinessDataRepository;
+import org.bonitasoft.engine.business.data.BusinessDataService;
 import org.bonitasoft.engine.cache.CacheService;
 import org.bonitasoft.engine.classloader.ClassLoaderService;
 import org.bonitasoft.engine.command.CommandService;
-import org.bonitasoft.engine.command.DefaultCommandProvider;
-import org.bonitasoft.engine.command.model.SCommandBuilderAccessor;
 import org.bonitasoft.engine.commons.transaction.TransactionExecutor;
 import org.bonitasoft.engine.connector.ConnectorExecutor;
 import org.bonitasoft.engine.core.category.CategoryService;
-import org.bonitasoft.engine.core.category.model.builder.SCategoryBuilderAccessor;
 import org.bonitasoft.engine.core.connector.ConnectorInstanceService;
 import org.bonitasoft.engine.core.connector.ConnectorService;
+import org.bonitasoft.engine.core.contract.data.ContractDataService;
+import org.bonitasoft.engine.core.data.instance.TransientDataService;
+import org.bonitasoft.engine.core.document.api.DocumentService;
 import org.bonitasoft.engine.core.expression.control.api.ExpressionResolverService;
 import org.bonitasoft.engine.core.filter.UserFilterService;
+import org.bonitasoft.engine.core.form.FormMappingService;
 import org.bonitasoft.engine.core.login.LoginService;
 import org.bonitasoft.engine.core.operation.OperationService;
-import org.bonitasoft.engine.core.operation.model.builder.SOperationBuilders;
 import org.bonitasoft.engine.core.process.comment.api.SCommentService;
-import org.bonitasoft.engine.core.process.comment.model.archive.builder.SACommentBuilder;
-import org.bonitasoft.engine.core.process.comment.model.builder.SCommentBuilders;
 import org.bonitasoft.engine.core.process.definition.ProcessDefinitionService;
-import org.bonitasoft.engine.core.process.definition.model.builder.BPMDefinitionBuilders;
-import org.bonitasoft.engine.core.process.document.api.ProcessDocumentService;
-import org.bonitasoft.engine.core.process.document.mapping.DocumentMappingService;
-import org.bonitasoft.engine.core.process.document.mapping.model.builder.SDocumentMappingBuilderAccessor;
-import org.bonitasoft.engine.core.process.document.model.builder.SProcessDocumentBuilder;
 import org.bonitasoft.engine.core.process.instance.api.ActivityInstanceService;
+import org.bonitasoft.engine.core.process.instance.api.GatewayInstanceService;
 import org.bonitasoft.engine.core.process.instance.api.ProcessInstanceService;
-import org.bonitasoft.engine.core.process.instance.api.TokenService;
-import org.bonitasoft.engine.core.process.instance.api.TransitionService;
+import org.bonitasoft.engine.core.process.instance.api.RefBusinessDataService;
 import org.bonitasoft.engine.core.process.instance.api.event.EventInstanceService;
-import org.bonitasoft.engine.core.process.instance.model.builder.BPMInstanceBuilders;
-import org.bonitasoft.engine.data.DataService;
-import org.bonitasoft.engine.data.definition.model.builder.SDataDefinitionBuilders;
 import org.bonitasoft.engine.data.instance.api.DataInstanceService;
-import org.bonitasoft.engine.data.instance.model.builder.SDataInstanceBuilders;
-import org.bonitasoft.engine.data.model.builder.SDataSourceModelBuilder;
+import org.bonitasoft.engine.data.instance.api.ParentContainerResolver;
 import org.bonitasoft.engine.dependency.DependencyService;
-import org.bonitasoft.engine.dependency.model.builder.DependencyBuilderAccessor;
 import org.bonitasoft.engine.events.EventService;
-import org.bonitasoft.engine.exception.BonitaRuntimeException;
+import org.bonitasoft.engine.exception.NotFoundException;
 import org.bonitasoft.engine.execution.ContainerRegistry;
 import org.bonitasoft.engine.execution.FlowNodeExecutor;
 import org.bonitasoft.engine.execution.ProcessExecutor;
-import org.bonitasoft.engine.execution.TransactionalProcessInstanceInterruptor;
 import org.bonitasoft.engine.execution.event.EventsHandler;
 import org.bonitasoft.engine.execution.state.FlowNodeStateManager;
 import org.bonitasoft.engine.expression.ExpressionService;
-import org.bonitasoft.engine.expression.model.builder.SExpressionBuilders;
 import org.bonitasoft.engine.external.identity.mapping.ExternalIdentityMappingService;
-import org.bonitasoft.engine.external.identity.mapping.model.SExternalIdentityMappingBuilders;
 import org.bonitasoft.engine.identity.IdentityService;
-import org.bonitasoft.engine.identity.model.builder.IdentityModelBuilder;
+import org.bonitasoft.engine.incident.IncidentService;
 import org.bonitasoft.engine.lock.LockService;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
-import org.bonitasoft.engine.platform.model.builder.STenantBuilder;
+import org.bonitasoft.engine.message.MessagesHandlingService;
+import org.bonitasoft.engine.page.PageMappingService;
+import org.bonitasoft.engine.page.PageService;
+import org.bonitasoft.engine.parameter.ParameterService;
+import org.bonitasoft.engine.persistence.ReadPersistenceService;
 import org.bonitasoft.engine.profile.ProfileService;
-import org.bonitasoft.engine.profile.builder.SProfileBuilderAccessor;
-import org.bonitasoft.engine.profile.xml.ChildrenEntriesBinding;
-import org.bonitasoft.engine.profile.xml.MembershipBinding;
-import org.bonitasoft.engine.profile.xml.MembershipsBinding;
-import org.bonitasoft.engine.profile.xml.ParentProfileEntryBinding;
-import org.bonitasoft.engine.profile.xml.ProfileBinding;
-import org.bonitasoft.engine.profile.xml.ProfileEntriesBinding;
-import org.bonitasoft.engine.profile.xml.ProfileEntryBinding;
-import org.bonitasoft.engine.profile.xml.ProfileMappingBinding;
-import org.bonitasoft.engine.profile.xml.ProfilesBinding;
-import org.bonitasoft.engine.queriablelogger.model.builder.SQueriableLogModelBuilder;
+import org.bonitasoft.engine.profile.ProfilesExporter;
+import org.bonitasoft.engine.profile.ProfilesImporter;
+import org.bonitasoft.engine.recorder.Recorder;
+import org.bonitasoft.engine.resources.ProcessResourcesService;
+import org.bonitasoft.engine.resources.TenantResourcesService;
+import org.bonitasoft.engine.scheduler.JobService;
+import org.bonitasoft.engine.scheduler.SchedulerService;
 import org.bonitasoft.engine.search.descriptor.SearchEntitiesDescriptor;
+import org.bonitasoft.engine.service.PermissionService;
 import org.bonitasoft.engine.service.TenantServiceAccessor;
 import org.bonitasoft.engine.services.QueriableLoggerService;
 import org.bonitasoft.engine.session.SessionService;
-import org.bonitasoft.engine.sessionaccessor.ReadSessionAccessor;
+import org.bonitasoft.engine.sessionaccessor.SessionAccessor;
 import org.bonitasoft.engine.supervisor.mapping.SupervisorMappingService;
-import org.bonitasoft.engine.supervisor.mapping.model.SProcessSupervisorBuilders;
+import org.bonitasoft.engine.synchro.SynchroService;
+import org.bonitasoft.engine.theme.ThemeService;
+import org.bonitasoft.engine.tracking.TimeTracker;
 import org.bonitasoft.engine.transaction.TransactionService;
+import org.bonitasoft.engine.transaction.UserTransactionService;
 import org.bonitasoft.engine.work.WorkService;
-import org.bonitasoft.engine.xml.ElementBinding;
-import org.bonitasoft.engine.xml.Parser;
-import org.bonitasoft.engine.xml.ParserFactory;
-import org.bonitasoft.engine.xml.SInvalidSchemaException;
-import org.bonitasoft.engine.xml.XMLWriter;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 
 /**
  * @author Matthieu Chaffotte
  * @author Yanyan Liu
  * @author Elias Ricken de Medeiros
  * @author Celine Souchet
- *
  */
 public class SpringTenantServiceAccessor implements TenantServiceAccessor {
 
-    private final SpringTenantFileSystemBeanAccessor beanAccessor;
-
-    private IdentityService identityService;
-
-    private IdentityModelBuilder identityModelBuilder;
-
-    private LoginService loginService;
-
-    private QueriableLoggerService queriableLoggerService;
-
-    private SQueriableLogModelBuilder logModelBuilder;
-
-    private TechnicalLoggerService technicalLoggerService;
-
-    private STenantBuilder tenantBuilder;
-
-    private TransactionService transactionService;
-
-    private ProcessDefinitionService processDefinitionService;
-
-    private ActivityInstanceService activityInstanceService;
-
-    private ProcessInstanceService processInstanceService;
-
-    private TokenService tokenCountService;
-
-    private FlowNodeExecutor flowNodeExecutor;
-
-    private ProcessExecutor processExecutor;
-
-    private FlowNodeStateManager flowNodeStateManager;
-
-    private TransactionExecutor transactionExecutor;
-
-    private BPMDefinitionBuilders bpmDefinitionBuilders;
-
-    private BPMInstanceBuilders bpmInstanceBuilders;
-
-    private BPMInstancesCreator bpmInstancesCreator;
-
-    private ActorMappingService actorMappingService;
-
-    private SActorBuilders sActorBuilders;
-
-    private ArchiveService archiveService;
-
-    private SCategoryBuilderAccessor categoryBuilderAccessor;
-
-    private CategoryService categoryService;
-
-    private SExpressionBuilders sExpressionBuilders;
-
-    private ExpressionService expressionService;
-
-    private CommandService commandService;
-
-    private SCommandBuilderAccessor commandBuilderAccessor;
-
-    private TransitionService transitionService;
-
-    private ClassLoaderService classLoaderService;
-
-    private DependencyService dependencyService;
-
-    private DependencyBuilderAccessor dependencyBuilderAccessor;
-
-    private EventInstanceService eventInstanceService;
-
+    private final TenantBeanAccessor beanAccessor;
     private final long tenantId;
-
+    private IdentityService identityService;
+    private LoginService loginService;
+    private QueriableLoggerService queriableLoggerService;
+    private TechnicalLoggerService technicalLoggerService;
+    private TransactionService transactionService;
+    private ProcessDefinitionService processDefinitionService;
+    private ActivityInstanceService activityInstanceService;
+    private ProcessInstanceService processInstanceService;
+    private FlowNodeExecutor flowNodeExecutor;
+    private ProcessExecutor processExecutor;
+    private FlowNodeStateManager flowNodeStateManager;
+    private TransactionExecutor transactionExecutor;
+    private BPMInstancesCreator bpmInstancesCreator;
+    private ActorMappingService actorMappingService;
+    private ArchiveService archiveService;
+    private CategoryService categoryService;
+    private ExpressionService expressionService;
+    private CommandService commandService;
+    private ClassLoaderService classLoaderService;
+    private DependencyService dependencyService;
+    private EventInstanceService eventInstanceService;
     private ConnectorService connectorService;
 
     private ConnectorInstanceService connectorInstanceService;
 
-    private SProcessDocumentBuilder processDocumentBuilder;
-
-    private ProcessDocumentService processDocumentService;
-
-    private DocumentMappingService documentMappingService;
-
-    private SDocumentMappingBuilderAccessor documentMappingBuilderAccessor;
+    private DocumentService documentService;
 
     private ProfileService profileService;
 
-    private SProfileBuilderAccessor sProfileBuilderAccessor;
-
     private DataInstanceService dataInstanceService;
-
-    private SDataDefinitionBuilders sDataDefinitionBuilders;
-
-    private SDataInstanceBuilders sDataInstanceBuilders;
-
-    private DataService dataService;
-
-    private SDataSourceModelBuilder sDataSourceModelBuilder;
-
-    private ParserFactory parserFactory;
 
     private OperationService operationService;
 
@@ -225,23 +140,15 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
 
     private SupervisorMappingService supervisorService;
 
-    private SProcessSupervisorBuilders supervisorBuilders;
-
-    private SOperationBuilders sOperationBuilders;
-
     private UserFilterService userFilterService;
 
     private SearchEntitiesDescriptor searchEntitiesDescriptor;
 
     private SCommentService commentService;
 
-    private SCommentBuilders sCommentBuilders;
-
     private ContainerRegistry containerRegistry;
 
     private ExternalIdentityMappingService externalIdentityMappingService;
-
-    private SExternalIdentityMappingBuilders sExternalIdentityMappingBuilders;
 
     private LockService lockService;
 
@@ -253,31 +160,91 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
 
     private CacheService cacheService;
 
-    private DependencyResolver dependencyResolver;
-
-    private DefaultCommandProvider commandProvider;
+    private BusinessArchiveArtifactsManager businessArchiveArtifactsManager;
 
     private WorkService workService;
 
     private SessionService sessionService;
 
-    private ReadSessionAccessor readSessionAccessor;
+    private SessionAccessor sessionAccessor;
 
-    private TransactionalProcessInstanceInterruptor transactionalProcessInstanceInterruptor;
+    private SynchroService synchroService;
 
-    private SACommentBuilder saCommentBuilder;
+    private IncidentService incidentService;
+
+    private SchedulerService schedulerService;
+
+    private JobService jobService;
+
+    private ThemeService themeService;
+
+    private TenantConfiguration tenantConfiguration;
+
+    private GatewayInstanceService gatewayInstanceService;
+
+    private TransientDataService transientDataService;
+
+    private TimeTracker timeTracker;
+
+    private PermissionService permissionService;
+
+    private ParentContainerResolver parentContainerResolver;
+
+    private ContractDataService contractDataService;
+
+    private ParameterService parameterService;
+
+    private PageService pageService;
+
+    private ApplicationService applicationService;
+
+    private FormMappingService formMappingService;
+
+    private BusinessDataRepository businessDataRespository;
+
+    private RefBusinessDataService refBusinessDataService;
+
+    private BusinessDataModelRepository businessDataModelRespository;
+
+    private BusinessDataService businessDataService;
+    private PageMappingService pageMappingService;
+    private GenericAuthenticationService genericAuthenticationService;
+    private ReadPersistenceService readPersistenceService;
+    private Recorder recorder;
+    private BusinessArchiveService businessArchiveService;
+    private ProcessResourcesService processResourcesService;
+    private TenantResourcesService tenantResourceService;
+    private MessagesHandlingService messagesHandlingService;
+    private ProfilesImporter profilesImporter;
+    private ProfilesExporter profilesExporter;
 
     public SpringTenantServiceAccessor(final Long tenantId) {
-        beanAccessor = new SpringTenantFileSystemBeanAccessor(tenantId);
+        beanAccessor = BeanAccessorFactory.getTenantBeanAccessor(tenantId);
         this.tenantId = tenantId;
     }
 
     @Override
-    public ReadSessionAccessor getReadSessionAccessor() {
-        if (readSessionAccessor == null) {
-            readSessionAccessor = beanAccessor.getService(ReadSessionAccessor.class);
+    public ParentContainerResolver getParentContainerResolver() {
+        if (parentContainerResolver == null) {
+            parentContainerResolver = beanAccessor.getService(ParentContainerResolver.class);
         }
-        return readSessionAccessor;
+        return parentContainerResolver;
+    }
+
+    @Override
+    public TimeTracker getTimeTracker() {
+        if (timeTracker == null) {
+            timeTracker = beanAccessor.getService(TimeTracker.class);
+        }
+        return timeTracker;
+    }
+
+    @Override
+    public SessionAccessor getSessionAccessor() {
+        if (sessionAccessor == null) {
+            sessionAccessor = beanAccessor.getService(SessionAccessor.class);
+        }
+        return sessionAccessor;
     }
 
     @Override
@@ -286,14 +253,6 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
             sessionService = beanAccessor.getService(SessionService.class);
         }
         return sessionService;
-    }
-
-    @Override
-    public IdentityModelBuilder getIdentityModelBuilder() {
-        if (identityModelBuilder == null) {
-            identityModelBuilder = beanAccessor.getService(IdentityModelBuilder.class);
-        }
-        return identityModelBuilder;
     }
 
     @Override
@@ -323,25 +282,21 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
     @Override
     public TechnicalLoggerService getTechnicalLoggerService() {
         if (technicalLoggerService == null) {
-            technicalLoggerService = beanAccessor.getService(TechnicalLoggerService.class);
+            technicalLoggerService = beanAccessor.getService("tenantTechnicalLoggerService", TechnicalLoggerService.class);
         }
         return technicalLoggerService;
     }
 
-    @Override
-    public STenantBuilder getSTenantBuilder() {
-        if (tenantBuilder == null) {
-            tenantBuilder = beanAccessor.getService(STenantBuilder.class);
-        }
-        return tenantBuilder;
-    }
-
-    @Override
-    public TransactionService getTransactionService() {
+    private TransactionService getTransactionService() {
         if (transactionService == null) {
             transactionService = beanAccessor.getService(TransactionService.class);
         }
         return transactionService;
+    }
+
+    @Override
+    public UserTransactionService getUserTransactionService() {
+        return getTransactionService();
     }
 
     @Override
@@ -361,14 +316,6 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
     }
 
     @Override
-    public TokenService getTokenService() {
-        if (tokenCountService == null) {
-            tokenCountService = beanAccessor.getService(TokenService.class);
-        }
-        return tokenCountService;
-    }
-
-    @Override
     public ActivityInstanceService getActivityInstanceService() {
         if (activityInstanceService == null) {
             activityInstanceService = beanAccessor.getService(ActivityInstanceService.class);
@@ -382,22 +329,6 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
             bpmInstancesCreator = beanAccessor.getService(BPMInstancesCreator.class);
         }
         return bpmInstancesCreator;
-    }
-
-    @Override
-    public BPMInstanceBuilders getBPMInstanceBuilders() {
-        if (bpmInstanceBuilders == null) {
-            bpmInstanceBuilders = beanAccessor.getService(BPMInstanceBuilders.class);
-        }
-        return bpmInstanceBuilders;
-    }
-
-    @Override
-    public BPMDefinitionBuilders getBPMDefinitionBuilders() {
-        if (bpmDefinitionBuilders == null) {
-            bpmDefinitionBuilders = beanAccessor.getService(BPMDefinitionBuilders.class);
-        }
-        return bpmDefinitionBuilders;
     }
 
     @Override
@@ -417,14 +348,6 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
     }
 
     @Override
-    public TransactionalProcessInstanceInterruptor getTransactionalProcessInstanceInterruptor() {
-        if (transactionalProcessInstanceInterruptor == null) {
-            transactionalProcessInstanceInterruptor = beanAccessor.getService(TransactionalProcessInstanceInterruptor.class);
-        }
-        return transactionalProcessInstanceInterruptor;
-    }
-
-    @Override
     public FlowNodeStateManager getFlowNodeStateManager() {
         if (flowNodeStateManager == null) {
             flowNodeStateManager = beanAccessor.getService(FlowNodeStateManager.class);
@@ -438,14 +361,6 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
             transactionExecutor = beanAccessor.getService(TransactionExecutor.class);
         }
         return transactionExecutor;
-    }
-
-    @Override
-    public SQueriableLogModelBuilder getSQueriableLogModelBuilder() {
-        if (logModelBuilder == null) {
-            logModelBuilder = beanAccessor.getService(SQueriableLogModelBuilder.class);
-        }
-        return logModelBuilder;
     }
 
     @Override
@@ -465,14 +380,6 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
     }
 
     @Override
-    public SActorBuilders getSActorBuilders() {
-        if (sActorBuilders == null) {
-            sActorBuilders = beanAccessor.getService(SActorBuilders.class);
-        }
-        return sActorBuilders;
-    }
-
-    @Override
     public CategoryService getCategoryService() {
         if (categoryService == null) {
             categoryService = beanAccessor.getService(CategoryService.class);
@@ -481,43 +388,11 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
     }
 
     @Override
-    public SCategoryBuilderAccessor getCategoryModelBuilderAccessor() {
-        if (categoryBuilderAccessor == null) {
-            categoryBuilderAccessor = beanAccessor.getService(SCategoryBuilderAccessor.class);
-        }
-        return categoryBuilderAccessor;
-    }
-
-    @Override
-    public SExpressionBuilders getSExpressionBuilders() {
-        if (sExpressionBuilders == null) {
-            sExpressionBuilders = beanAccessor.getService(SExpressionBuilders.class);
-        }
-        return sExpressionBuilders;
-    }
-
-    @Override
     public CommandService getCommandService() {
         if (commandService == null) {
             commandService = beanAccessor.getService(CommandService.class);
         }
         return commandService;
-    }
-
-    @Override
-    public SCommandBuilderAccessor getSCommandBuilderAccessor() {
-        if (commandBuilderAccessor == null) {
-            commandBuilderAccessor = beanAccessor.getService(SCommandBuilderAccessor.class);
-        }
-        return commandBuilderAccessor;
-    }
-
-    @Override
-    public TransitionService getTransitionInstanceService() {
-        if (transitionService == null) {
-            transitionService = beanAccessor.getService(TransitionService.class);
-        }
-        return transitionService;
     }
 
     @Override
@@ -534,30 +409,6 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
             dependencyService = beanAccessor.getService("dependencyService", DependencyService.class);
         }
         return dependencyService;
-    }
-
-    @Override
-    public DependencyBuilderAccessor getDependencyBuilderAccessor() {
-        if (dependencyBuilderAccessor == null) {
-            dependencyBuilderAccessor = beanAccessor.getService("dependencyBuilderAccessor", DependencyBuilderAccessor.class);
-        }
-        return dependencyBuilderAccessor;
-    }
-
-    @Override
-    public DocumentMappingService getDocumentMappingService() {
-        if (documentMappingService == null) {
-            documentMappingService = beanAccessor.getService(DocumentMappingService.class);
-        }
-        return documentMappingService;
-    }
-
-    @Override
-    public SDocumentMappingBuilderAccessor getDocumentMappingBuilderAccessor() {
-        if (documentMappingBuilderAccessor == null) {
-            documentMappingBuilderAccessor = beanAccessor.getService(SDocumentMappingBuilderAccessor.class);
-        }
-        return documentMappingBuilderAccessor;
     }
 
     @Override
@@ -606,19 +457,11 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
     }
 
     @Override
-    public SProcessDocumentBuilder getProcessDocumentBuilder() {
-        if (processDocumentBuilder == null) {
-            processDocumentBuilder = beanAccessor.getService(SProcessDocumentBuilder.class);
+    public DocumentService getDocumentService() {
+        if (documentService == null) {
+            documentService = beanAccessor.getService(DocumentService.class);
         }
-        return processDocumentBuilder;
-    }
-
-    @Override
-    public ProcessDocumentService getProcessDocumentService() {
-        if (processDocumentService == null) {
-            processDocumentService = beanAccessor.getService(ProcessDocumentService.class);
-        }
-        return processDocumentService;
+        return documentService;
     }
 
     @Override
@@ -630,59 +473,28 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
     }
 
     @Override
-    public SProfileBuilderAccessor getSProfileBuilderAccessor() {
-        if (sProfileBuilderAccessor == null) {
-            sProfileBuilderAccessor = beanAccessor.getService(SProfileBuilderAccessor.class);
+    public ProfilesImporter getProfilesImporter() {
+        if (profilesImporter == null) {
+            profilesImporter = beanAccessor.getService(ProfilesImporter.class);
         }
-        return sProfileBuilderAccessor;
+        return profilesImporter;
+    }
+
+    @Override
+    public ProfilesExporter getProfilesExporter() {
+        if (profilesExporter == null) {
+            profilesExporter = beanAccessor.getService(ProfilesExporter.class);
+        }
+        return profilesExporter;
     }
 
     @Override
     public DataInstanceService getDataInstanceService() {
+
         if (dataInstanceService == null) {
             dataInstanceService = beanAccessor.getService(DataInstanceService.class);
         }
         return dataInstanceService;
-    }
-
-    @Override
-    public SDataDefinitionBuilders getSDataDefinitionBuilders() {
-        if (sDataDefinitionBuilders == null) {
-            sDataDefinitionBuilders = beanAccessor.getService(SDataDefinitionBuilders.class);
-        }
-        return sDataDefinitionBuilders;
-    }
-
-    @Override
-    public SDataSourceModelBuilder getSDataSourceModelBuilder() {
-        if (sDataSourceModelBuilder == null) {
-            sDataSourceModelBuilder = beanAccessor.getService(SDataSourceModelBuilder.class);
-        }
-        return sDataSourceModelBuilder;
-    }
-
-    @Override
-    public SDataInstanceBuilders getSDataInstanceBuilders() {
-        if (sDataInstanceBuilders == null) {
-            sDataInstanceBuilders = beanAccessor.getService(SDataInstanceBuilders.class);
-        }
-        return sDataInstanceBuilders;
-    }
-
-    @Override
-    public DataService getDataService() {
-        if (dataService == null) {
-            dataService = beanAccessor.getService(DataService.class);
-        }
-        return dataService;
-    }
-
-    @Override
-    public ParserFactory getParserFactgory() {
-        if (parserFactory == null) {
-            parserFactory = beanAccessor.getService(ParserFactory.class);
-        }
-        return parserFactory;
     }
 
     @Override
@@ -691,36 +503,6 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
             operationService = beanAccessor.getService(OperationService.class);
         }
         return operationService;
-    }
-
-    @Override
-    public Parser getActorMappingParser() {
-        final List<Class<? extends ElementBinding>> bindings = new ArrayList<Class<? extends ElementBinding>>();
-        bindings.add(ActorMappingBinding.class);
-        bindings.add(ActorBinding.class);
-        bindings.add(UserNamesBinding.class);
-        bindings.add(GroupPathsBinding.class);
-        bindings.add(RoleNamesBinding.class);
-        bindings.add(ActorMembershipBinding.class);
-        final Parser parser = getParserFactgory().createParser(bindings);
-        final InputStream resource = ImportActorMapping.class.getClassLoader().getResourceAsStream("actorMapping.xsd");
-        try {
-            parser.setSchema(resource);
-            return parser;
-        } catch (final SInvalidSchemaException ise) {
-            throw new BonitaRuntimeException(ise);
-        } finally {
-            try {
-                resource.close();
-            } catch (final IOException ioe) {
-                throw new BonitaRuntimeException(ioe);
-            }
-        }
-    }
-
-    @Override
-    public XMLWriter getXMLWriter() {
-        return beanAccessor.getService(XMLWriter.class);
     }
 
     @Override
@@ -737,22 +519,6 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
             supervisorService = beanAccessor.getService(SupervisorMappingService.class);
         }
         return supervisorService;
-    }
-
-    @Override
-    public SProcessSupervisorBuilders getSSupervisorBuilders() {
-        if (supervisorBuilders == null) {
-            supervisorBuilders = beanAccessor.getService(SProcessSupervisorBuilders.class);
-        }
-        return supervisorBuilders;
-    }
-
-    @Override
-    public SOperationBuilders getSOperationBuilders() {
-        if (sOperationBuilders == null) {
-            sOperationBuilders = beanAccessor.getService(SOperationBuilders.class);
-        }
-        return sOperationBuilders;
     }
 
     @Override
@@ -780,14 +546,6 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
     }
 
     @Override
-    public SCommentBuilders getSCommentBuilders() {
-        if (sCommentBuilders == null) {
-            sCommentBuilders = beanAccessor.getService(SCommentBuilders.class);
-        }
-        return sCommentBuilders;
-    }
-
-    @Override
     public ContainerRegistry getContainerRegistry() {
         if (containerRegistry == null) {
             containerRegistry = beanAccessor.getService(ContainerRegistry.class);
@@ -804,51 +562,11 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
     }
 
     @Override
-    public SExternalIdentityMappingBuilders getExternalIdentityMappingBuilders() {
-        if (sExternalIdentityMappingBuilders == null) {
-            sExternalIdentityMappingBuilders = beanAccessor.getService(SExternalIdentityMappingBuilders.class);
-        }
-        return sExternalIdentityMappingBuilders;
-    }
-
-    @Override
     public LockService getLockService() {
         if (lockService == null) {
             lockService = beanAccessor.getService(LockService.class);
         }
         return lockService;
-    }
-
-    @Override
-    public Parser getProfileParser() {
-        final List<Class<? extends ElementBinding>> bindings = new ArrayList<Class<? extends ElementBinding>>();
-        bindings.add(ProfileBinding.class);
-        bindings.add(ProfilesBinding.class);
-        bindings.add(ProfileEntryBinding.class);
-        bindings.add(ParentProfileEntryBinding.class);
-        bindings.add(ChildrenEntriesBinding.class);
-        bindings.add(ProfileEntriesBinding.class);
-        bindings.add(ProfileMappingBinding.class);
-        bindings.add(MembershipsBinding.class);
-        bindings.add(MembershipBinding.class);
-        bindings.add(UserNamesBinding.class);
-        bindings.add(RoleNamesBinding.class);
-        bindings.add(RoleNamesBinding.class);
-        bindings.add(GroupPathsBinding.class);
-        final Parser parser = getParserFactgory().createParser(bindings);
-        final InputStream resource = ImportActorMapping.class.getClassLoader().getResourceAsStream("profiles.xsd");
-        try {
-            parser.setSchema(resource);
-            return parser;
-        } catch (final SInvalidSchemaException ise) {
-            throw new BonitaRuntimeException(ise);
-        } finally {
-            try {
-                resource.close();
-            } catch (final IOException ioe) {
-                throw new BonitaRuntimeException(ioe);
-            }
-        }
     }
 
     @Override
@@ -867,12 +585,7 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
         return eventService;
     }
 
-    @Override
-    public void initializeServiceAccessor(final ClassLoader classLoader) {
-        beanAccessor.initializeContext(classLoader);
-    }
-
-    public SpringTenantFileSystemBeanAccessor getBeanAccessor() {
+    public TenantBeanAccessor getBeanAccessor() {
         return beanAccessor;
     }
 
@@ -885,19 +598,11 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
     }
 
     @Override
-    public DependencyResolver getDependencyResolver() {
-        if (dependencyResolver == null) {
-            dependencyResolver = beanAccessor.getService(DependencyResolver.class);
+    public BusinessArchiveArtifactsManager getBusinessArchiveArtifactsManager() {
+        if (businessArchiveArtifactsManager == null) {
+            businessArchiveArtifactsManager = beanAccessor.getService(BusinessArchiveArtifactsManager.class);
         }
-        return dependencyResolver;
-    }
-
-    @Override
-    public DefaultCommandProvider getDefaultCommandProvider() {
-        if (commandProvider == null) {
-            commandProvider = beanAccessor.getService(DefaultCommandProvider.class);
-        }
-        return commandProvider;
+        return businessArchiveArtifactsManager;
     }
 
     @Override
@@ -909,11 +614,225 @@ public class SpringTenantServiceAccessor implements TenantServiceAccessor {
     }
 
     @Override
-    public SACommentBuilder getSACommentBuilders() {
-        if (saCommentBuilder == null) {
-            saCommentBuilder = beanAccessor.getService(SACommentBuilder.class);
+    public SynchroService getSynchroService() {
+        if (synchroService == null) {
+            synchroService = beanAccessor.getService(SynchroService.class);
         }
-        return saCommentBuilder;
+        return synchroService;
     }
 
+    @Override
+    public IncidentService getIncidentService() {
+        if (incidentService == null) {
+            incidentService = beanAccessor.getService(IncidentService.class);
+        }
+        return incidentService;
+    }
+
+    @Override
+    public SchedulerService getSchedulerService() {
+        if (schedulerService == null) {
+            schedulerService = beanAccessor.getService(SchedulerService.class);
+        }
+        return schedulerService;
+    }
+
+    @Override
+    public JobService getJobService() {
+        if (jobService == null) {
+            jobService = beanAccessor.getService(JobService.class);
+        }
+        return jobService;
+    }
+
+    @Override
+    public ThemeService getThemeService() {
+        if (themeService == null) {
+            themeService = beanAccessor.getService(ThemeService.class);
+        }
+        return themeService;
+    }
+
+    @Override
+    public TransientDataService getTransientDataService() {
+        if (transientDataService == null) {
+            transientDataService = beanAccessor.getService(TransientDataService.class);
+        }
+        return transientDataService;
+    }
+
+    @Override
+    public GatewayInstanceService getGatewayInstanceService() {
+        if (gatewayInstanceService == null) {
+            gatewayInstanceService = beanAccessor.getService(GatewayInstanceService.class);
+        }
+        return gatewayInstanceService;
+    }
+
+    @Override
+    public void destroy() {
+        beanAccessor.destroy();
+    }
+
+    @Override
+    public TenantConfiguration getTenantConfiguration() {
+        if (tenantConfiguration == null) {
+            tenantConfiguration = beanAccessor.getService(TenantConfiguration.class);
+        }
+        return tenantConfiguration;
+    }
+
+    @Override
+    public <T> T lookup(final String serviceName) throws NotFoundException {
+        try {
+
+            return beanAccessor.getService(serviceName);
+        } catch (NoSuchBeanDefinitionException e) {
+            throw new NotFoundException(e);
+        }
+    }
+
+    @Override
+    public PermissionService getPermissionService() {
+        if (permissionService == null) {
+            permissionService = beanAccessor.getService(PermissionService.class);
+        }
+        return permissionService;
+    }
+
+    @Override
+    public ContractDataService getContractDataService() {
+        if (contractDataService == null) {
+            contractDataService = beanAccessor.getService(ContractDataService.class);
+        }
+        return contractDataService;
+    }
+
+    @Override
+    public ParameterService getParameterService() {
+        if (parameterService == null) {
+            parameterService = beanAccessor.getService(ParameterService.class);
+        }
+        return parameterService;
+    }
+
+    /**
+     * might not be an available service
+     */
+    @Override
+    public PageService getPageService() {
+        if (pageService == null) {
+            pageService = beanAccessor.getService(PageService.class);
+        }
+        return pageService;
+    }
+
+    @Override
+    public ApplicationService getApplicationService() {
+        if (applicationService == null) {
+            applicationService = beanAccessor.getService(ApplicationService.class);
+        }
+        return applicationService;
+    }
+
+    @Override
+    public BusinessDataRepository getBusinessDataRepository() {
+        if (businessDataRespository == null) {
+            businessDataRespository = beanAccessor.getService(BusinessDataRepository.class);
+        }
+        return businessDataRespository;
+    }
+
+    @Override
+    public BusinessDataModelRepository getBusinessDataModelRepository() {
+        if (businessDataModelRespository == null) {
+            businessDataModelRespository = beanAccessor.getService(BusinessDataModelRepository.class);
+        }
+        return businessDataModelRespository;
+    }
+
+    @Override
+    public RefBusinessDataService getRefBusinessDataService() {
+        if (refBusinessDataService == null) {
+            refBusinessDataService = beanAccessor.getService(RefBusinessDataService.class);
+        }
+        return refBusinessDataService;
+    }
+
+    @Override
+    public GenericAuthenticationService getAuthenticationService() {
+        if (genericAuthenticationService == null) {
+            genericAuthenticationService = beanAccessor.getService(GenericAuthenticationServiceAccessor.class).getAuthenticationService();
+        }
+        return genericAuthenticationService;
+    }
+
+    @Override
+    public ReadPersistenceService getReadPersistenceService() {
+        if (readPersistenceService == null) {
+            readPersistenceService = beanAccessor.getService("persistenceService");
+        }
+        return readPersistenceService;
+    }
+
+    @Override
+    public Recorder getRecorder() {
+        if (recorder == null) {
+            recorder = beanAccessor.getService(Recorder.class);
+        }
+        return recorder;
+    }
+
+    @Override
+    public BusinessArchiveService getBusinessArchiveService() {
+        if (businessArchiveService == null) {
+            businessArchiveService = beanAccessor.getService(BusinessArchiveService.class);
+        }
+        return businessArchiveService;
+    }
+
+    @Override
+    public BusinessDataService getBusinessDataService() {
+        if (businessDataService == null) {
+            businessDataService = beanAccessor.getService(BusinessDataService.class);
+        }
+        return businessDataService;
+    }
+
+    @Override
+    public FormMappingService getFormMappingService() {
+        if (formMappingService == null) {
+            formMappingService = beanAccessor.getService(FormMappingService.class);
+        }
+        return formMappingService;
+    }
+
+    @Override
+    public PageMappingService getPageMappingService() {
+        if (pageMappingService == null) {
+            pageMappingService = beanAccessor.getService(PageMappingService.class);
+        }
+        return pageMappingService;
+    }
+
+    public ProcessResourcesService getProcessResourcesService() {
+        if (processResourcesService == null) {
+            processResourcesService = beanAccessor.getService(ProcessResourcesService.class);
+        }
+        return processResourcesService;
+    }
+
+    public TenantResourcesService getTenantResourcesService() {
+        if (tenantResourceService == null) {
+            tenantResourceService = beanAccessor.getService(TenantResourcesService.class);
+        }
+        return tenantResourceService;
+    }
+
+    public MessagesHandlingService getMessagesHandlingService() {
+        if (messagesHandlingService == null) {
+            messagesHandlingService = beanAccessor.getService(MessagesHandlingService.class);
+        }
+        return messagesHandlingService;
+    }
 }

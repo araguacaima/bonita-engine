@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,23 +14,23 @@
 package org.bonitasoft.engine.identity;
 
 
+import org.bonitasoft.engine.identity.xml.ExportedCustomUserInfoValue;
+import org.bonitasoft.engine.identity.xml.ExportedUser;
+
 /**
  * Import / export version of the client User model
- * 
+ *
  * @author Emmanuel Duchastenier
  * @author Celine Souchet
  * @author Matthieu Chaffotte
  */
 public class ExportedUserBuilder {
 
-    private ExportedUserImpl user;
+    private final ExportedUser user;
 
-    public ExportedUserBuilder createNewInstance(final String userName, final String password) {
-        user = new ExportedUserImpl();
-        user.setUserName(userName);
-        user.setPassword(password);
-        user.setEnabled(false);
-        return this;
+    public ExportedUserBuilder(final ExportedUser user) {
+        super();
+        this.user = user;
     }
 
     public ExportedUserBuilder setPasswordEncrypted(final boolean passwordEncrypted) {
@@ -78,11 +78,6 @@ public class ExportedUserBuilder {
         return this;
     }
 
-    public ExportedUserBuilder setCreatedBy(final long createdBy) {
-        user.setCreatedBy(createdBy);
-        return this;
-    }
-
     public ExportedUserBuilder setPersonalData(final ContactData personalData) {
         user.setPersonalData(personalData);
         return this;
@@ -93,11 +88,6 @@ public class ExportedUserBuilder {
         return this;
     }
 
-    public ExportedUserBuilder setManagerUserId(final long managerUserId) {
-        user.setManagerUserId(managerUserId);
-        return this;
-    }
-
     public ExportedUserBuilder setManagerUserName(final String managerUserName) {
         user.setManagerUserName(managerUserName);
         return this;
@@ -105,6 +95,11 @@ public class ExportedUserBuilder {
 
     public ExportedUserBuilder setEnabled(final boolean enabled) {
         user.setEnabled(enabled);
+        return this;
+    }
+
+    public ExportedUserBuilder addCustomUserInfoValue(ExportedCustomUserInfoValue userInfo) {
+        user.addCustomUserInfoValues(userInfo);
         return this;
     }
 

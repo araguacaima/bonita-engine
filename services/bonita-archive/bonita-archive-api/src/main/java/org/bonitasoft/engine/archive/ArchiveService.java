@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -10,12 +10,13 @@
  * You should have received a copy of the GNU Lesser General Public License along with this
  * program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
  * Floor, Boston, MA 02110-1301, USA.
- */
+ **/
 package org.bonitasoft.engine.archive;
+
+import java.util.Map;
 
 import org.bonitasoft.engine.persistence.PersistentObject;
 import org.bonitasoft.engine.persistence.ReadPersistenceService;
-import org.bonitasoft.engine.queriablelogger.model.SQueriableLog;
 import org.bonitasoft.engine.recorder.SRecorderException;
 import org.bonitasoft.engine.recorder.model.DeleteRecord;
 
@@ -30,24 +31,22 @@ public interface ArchiveService {
      * Archive the given entity in sliding archive if relevant and in the appropriate definitive archive
      * 
      * @param time
-     *            The archive date
+     *        The archive date
      * @param record
-     *            Archive insert record containing the entity to be archived
-     * @param queriableLog
-     *            Log information for entity archive
+     *        Archive insert record containing the entity to be archived
      * @throws SRecorderException
-     * @throws SDefinitiveArchiveNotFound
      */
-    void recordInsert(long time, ArchiveInsertRecord record, SQueriableLog queriableLog) throws SRecorderException, SDefinitiveArchiveNotFound;
+    void recordInsert(long time, ArchiveInsertRecord record) throws SRecorderException;
 
     /**
      * Archive the given entities in the definitive archive
-     * 
+     *
      * @param time
-     *            the time of archiving
-     * @param record
+     *        the time of archiving
+     * @param records
+     *        Archive inserts record containing the entity to be archived
      * @throws SRecorderException
-     *             in case of a write error
+     *         in case of a write error
      */
     void recordInserts(long time, ArchiveInsertRecord... records) throws SRecorderException;
 
@@ -56,12 +55,10 @@ public interface ArchiveService {
      * This operation should normally to be used. This is for admin purpose only
      * 
      * @param record
-     *            The delete record containing archived entity to be deleted
-     * @param queriableLog
-     *            Log information for the record deletion
+     *        The delete record containing archived entity to be deleted
      * @throws SRecorderException
      */
-    void recordDelete(DeleteRecord record, SQueriableLog queriableLog) throws SRecorderException;
+    void recordDelete(DeleteRecord record) throws SRecorderException;
 
     /**
      * Get the ReadPersistenceService corresponding to the definitive archive
@@ -71,17 +68,11 @@ public interface ArchiveService {
     ReadPersistenceService getDefinitiveArchiveReadPersistenceService();
 
     /**
-     * Get the archive descriptor corresponding to the definitive archive
-     * 
-     * @return the archive descriptor corresponding to the definitive archive
-     */
-    SArchiveDescriptor getDefinitiveArchiveDescriptor();
-
-    /**
-     * @param sourceObject
-     *            Persistent object to be judged achievable or not
+     * @param sourceObjectClass
+     *        Persistent object to be judged achievable or not
      * @return Return true if the objects of the given class can be archived.
      */
     boolean isArchivable(Class<? extends PersistentObject> sourceObjectClass);
 
+    void deleteFromQuery(String queryName, Map<String, Object> parameters) throws SRecorderException;
 }

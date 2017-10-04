@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,13 +13,17 @@
  **/
 package org.bonitasoft.engine.identity.impl;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import java.util.Arrays;
 import java.util.Collections;
 
 import org.bonitasoft.engine.events.EventService;
 import org.bonitasoft.engine.identity.SGroupNotFoundException;
 import org.bonitasoft.engine.identity.SIdentityException;
-import org.bonitasoft.engine.identity.impl.IdentityServiceImpl;
 import org.bonitasoft.engine.identity.model.SGroup;
 import org.bonitasoft.engine.identity.recorder.SelectDescriptorBuilder;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
@@ -27,17 +31,10 @@ import org.bonitasoft.engine.persistence.OrderByType;
 import org.bonitasoft.engine.persistence.QueryOptions;
 import org.bonitasoft.engine.persistence.ReadPersistenceService;
 import org.bonitasoft.engine.persistence.SBonitaReadException;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
 import org.bonitasoft.engine.persistence.SelectOneDescriptor;
 import org.bonitasoft.engine.recorder.Recorder;
 import org.junit.Before;
 import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import org.mockito.InjectMocks;
 import org.mockito.Matchers;
 import org.mockito.Mock;
@@ -65,7 +62,7 @@ public class IdentityServiceImplForGroupTest {
     private IdentityServiceImpl identityServiceImpl;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         MockitoAnnotations.initMocks(this);
     }
 
@@ -90,28 +87,6 @@ public class IdentityServiceImplForGroupTest {
         when(persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfGroupChildren("/thePath"))).thenThrow(new SBonitaReadException(""));
 
         identityServiceImpl.getNumberOfGroupChildren(123l);
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getGroupChildren(long)}.
-     */
-    @Test
-    public void getGroupChildrenById() throws Exception {
-        final SGroup group = mock(SGroup.class);
-        final SGroup child = mock(SGroup.class);
-        when(persistenceService.selectById(SelectDescriptorBuilder.getElementById(SGroup.class, "Group", 123l))).thenReturn(group);
-        when(persistenceService.selectList(SelectDescriptorBuilder.getChildrenOfGroup(group))).thenReturn(Collections.singletonList(child));
-
-        assertEquals(child, identityServiceImpl.getGroupChildren(123l).get(0));
-    }
-
-    @Test(expected = SIdentityException.class)
-    public void getGroupChildrenByIdThrowException() throws Exception {
-        final SGroup group = mock(SGroup.class);
-        when(persistenceService.selectById(SelectDescriptorBuilder.getElementById(SGroup.class, "Group", 123l))).thenReturn(group);
-        when(persistenceService.selectList(SelectDescriptorBuilder.getChildrenOfGroup(group))).thenThrow(new SBonitaReadException(""));
-
-        identityServiceImpl.getGroupChildren(123l);
     }
 
     /**
@@ -173,7 +148,7 @@ public class IdentityServiceImplForGroupTest {
         assertEquals(125, identityServiceImpl.getNumberOfGroups(options));
     }
 
-    @Test(expected = SBonitaSearchException.class)
+    @Test(expected = SBonitaReadException.class)
     public void getNumberOfGroupsWithOptionsThrowException() throws Exception {
         final QueryOptions options = new QueryOptions(0, 10);
         when(persistenceService.getNumberOfEntities(SGroup.class, options, null)).thenThrow(new SBonitaReadException(""));
@@ -210,7 +185,7 @@ public class IdentityServiceImplForGroupTest {
         assertEquals(group, identityServiceImpl.searchGroups(options).get(0));
     }
 
-    @Test(expected = SBonitaSearchException.class)
+    @Test(expected = SBonitaReadException.class)
     public void searchGroupsThrowException() throws Exception {
         final QueryOptions options = new QueryOptions(0, 10);
         when(persistenceService.searchEntity(SGroup.class, options, null)).thenThrow(new SBonitaReadException(""));
@@ -241,24 +216,6 @@ public class IdentityServiceImplForGroupTest {
         final SGroup group = mock(SGroup.class);
 
         assertEquals(group, identityServiceImpl.getGroup(123l));
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getGroupsByName(java.lang.String)}.
-     */
-    @Test
-    public void getGroupsByName() throws Exception {
-        final SGroup group = mock(SGroup.class);
-        when(persistenceService.selectList(SelectDescriptorBuilder.getGroupsByName("name"))).thenReturn(Collections.singletonList(group));
-
-        assertEquals(group, identityServiceImpl.getGroupsByName("name").iterator().next());
-    }
-
-    @Test(expected = SIdentityException.class)
-    public void getGroupByNameThrowException() throws Exception {
-        when(persistenceService.selectList(SelectDescriptorBuilder.getGroupsByName("name"))).thenThrow(new SBonitaReadException(""));
-
-        identityServiceImpl.getGroupsByName("name");
     }
 
     /**
@@ -369,48 +326,6 @@ public class IdentityServiceImplForGroupTest {
                 new SBonitaReadException(""));
 
         identityServiceImpl.getGroups(0, 10, "name", OrderByType.ASC);
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#updateGroup(org.bonitasoft.engine.identity.model.SGroup, org.bonitasoft.engine.recorder.model.EntityUpdateDescriptor)}
-     * .
-     */
-    @Test
-    public final void updateGroup() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#deleteGroup(long)}.
-     */
-    @Test
-    public final void deleteGroupById() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#deleteGroup(org.bonitasoft.engine.identity.model.SGroup)}.
-     */
-    @Test
-    public final void deleteGroupByObject() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#deleteChildrenGroup(long)}.
-     */
-    @Test
-    public final void deleteChildrenGroup() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#createGroup(org.bonitasoft.engine.identity.model.SGroup)}.
-     */
-    @Test
-    public final void createGroup() {
-        // TODO : Not yet implemented
     }
 
 }

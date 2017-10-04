@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,22 +13,28 @@
  **/
 package org.bonitasoft.engine.search;
 
-import java.util.List;
-
 import org.bonitasoft.engine.bpm.flownode.ActivityInstance;
 import org.bonitasoft.engine.bpm.flownode.ActivityInstanceSearchDescriptor;
 import org.bonitasoft.engine.bpm.flownode.FlowNodeType;
 import org.bonitasoft.engine.core.process.instance.model.SActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.SAutomaticTaskInstance;
+import org.bonitasoft.engine.core.process.instance.model.SCallActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.SHumanTaskInstance;
+import org.bonitasoft.engine.core.process.instance.model.SLoopActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.SManualTaskInstance;
+import org.bonitasoft.engine.core.process.instance.model.SMultiInstanceActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.SReceiveTaskInstance;
+import org.bonitasoft.engine.core.process.instance.model.SSendTaskInstance;
+import org.bonitasoft.engine.core.process.instance.model.SSubProcessActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.SUserTaskInstance;
 import org.bonitasoft.engine.execution.state.FlowNodeStateManager;
 import org.bonitasoft.engine.persistence.PersistentObject;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
 import org.bonitasoft.engine.search.descriptor.SearchEntityDescriptor;
 import org.bonitasoft.engine.search.impl.SearchFilter;
 import org.bonitasoft.engine.service.ModelConvertor;
+
+import java.util.List;
 
 /**
  * @author Yanyan Liu
@@ -75,6 +81,21 @@ public abstract class AbstractActivityInstanceSearchEntity extends AbstractSearc
                     case RECEIVE_TASK:
                         entityClass = SReceiveTaskInstance.class;
                         break;
+                    case SEND_TASK:
+                        entityClass = SSendTaskInstance.class;
+                        break;
+                    case CALL_ACTIVITY:
+                        entityClass = SCallActivityInstance.class;
+                        break;
+                    case MULTI_INSTANCE_ACTIVITY:
+                        entityClass = SMultiInstanceActivityInstance.class;
+                        break;
+                    case SUB_PROCESS:
+                        entityClass = SSubProcessActivityInstance.class;
+                        break;
+                    case LOOP_ACTIVITY:
+                        entityClass = SLoopActivityInstance.class;
+                        break;
                     default:
                         entityClass = SActivityInstance.class;
                         break;
@@ -83,6 +104,19 @@ public abstract class AbstractActivityInstanceSearchEntity extends AbstractSearc
             }
         }
         return entityClass;
+    }
+
+    @Override
+    protected void validateQuery(final SearchOptions searchOptions) throws SBonitaReadException {
+        validateActivityTypeFilterUnicity(searchOptions);
+    }
+
+    private void validateActivityTypeFilterUnicity(SearchOptions searchOptions) throws SBonitaReadException {
+        for (final SearchFilter searchFilter : searchOptions.getFilters()) {
+            if (ActivityInstanceSearchDescriptor.ACTIVITY_TYPE.equals(searchFilter.getField())) {
+                throw new SBonitaReadException("Invalid query, filtering several times on 'ActivityInstanceSearchDescriptor.ACTIVITY_TYPE' is not supported.");
+            }
+        }
     }
 
     protected Class<? extends PersistentObject> getEntityClass() {

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -24,10 +24,10 @@ import org.bonitasoft.engine.core.filter.exception.SUserFilterExecutionException
 import org.bonitasoft.engine.core.filter.exception.SUserFilterLoadingException;
 import org.bonitasoft.engine.core.process.definition.model.SUserFilterDefinition;
 import org.bonitasoft.engine.expression.EngineConstantExpressionBuilder;
-import org.bonitasoft.engine.expression.exception.SInvalidExpressionException;
 import org.bonitasoft.engine.expression.model.SExpression;
 import org.bonitasoft.engine.expression.model.builder.SExpressionBuilder;
-import org.bonitasoft.engine.expression.model.builder.SExpressionBuilders;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
+import org.bonitasoft.engine.recorder.SRecorderException;
 
 /**
  * This {@link UserFilterService} implementation injects, in method {@link #executeFilter(long, SUserFilterDefinition, Map, ClassLoader)} a new expression to
@@ -41,37 +41,27 @@ public class UserFilterServiceDecorator implements UserFilterService {
 
     private final UserFilterService userFilterService;
 
-    private final SExpressionBuilder expressionbuilder;
-
     /**
      * @param userFilterService
      *            the UserFilterService class that this class is decorating.
-     * @param expressionbuilder
-     *            the {@link SExpressionBuilder} used to decorate.
      */
-    public UserFilterServiceDecorator(final UserFilterService userFilterService, final SExpressionBuilders expressionBuilders) {
+    public UserFilterServiceDecorator(final UserFilterService userFilterService) {
         super();
         this.userFilterService = userFilterService;
-        expressionbuilder = expressionBuilders.getExpressionBuilder();
     }
 
     /**
      * {@inheritDoc}. This implementation injects a new expression to access the {@link APIAccessor} for User filters.
      * This new expression is referenced under the name 'apiAccessor'.
      * 
-     * @param actors
      */
     @Override
     public FilterResult executeFilter(final long processDefinitionId, final SUserFilterDefinition sUserFilterDefinition, final Map<String, SExpression> inputs,
             final ClassLoader classLoader, final SExpressionContext expressionContext, final String actorName) throws SUserFilterExecutionException {
         SExpression apiAccessorExpression;
         SExpression engineExecutionContext;
-        try {
-            apiAccessorExpression = EngineConstantExpressionBuilder.getConnectorAPIAccessorExpression(expressionbuilder);
-            engineExecutionContext = EngineConstantExpressionBuilder.getEngineExecutionContext(expressionbuilder);
-        } catch (final SInvalidExpressionException e) {
-            throw new SUserFilterExecutionException(e);
-        }
+        apiAccessorExpression = EngineConstantExpressionBuilder.getConnectorAPIAccessorExpression();
+        engineExecutionContext = EngineConstantExpressionBuilder.getEngineExecutionContext();
         final Map<String, SExpression> enrichedInputs = new HashMap<String, SExpression>(inputs);
         enrichedInputs.put("connectorApiAccessor", apiAccessorExpression);
         enrichedInputs.put("engineExecutionContext", engineExecutionContext);
@@ -79,8 +69,12 @@ public class UserFilterServiceDecorator implements UserFilterService {
     }
 
     @Override
-    public boolean loadUserFilters(final long processDefinitionId, final long tenantId) throws SUserFilterLoadingException {
-        return userFilterService.loadUserFilters(processDefinitionId, tenantId);
+    public boolean loadUserFilters(final long processDefinitionId) throws SUserFilterLoadingException {
+        return userFilterService.loadUserFilters(processDefinitionId);
     }
 
+    @Override
+    public void removeUserFilters(long processDefinitionId) throws SBonitaReadException, SRecorderException {
+        userFilterService.removeUserFilters(processDefinitionId);
+    }
 }

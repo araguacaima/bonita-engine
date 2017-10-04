@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -15,6 +15,7 @@ package org.bonitasoft.engine.scheduler.impl;
 
 import java.util.Properties;
 
+import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.impl.StdSchedulerFactory;
@@ -24,20 +25,22 @@ import org.quartz.impl.StdSchedulerFactory;
  */
 public class BonitaSchedulerFactory extends StdSchedulerFactory {
 
-    private SchedulerImpl schedulerService;
+    private SchedulerServiceImpl schedulerService;
+    private final TechnicalLoggerService logger;
 
-    public BonitaSchedulerFactory(final Properties props) throws SchedulerException {
+    public BonitaSchedulerFactory(final Properties props, final TechnicalLoggerService logger) throws SchedulerException {
         super(props);
+        this.logger = logger;
     }
 
     @Override
     public Scheduler getScheduler() throws SchedulerException {
         final Scheduler scheduler = super.getScheduler();
-        scheduler.setJobFactory(new TransactionalSimpleJobFactory(schedulerService));
+        scheduler.setJobFactory(new TransactionalSimpleJobFactory(schedulerService, logger));
         return scheduler;
     }
 
-    public void setBOSSchedulerService(final SchedulerImpl schedulerService) {
+    public void setBOSSchedulerService(final SchedulerServiceImpl schedulerService) {
         this.schedulerService = schedulerService;
     }
 

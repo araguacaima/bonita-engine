@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,28 +13,33 @@
  **/
 package org.bonitasoft.engine.api.impl.transaction.platform;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.UUID;
 
-import org.bonitasoft.engine.api.ProcessAPI;
 import org.bonitasoft.engine.api.impl.NodeConfiguration;
+import org.bonitasoft.engine.api.impl.TenantConfiguration;
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.commons.transaction.TransactionContent;
-import org.bonitasoft.engine.events.model.FireEventException;
-import org.bonitasoft.engine.jobs.BPMEventHandlingJob;
+import org.bonitasoft.engine.connector.ConnectorExecutor;
 import org.bonitasoft.engine.jobs.CleanInvalidSessionsJob;
 import org.bonitasoft.engine.log.technical.TechnicalLogSeverity;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
 import org.bonitasoft.engine.platform.PlatformService;
 import org.bonitasoft.engine.scheduler.JobRegister;
-import org.bonitasoft.engine.scheduler.SJobDescriptor;
-import org.bonitasoft.engine.scheduler.SJobParameter;
-import org.bonitasoft.engine.scheduler.SSchedulerException;
 import org.bonitasoft.engine.scheduler.SchedulerService;
-import org.bonitasoft.engine.scheduler.Trigger;
-import org.bonitasoft.engine.scheduler.UnixCronTrigger;
+import org.bonitasoft.engine.scheduler.builder.SJobDescriptorBuilderFactory;
+import org.bonitasoft.engine.scheduler.builder.SJobParameterBuilderFactory;
+import org.bonitasoft.engine.scheduler.exception.SSchedulerException;
+import org.bonitasoft.engine.scheduler.model.SJobDescriptor;
+import org.bonitasoft.engine.scheduler.model.SJobParameter;
+import org.bonitasoft.engine.scheduler.trigger.Trigger;
+import org.bonitasoft.engine.scheduler.trigger.Trigger.MisfireRestartPolicy;
+import org.bonitasoft.engine.scheduler.trigger.UnixCronTrigger;
 import org.bonitasoft.engine.work.WorkService;
 
 /**
@@ -45,73 +50,93 @@ public final class ActivateTenant implements TransactionContent {
 
     public static final String CLEAN_INVALID_SESSIONS = "CleanInvalidSessions";
 
-    public static final String BPM_EVENT_HANDLING = "BPMEventHandling";
-
     private final long tenantId;
 
     private final PlatformService platformService;
 
     private final SchedulerService schedulerService;
 
-    private final NodeConfiguration plaformConfiguration;
-
     private final TechnicalLoggerService logger;
 
     private final WorkService workService;
 
+    private final ConnectorExecutor connectorExecutor;
+
+    private final TenantConfiguration tenantConfiguration;
+
+    private final NodeConfiguration nodeConfiguration;
+
     public ActivateTenant(final long tenantId, final PlatformService platformService, final SchedulerService schedulerService,
-            final NodeConfiguration plaformConfiguration, final TechnicalLoggerService logger, final WorkService workService) {
+                          final TechnicalLoggerService logger, final WorkService workService, final ConnectorExecutor connectorExecutor,
+                          final NodeConfiguration plaformConfiguration,
+                          final TenantConfiguration tenantConfiguration) {
         this.tenantId = tenantId;
         this.platformService = platformService;
         this.schedulerService = schedulerService;
-        this.plaformConfiguration = plaformConfiguration;
         this.logger = logger;
         this.workService = workService;
+        this.connectorExecutor = connectorExecutor;
+        nodeConfiguration = plaformConfiguration;
+        this.tenantConfiguration = tenantConfiguration;
     }
 
     @Override
     public void execute() throws SBonitaException {
-        // pass -1 because the user is the technical user, which is inexistant in DB:
         final boolean tenantWasActivated = platformService.activateTenant(tenantId);
         // we execute that only if the tenant was not already activated
         if (tenantWasActivated) {
-            workService.start(tenantId);
-            startEventHandling();
+            workService.start();
+            connectorExecutor.start();
             startCleanInvalidSessionsJob();
-            final List<JobRegister> jobsToRegister = plaformConfiguration.getJobsToRegister();
+            final List<JobRegister> jobsToRegister = tenantConfiguration.getJobsToRegister();
             for (final JobRegister jobRegister : jobsToRegister) {
-                jobRegister.registerJobIfNotRegistered();
+                registerJob(jobRegister);
             }
+            schedulerService.resumeJobs(tenantId);
         }
     }
 
-    private void startEventHandling() throws SSchedulerException, FireEventException {
-        final String jobClassName = BPMEventHandlingJob.class.getName();
-        if (schedulerService.isStarted()) {
-            if (plaformConfiguration.shouldStartEventHandlingJob()) {
-                final SJobDescriptor jobDescriptor = schedulerService.getJobDescriptorBuilder().createNewInstance(jobClassName, BPM_EVENT_HANDLING).done();
-                final ArrayList<SJobParameter> jobParameters = new ArrayList<SJobParameter>();
-                final String cron = plaformConfiguration.getEventHandlingJobCron(); //
-                final Trigger trigger = new UnixCronTrigger("UnixCronTrigger" + UUID.randomUUID().getLeastSignificantBits(), new Date(), cron);
-                logger.log(ProcessAPI.class, TechnicalLogSeverity.INFO, "Starting event handling job with frequency: " + cron);
+    private void registerJob(final JobRegister jobRegister) {
+        try {
+            final List<String> jobs = schedulerService.getAllJobs();
+            if (!jobs.contains(jobRegister.getJobName())) {
+                if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.INFO)) {
+                    logger.log(this.getClass(), TechnicalLogSeverity.INFO, "Register " + jobRegister.getJobDescription());
+                }
+                final SJobDescriptor jobDescriptor = BuilderFactory.get(SJobDescriptorBuilderFactory.class)
+                        .createNewInstance(jobRegister.getJobClass().getName(), jobRegister.getJobName(), true).done();
+                final ArrayList<SJobParameter> jobParameters = new ArrayList<>();
+                for (final Entry<String, Serializable> entry : jobRegister.getJobParameters().entrySet()) {
+                    jobParameters.add(BuilderFactory.get(SJobParameterBuilderFactory.class).createNewInstance(entry.getKey(), entry.getValue()).done());
+                }
+                final Trigger trigger = jobRegister.getTrigger();
                 schedulerService.schedule(jobDescriptor, jobParameters, trigger);
+            } else {
+                logger.log(this.getClass(), TechnicalLogSeverity.INFO, "The " + jobRegister.getJobDescription() + " was already started");
             }
-        } else {
-            if (logger.isLoggable(ActivateTenant.class, TechnicalLogSeverity.WARNING)) {
-                logger.log(ActivateTenant.class, TechnicalLogSeverity.WARNING, "The scheduler is not started: impossible to schedule job " + jobClassName);
+        } catch (final SSchedulerException e) {
+            logger.log(this.getClass(), TechnicalLogSeverity.ERROR,
+                    "Unable to register job " + jobRegister.getJobDescription() + " because " + e.getMessage());
+            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.DEBUG)) {
+                logger.log(this.getClass(), TechnicalLogSeverity.DEBUG, e);
             }
         }
     }
 
-    private void startCleanInvalidSessionsJob() throws SSchedulerException, FireEventException {
+    private void startCleanInvalidSessionsJob() throws SSchedulerException {
         final String jobClassName = CleanInvalidSessionsJob.class.getName();
         if (schedulerService.isStarted()) {
-            final String cron = plaformConfiguration.getCleanInvalidSessionsJobCron();
+            final String cron = tenantConfiguration.getCleanInvalidSessionsJobCron();
             if (!cron.equalsIgnoreCase("none")) {
-                final SJobDescriptor jobDescriptor = schedulerService.getJobDescriptorBuilder().createNewInstance(jobClassName, CLEAN_INVALID_SESSIONS).done();
-                final ArrayList<SJobParameter> jobParameters = new ArrayList<SJobParameter>();
-                final Trigger trigger = new UnixCronTrigger("UnixCronTrigger" + UUID.randomUUID().getLeastSignificantBits(), new Date(), cron);
-                logger.log(ProcessAPI.class, TechnicalLogSeverity.INFO, "Starting clean invalid sessions job with frequency: " + cron);
+                final SJobDescriptor jobDescriptor = BuilderFactory.get(SJobDescriptorBuilderFactory.class)
+                        .createNewInstance(jobClassName, CLEAN_INVALID_SESSIONS, true)
+                        .done();
+                final ArrayList<SJobParameter> jobParameters = new ArrayList<>();
+                final Trigger trigger = new UnixCronTrigger("UnixCronTrigger" + UUID.randomUUID().getLeastSignificantBits(), new Date(), cron,
+                        MisfireRestartPolicy.NONE);
+                if (logger.isLoggable(getClass(), TechnicalLogSeverity.INFO)) {
+                    logger.log(this.getClass(), TechnicalLogSeverity.INFO, "Starting clean invalid sessions job with frequency : " + cron);
+                }
                 schedulerService.schedule(jobDescriptor, jobParameters, trigger);
             }
         } else {

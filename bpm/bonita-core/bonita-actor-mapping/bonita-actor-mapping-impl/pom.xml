@@ -5,7 +5,7 @@
 	<parent>
 		<artifactId>bonita-actor-mapping</artifactId>
 		<groupId>org.bonitasoft.engine.core.actor.mapping</groupId>
-		<version>6.1.0-SNAPSHOT</version>
+		<version>7.5.3-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>bonita-actor-mapping-impl</artifactId>
@@ -20,7 +20,7 @@
 		</dependency>
 		<dependency>
 			<groupId>org.bonitasoft.engine.log</groupId>
-			<artifactId>bonita-log-model-impl</artifactId>
+			<artifactId>bonita-log-impl</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
@@ -28,25 +28,52 @@
 			<artifactId>bonita-events-api</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-        <dependency>
-            <groupId>org.bonitasoft.engine.log</groupId>
-            <artifactId>bonita-log-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.bonitasoft.engine.identity</groupId>
-            <artifactId>bonita-identity-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.identity</groupId>
+			<artifactId>bonita-identity-api</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.recorder</groupId>
+			<artifactId>bonita-recorder-api</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.persistence</groupId>
+			<artifactId>bonita-persistence-read</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.log</groupId>
+			<artifactId>bonita-log-api</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine</groupId>
+			<artifactId>bonita-builder</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+
+		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			 <scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.mockito</groupId>
 			<artifactId>mockito-all</artifactId>
-			 <scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.powermock</groupId>
+			<artifactId>powermock-module-junit4</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.powermock</groupId>
+			<artifactId>powermock-api-mockito</artifactId>
+		</dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
 	</dependencies>
 </project>

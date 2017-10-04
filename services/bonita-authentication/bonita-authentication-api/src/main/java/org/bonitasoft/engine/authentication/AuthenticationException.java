@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -22,6 +22,10 @@ import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 public class AuthenticationException extends SBonitaException {
 
     private static final long serialVersionUID = 7204454677855421061L;
+
+    public AuthenticationException(String message) {
+        super(message);
+    }
 
     public AuthenticationException() {
         super("The user name or password is not valid.");

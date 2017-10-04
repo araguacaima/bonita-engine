@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,141 +13,113 @@
  **/
 package org.bonitasoft.engine.profile.impl;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
+
+import org.bonitasoft.engine.api.ImportError;
+import org.bonitasoft.engine.api.ImportError.Type;
 
 /**
  * @author Zhao Na
  * @author Celine Souchet
  */
-public class ExportedParentProfileEntry {
+@XmlAccessorType(XmlAccessType.FIELD)
+public class ExportedParentProfileEntry extends ExportedProfileEntry {
 
-    private final String name;
+    @XmlElementWrapper(name = "childrenEntries")
+    @XmlElement(name = "profileEntry")
+    private List<ExportedProfileEntry> childProfileEntries = Collections.emptyList();
 
-    private String description;
-
-    private String type;
-
-    private String parentName;
-
-    private long index;
-
-    private String page;
-
-    private List<ExportedProfileEntry> childProfileEntries;
+    public ExportedParentProfileEntry() {
+        childProfileEntries = new ArrayList<>();
+    }
 
     public List<ExportedProfileEntry> getChildProfileEntries() {
         return childProfileEntries;
     }
 
-    public void setChildProfileEntries(List<ExportedProfileEntry> childProfileEntries) {
+    public void setChildProfileEntries(final List<ExportedProfileEntry> childProfileEntries) {
         this.childProfileEntries = childProfileEntries;
     }
 
     public ExportedParentProfileEntry(final String name) {
-        this.name = name;
+        super(name);
     }
 
-    public String getName() {
-        return name;
+    public List<ImportError> getErrors() {
+        final List<ImportError> errors = new ArrayList<>();
+        if (hasError()) {
+            errors.add(getError());
+        }
+        final List<ExportedProfileEntry> childProfileEntries = getChildProfileEntries();
+        if (childProfileEntries != null) {
+            for (final ExportedProfileEntry childEntry : childProfileEntries) {
+                if (childEntry.hasError()) {
+                    errors.add(childEntry.getError());
+                }
+            }
+        }
+        if (errors.isEmpty()) {
+            return null;
+        }
+        return errors;
     }
 
-    public void setDescription(final String description) {
-        this.description = description;
+    public boolean hasErrors() {
+        return getErrors() != null;
     }
 
-    public String getDescription() {
-        return description;
+    @Override
+    public ImportError getError() {
+        if (getName() == null) {
+            return new ImportError(getName(), Type.PAGE);
+        }
+        return null;
+    }
+
+    public boolean hasCustomPages() {
+        if (isCustom()) {
+            return true;
+        }
+        if (getChildProfileEntries() != null) {
+            for (final ExportedProfileEntry exportedProfileEntry : getChildProfileEntries()) {
+                if (exportedProfileEntry.isCustom()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        if (!super.equals(o))
+            return false;
+        ExportedParentProfileEntry that = (ExportedParentProfileEntry) o;
+        return Objects.equals(childProfileEntries, that.childProfileEntries);
     }
 
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + (description == null ? 0 : description.hashCode());
-        result = prime * result + (name == null ? 0 : name.hashCode());
-        result = prime * result + (type == null ? 0 : type.hashCode());
-        result = prime * result + (page == null ? 0 : page.hashCode());
-        result = prime * result + (parentName == null ? 0 : parentName.hashCode());
-        result = prime * result + (int) (index ^ (index >>> 32));
-        return result;
-    }
-
-    public String getParentName() {
-        return parentName;
-    }
-
-    public void setParentName(String parentName) {
-        this.parentName = parentName;
+        return Objects.hash(super.hashCode(), childProfileEntries);
     }
 
     @Override
-    public boolean equals(final Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        final ExportedParentProfileEntry other = (ExportedParentProfileEntry) obj;
-        if (description == null) {
-            if (other.description != null) {
-                return false;
-            }
-        } else if (!description.equals(other.description)) {
-            return false;
-        }
-        if (type == null) {
-            if (other.type != null) {
-                return false;
-            }
-        } else if (!type.equals(other.type)) {
-            return false;
-        }
-        if (page == null) {
-            if (other.page != null) {
-                return false;
-            }
-        } else if (!page.equals(other.page)) {
-            return false;
-        }
-        if (index != other.index) {
-            return false;
-        }
-        if (parentName == null) {
-            if (other.parentName != null) {
-                return false;
-            }
-        } else if (!parentName.equals(other.parentName)) {
-            return false;
-        }
-        return true;
+    public String toString() {
+        return "ExportedParentProfileEntry{" +
+                super.toString() +
+                "childProfileEntries=" + childProfileEntries +
+                '}';
     }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public long getIndex() {
-        return index;
-    }
-
-    public void setIndex(long index) {
-        this.index = index;
-    }
-
-    public String getPage() {
-        return page;
-    }
-
-    public void setPage(String page) {
-        this.page = page;
-    }
-
 }

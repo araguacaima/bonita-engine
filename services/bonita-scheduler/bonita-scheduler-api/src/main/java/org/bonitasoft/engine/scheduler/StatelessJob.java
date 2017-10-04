@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,7 +16,9 @@ package org.bonitasoft.engine.scheduler;
 import java.io.Serializable;
 import java.util.Map;
 
-import org.bonitasoft.engine.events.model.FireEventException;
+import org.bonitasoft.engine.events.model.SFireEventException;
+import org.bonitasoft.engine.scheduler.exception.SJobExecutionException;
+import org.bonitasoft.engine.scheduler.exception.SJobConfigurationException;
 
 /**
  * Interface of a scheduled job. A job is classified using a name and a group name. A job has a unique name and group name. It
@@ -33,6 +35,8 @@ public interface StatelessJob extends Serializable {
     String JOB_EXECUTING = "JOB_EXECUTING";
 
     String JOB_COMPLETED = "JOB_COMPLETED";
+
+    String JOB_DESCRIPTOR_ID = "JOB_DESCRIPTOR_ID";
 
     /**
      * Gets the job name.
@@ -53,12 +57,12 @@ public interface StatelessJob extends Serializable {
     /**
      * Execute the content of the job.
      * 
-     * @throws JobExecutionException
+     * @throws SJobExecutionException
      *             if an exception occurs
-     * @throws FireEventException
+     * @throws SFireEventException
      * @since 6.0
      */
-    void execute() throws JobExecutionException, FireEventException;
+    void execute() throws SJobExecutionException, SFireEventException;
 
     /**
      * This method is called by the scheduler service before the execution of the job

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -18,20 +18,48 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Baptiste Mesta
+ * @author Celine Souchet
  */
 public class WorkerThreadFactory implements ThreadFactory {
 
-    private static AtomicInteger nbThread = new AtomicInteger(1);
+    private final AtomicInteger nbThread = new AtomicInteger(1);
 
     private final String name;
 
-    public WorkerThreadFactory(final String name) {
+    private final int padding;
+
+    private final long tenantId;
+
+    public WorkerThreadFactory(final String name, final long tenantId, final int maximumPoolSize) {
         this.name = name;
+        this.tenantId = tenantId;
+        this.padding = guessPadding(maximumPoolSize);
+    }
+
+    /**
+     * @param maximumPoolSize
+     */
+    static int guessPadding(final int maximumPoolSize) {
+        int tmpPadding = 0;
+        int poolSize = maximumPoolSize;
+        while (poolSize > 0) {
+            poolSize /= 10;
+            tmpPadding++;
+        }
+        return tmpPadding;
     }
 
     @Override
     public Thread newThread(final Runnable runnable) {
-        return new Thread(runnable, name + "-" + nbThread.getAndIncrement());
+        final StringBuilder builder = new StringBuilder();
+        builder.append(name);
+        builder.append("-");
+        builder.append(tenantId);
+        builder.append("-");
+        builder.append("%0");
+        builder.append(padding);
+        builder.append("d");
+        final String format = String.format(builder.toString(), nbThread.getAndIncrement());
+        return new Thread(runnable, format);
     }
-
 }

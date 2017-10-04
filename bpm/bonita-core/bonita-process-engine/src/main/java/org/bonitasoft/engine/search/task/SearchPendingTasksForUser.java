@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,7 +19,7 @@ import org.bonitasoft.engine.core.process.instance.api.ActivityInstanceService;
 import org.bonitasoft.engine.core.process.instance.model.SHumanTaskInstance;
 import org.bonitasoft.engine.execution.state.FlowNodeStateManager;
 import org.bonitasoft.engine.persistence.QueryOptions;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
 import org.bonitasoft.engine.search.AbstractHumanTaskInstanceSearchEntity;
 import org.bonitasoft.engine.search.SearchOptions;
 import org.bonitasoft.engine.search.descriptor.SearchHumanTaskInstanceDescriptor;
@@ -44,21 +44,19 @@ public class SearchPendingTasksForUser extends AbstractHumanTaskInstanceSearchEn
     }
 
     @Override
-    public long executeCount(final QueryOptions searchOptions) throws SBonitaSearchException {
+    public long executeCount(final QueryOptions searchOptions) throws SBonitaReadException {
         if (orAssignedToUser) {
             return activityInstanceService.getNumberOfPendingOrAssignedTasks(userId, searchOptions);
-        } else {
-            return activityInstanceService.getNumberOfPendingTasksForUser(userId, searchOptions);
         }
+        return activityInstanceService.getNumberOfPendingTasksForUser(userId, searchOptions);
     }
 
     @Override
-    public List<SHumanTaskInstance> executeSearch(final QueryOptions searchOptions) throws SBonitaSearchException {
+    public List<SHumanTaskInstance> executeSearch(final QueryOptions searchOptions) throws SBonitaReadException {
         if (orAssignedToUser) {
             return activityInstanceService.searchPendingOrAssignedTasks(userId, searchOptions);
-        } else {
-            return activityInstanceService.searchPendingTasksForUser(userId, searchOptions);
         }
+        return activityInstanceService.searchPendingTasksForUser(userId, searchOptions);
     }
 
 }

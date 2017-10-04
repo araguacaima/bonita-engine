@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -40,8 +40,8 @@ public interface ExpressionResolverService {
      * @throws SExpressionDependencyMissingException
      * @throws SInvalidExpressionException
      */
-    Object evaluate(final SExpression expression) throws SExpressionTypeUnknownException, SExpressionEvaluationException,
-            SExpressionDependencyMissingException, SInvalidExpressionException;
+    Object evaluate(final SExpression expression) throws SExpressionTypeUnknownException,
+            SExpressionEvaluationException, SExpressionDependencyMissingException, SInvalidExpressionException;
 
     /**
      * Evaluate the specific expression with the given expressionContext.
@@ -56,8 +56,8 @@ public interface ExpressionResolverService {
      * @throws SExpressionDependencyMissingException
      * @throws SInvalidExpressionException
      */
-    Object evaluate(final SExpression expression, final SExpressionContext contextDependency) throws SExpressionTypeUnknownException,
-            SExpressionEvaluationException, SExpressionDependencyMissingException, SInvalidExpressionException;
+    Object evaluate(final SExpression expression, final SExpressionContext contextDependency)
+            throws SExpressionTypeUnknownException, SExpressionEvaluationException, SExpressionDependencyMissingException, SInvalidExpressionException;
 
     /**
      * Evaluate the specific expressions with the given expressionContext.
@@ -65,7 +65,7 @@ public interface ExpressionResolverService {
      * @param expressions
      *            a list of expressions will be evaluated
      * @param contextDependency
-     *            the expressionContext, it can contain some value informations or evaluated enviorenment for expressions
+     *            the expressionContext, it can contain some value information or evaluated environment for expressions
      * @return the evaluated expression result
      * @throws SExpressionTypeUnknownException
      * @throws SExpressionEvaluationException

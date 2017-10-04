@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,25 +14,41 @@
 package org.bonitasoft.engine.identity;
 
 /**
+ * holds constants about {@link User} search filters.
+ *
  * @author Matthieu Chaffotte
  * @author Emmanuel Duchastenier
+ * @author Anthony Birembaut
+ * @see User
+ * @since 6.0.0
  */
 public final class UserSearchDescriptor {
 
+    /** filter search on User's id */
+    public static final String ID = "id";
+    
+    /** filter search on User's username */
     public static final String USER_NAME = "userName";
 
+    /** filter search on User's firstname */
     public static final String FIRST_NAME = "firstName";
 
+    /** filter search on User's lastname */
     public static final String LAST_NAME = "lastName";
 
+    /** filter search on User's group id */
     public static final String GROUP_ID = "groupId";
 
+    /** filter search on User's role id */
     public static final String ROLE_ID = "roleId";
 
+    /** filter search on the User's manager user id */
     public static final String MANAGER_USER_ID = "managerUserId";
 
+    /** filter search on User's activation */
     public static final String ENABLED = "enabled";
 
+    /** filter search on User's last connection date */
     public static final String LAST_CONNECTION = "lastConnection";
 
 }

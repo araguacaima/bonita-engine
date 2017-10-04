@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,29 +13,49 @@
  **/
 package org.bonitasoft.engine.bpm.flownode;
 
+import org.bonitasoft.engine.bpm.BaseElement;
 import org.bonitasoft.engine.bpm.NamedElement;
+import org.bonitasoft.engine.bpm.process.Visitable;
 import org.bonitasoft.engine.expression.Expression;
 
 /**
+ * Component of a process definition. It connects 2 {@link FlowNodeDefinition} between them.
+ *
  * @author Baptiste Mesta
  * @author Celine Souchet
  */
-public interface TransitionDefinition extends NamedElement {
+public interface TransitionDefinition extends NamedElement, BaseElement, Visitable {
 
     /**
-     * Retrieves the the transition's source
-     * 
-     * @return
+     * @deprecated from 6.5.0 on, name is not used anymore on TransitionDefinition. It is kept for retro-compatibility.
+     */
+    @Override
+    @Deprecated
+    public String getName();
+
+    /**
+     * @return The source of the transition
      */
     long getSource();
 
     /**
-     * Retrieves the the transition's target
-     * 
-     * @return
+     * @return The source of the transition
+     */
+    FlowNodeDefinition getSourceFlowNode();
+
+    /**
+     * @return The target of the transition
      */
     long getTarget();
 
+    /**
+     * @return The target of the transition
+     */
+    FlowNodeDefinition getTargetFlowNode();
+
+    /**
+     * @return The condition of the transition
+     */
     Expression getCondition();
 
 }

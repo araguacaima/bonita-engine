@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,15 +13,13 @@
  **/
 package org.bonitasoft.engine.events;
 
-import java.util.Map;
 import java.util.Set;
 
-import org.bonitasoft.engine.events.model.FireEventException;
+import org.bonitasoft.engine.events.model.SFireEventException;
 import org.bonitasoft.engine.events.model.HandlerRegistrationException;
 import org.bonitasoft.engine.events.model.HandlerUnregistrationException;
 import org.bonitasoft.engine.events.model.SEvent;
 import org.bonitasoft.engine.events.model.SHandler;
-import org.bonitasoft.engine.events.model.builders.SEventBuilder;
 
 /**
  * This is the manager of all the events triggered by other services. Handlers are registered into the Event service. When a
@@ -39,7 +37,7 @@ public interface EventService {
      * @param event
      *            A specific Event
      */
-    void fireEvent(final SEvent event) throws FireEventException;
+    void fireEvent(final SEvent event) throws SFireEventException;
 
     /**
      * Allows to check if an handler is listening to this event type
@@ -52,7 +50,7 @@ public interface EventService {
     boolean hasHandlers(final String eventType, EventActionType actionType);
 
     /**
-     * Add the given handler to the Event Manager's handlers list. It guarantees no duplication in the handlers' list
+     * Add the given handler to the Event Manager's handlers list.
      *
      * @param eventType The type of the event the handler is interested in.
      * @param userHandler
@@ -81,19 +79,5 @@ public interface EventService {
      * Retrieve the list of all registered Handlers or the given EventType
      */
     Set<SHandler<SEvent>> getHandlers(String eventType);
-
-    /**
-     * Get all registered handlers
-     *
-     * @return The list of all registered handlers with their associated event type.
-     */
-    Map<String, Set<SHandler<SEvent>>> getRegisteredHandlers();
-
-    /**
-     * Get the event model builder
-     *
-     * @return the event model builder
-     */
-    SEventBuilder getEventBuilder();
 
 }

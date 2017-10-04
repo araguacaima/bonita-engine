@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,14 +13,20 @@
  **/
 package org.bonitasoft.engine.bpm;
 
-
-
 /**
+ * Interface <code>NamedElement</code> names a <code>BonitaObject</code>.
+ *
  * @author Baptiste Mesta
  * @author Matthieu Chaffotte
+ * @since 6.0.0
  */
 public interface NamedElement extends BonitaObject {
 
+    /**
+     * Gets the element name.
+     *
+     * @return the element name
+     */
     String getName();
 
 }

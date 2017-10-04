@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,52 +13,45 @@
  **/
 package org.bonitasoft.engine.search.descriptor;
 
-import org.bonitasoft.engine.command.model.SCommandBuilderAccessor;
-import org.bonitasoft.engine.core.category.model.builder.SCategoryBuilderAccessor;
-import org.bonitasoft.engine.core.process.comment.model.builder.SCommentBuilders;
-import org.bonitasoft.engine.core.process.definition.model.builder.BPMDefinitionBuilders;
-import org.bonitasoft.engine.core.process.document.mapping.model.builder.SDocumentMappingBuilderAccessor;
-import org.bonitasoft.engine.core.process.instance.model.builder.BPMInstanceBuilders;
-import org.bonitasoft.engine.external.identity.mapping.model.SExternalIdentityMappingBuilders;
-import org.bonitasoft.engine.identity.model.builder.IdentityModelBuilder;
-import org.bonitasoft.engine.supervisor.mapping.model.SProcessSupervisorBuilders;
-
 /**
  * @author Matthieu Chaffotte
  * @author Zhang Bole
  * @author Yanyan Liu
+ * @author Celine Souchet
  */
 public class SearchEntitiesDescriptor {
 
-    private final SearchUserDescriptor userDescriptor;
+    private final SearchUserDescriptor searchUserDescriptor;
 
-    private final SearchRoleDescriptor roleDescriptor;
+    private final SearchRoleDescriptor searchRoleDescriptor;
 
-    private final SearchGroupDescriptor groupDescriptor;
+    private final SearchGroupDescriptor searchGroupDescriptor;
 
-    private final SearchProcessInstanceDescriptor processInstanceDescriptor;
+    private final SearchCustomUserInfoValueDescriptor searchCustomUserInfoValueDescriptor;
 
-    private final SearchArchivedProcessInstancesDescriptor archivedProcessInstanceDescriptor;
+    private final SearchProcessInstanceDescriptor searchProcessInstanceDescriptor;
 
-    private final SearchHumanTaskInstanceDescriptor humanTaskInstanceDescriptor;
+    private final SearchArchivedProcessInstancesDescriptor searchArchivedProcessInstanceDescriptor;
 
-    private final SearchArchivedHumanTaskInstanceDescriptor archivedHumanTaskInstanceDescriptor;
+    private final SearchHumanTaskInstanceDescriptor searchHumanTaskInstanceDescriptor;
+
+    private final SearchArchivedHumanTaskInstanceDescriptor searchArchivedHumanTaskInstanceDescriptor;
 
     private final SearchProcessDefinitionsDescriptor searchProcessDefinitionsDescriptor;
 
-    private final SearchCommentDescriptor commentDescriptor;
+    private final SearchCommentDescriptor searchCommentDescriptor;
 
-    private final SearchDocumentDescriptor documentDescriptor;
+    private final SearchDocumentDescriptor searchDocumentDescriptor;
 
-    private final SearchEntityMemberUserDescriptor entityMemberUserDescriptor;
+    private final SearchEntityMemberUserDescriptor searchEntityMemberUserDescriptor;
 
-    private final SearchArchivedDocumentDescriptor archivedDocumentDescriptor;
+    private final SearchArchivedDocumentDescriptor searchArchivedDocumentDescriptor;
 
-    private final SearchActivityInstanceDescriptor activityInstanceDescriptor;
+    private final SearchActivityInstanceDescriptor searchActivityInstanceDescriptor;
 
-    private final SearchFlowNodeInstanceDescriptor flowNodeInstanceDescriptor;
+    private final SearchFlowNodeInstanceDescriptor searchFlowNodeInstanceDescriptor;
 
-    private final SearchArchivedActivityInstanceDescriptor archivedActivityInstanceDescriptor;
+    private final SearchArchivedActivityInstanceDescriptor searchArchivedActivityInstanceDescriptor;
 
     private final SearchArchivedCommentsDescriptor searchArchivedCommentsDescriptor;
 
@@ -66,157 +59,207 @@ public class SearchEntitiesDescriptor {
 
     private final SearchCommandDescriptor searchCommandDescriptor;
 
-    private final SearchArchivedFlowNodeInstanceDescriptor archivedFlowNodeInstanceDescriptor;
+    private final SearchArchivedFlowNodeInstanceDescriptor searchArchivedFlowNodeInstanceDescriptor;
 
-    private final SearchConnectorInstanceDescriptor connectorInstanceDescriptor;
+    private final SearchConnectorInstanceDescriptor searchConnectorInstanceDescriptor;
 
     private final SearchProfileDescriptor searchProfileDescriptor;
 
+    private final SearchFormMappingDescriptor searchFormMappingDescriptor;
+
     private final SearchProfileEntryDescriptor searchProfileEntryDescriptor;
 
-    private final SearchProfileMemberUserDescriptor profileMemberUserDescriptor;
+    private final SearchProfileMemberUserDescriptor searchProfileMemberUserDescriptor;
 
-    private final SearchProfileMemberGroupDescriptor profileMemberGroupDescriptor;
+    private final SearchProfileMemberGroupDescriptor searchProfileMemberGroupDescriptor;
 
-    private final SearchProfileMemberRoleDescriptor profileMemberRoleDescriptor;
+    private final SearchProfileMemberRoleDescriptor searchProfileMemberRoleDescriptor;
 
-    private final SearchProfileMemberRoleAndGroupDescriptor profileMemberRoleAndGroupDescriptor;
+    private final SearchProfileMemberRoleAndGroupDescriptor searchProfileMemberRoleAndGroupDescriptor;
 
-    public SearchEntitiesDescriptor(final IdentityModelBuilder identityModelBuilder, final BPMInstanceBuilders bpmInstanceBuilders,
-            final SProcessSupervisorBuilders sSupervisorBuilders, final BPMDefinitionBuilders definitionBuilders, final SCommentBuilders commentBuilders,
-            final SCategoryBuilderAccessor categoryBuilderAccessor, final SDocumentMappingBuilderAccessor sDocumentMappingBuilderAccessor,
-            final SExternalIdentityMappingBuilders sExternalIdentityMappingBuilders, final SCommandBuilderAccessor commandBuilderAccessor) {
-        userDescriptor = new SearchUserDescriptor(identityModelBuilder);
-        roleDescriptor = new SearchRoleDescriptor(identityModelBuilder);
-        groupDescriptor = new SearchGroupDescriptor(identityModelBuilder);
-        processInstanceDescriptor = new SearchProcessInstanceDescriptor(bpmInstanceBuilders, sSupervisorBuilders);
-        archivedProcessInstanceDescriptor = new SearchArchivedProcessInstancesDescriptor(bpmInstanceBuilders, sSupervisorBuilders);
-        humanTaskInstanceDescriptor = new SearchHumanTaskInstanceDescriptor(bpmInstanceBuilders, sSupervisorBuilders);
-        archivedHumanTaskInstanceDescriptor = new SearchArchivedHumanTaskInstanceDescriptor(bpmInstanceBuilders);
-        searchProcessDefinitionsDescriptor = new SearchProcessDefinitionsDescriptor(definitionBuilders, categoryBuilderAccessor);
-        commentDescriptor = new SearchCommentDescriptor(commentBuilders, identityModelBuilder.getUserBuilder());
-        connectorInstanceDescriptor = new SearchConnectorInstanceDescriptor(bpmInstanceBuilders.getSConnectorInstanceBuilder());
-        documentDescriptor = new SearchDocumentDescriptor(sDocumentMappingBuilderAccessor);
-        entityMemberUserDescriptor = new SearchEntityMemberUserDescriptor(sExternalIdentityMappingBuilders, identityModelBuilder);
-        archivedDocumentDescriptor = new SearchArchivedDocumentDescriptor(sDocumentMappingBuilderAccessor);
-        activityInstanceDescriptor = new SearchActivityInstanceDescriptor(bpmInstanceBuilders, sSupervisorBuilders);
-        archivedActivityInstanceDescriptor = new SearchArchivedActivityInstanceDescriptor(bpmInstanceBuilders);
-        searchArchivedCommentsDescriptor = new SearchArchivedCommentsDescriptor(commentBuilders, identityModelBuilder.getUserBuilder());
-        searchArchivedConnectorInstanceDescriptor = new SearchArchivedConnectorInstanceDescriptor(bpmInstanceBuilders);
-        flowNodeInstanceDescriptor = new SearchFlowNodeInstanceDescriptor(bpmInstanceBuilders);
-        searchCommandDescriptor = new SearchCommandDescriptor(commandBuilderAccessor.getSCommandBuilder());
-        archivedFlowNodeInstanceDescriptor = new SearchArchivedFlowNodeInstanceDescriptor(bpmInstanceBuilders);
+    private final SearchThemeDescriptor searchThemeDescriptor;
 
+    private final SearchEventTriggerInstanceDescriptor searchEventTriggerInstanceDescriptor;
+
+    private final SearchPageDescriptor searchPageDescriptor;
+
+    private final SearchApplicationDescriptor searchApplicationDescriptor;
+
+    private final SearchApplicationMenuDescriptor searchApplicationMenuDescriptor;
+
+    private final SearchApplicationPageDescriptor searchApplicationPageDescriptor;
+
+    public SearchEntitiesDescriptor() {
+        searchUserDescriptor = new SearchUserDescriptor();
+        searchRoleDescriptor = new SearchRoleDescriptor();
+        searchGroupDescriptor = new SearchGroupDescriptor();
+        searchCustomUserInfoValueDescriptor = new SearchCustomUserInfoValueDescriptor();
+        searchProcessInstanceDescriptor = new SearchProcessInstanceDescriptor();
+        searchArchivedProcessInstanceDescriptor = new SearchArchivedProcessInstancesDescriptor();
+        searchHumanTaskInstanceDescriptor = new SearchHumanTaskInstanceDescriptor();
+        searchArchivedHumanTaskInstanceDescriptor = new SearchArchivedHumanTaskInstanceDescriptor();
+        searchProcessDefinitionsDescriptor = new SearchProcessDefinitionsDescriptor();
+        searchCommentDescriptor = new SearchCommentDescriptor();
+        searchConnectorInstanceDescriptor = new SearchConnectorInstanceDescriptor();
+        searchDocumentDescriptor = new SearchDocumentDescriptor();
+        searchEntityMemberUserDescriptor = new SearchEntityMemberUserDescriptor();
+        searchArchivedDocumentDescriptor = new SearchArchivedDocumentDescriptor();
+        searchActivityInstanceDescriptor = new SearchActivityInstanceDescriptor();
+        searchArchivedActivityInstanceDescriptor = new SearchArchivedActivityInstanceDescriptor();
+        searchArchivedCommentsDescriptor = new SearchArchivedCommentsDescriptor();
+        searchArchivedConnectorInstanceDescriptor = new SearchArchivedConnectorInstanceDescriptor();
+        searchFlowNodeInstanceDescriptor = new SearchFlowNodeInstanceDescriptor();
+        searchCommandDescriptor = new SearchCommandDescriptor();
+        searchArchivedFlowNodeInstanceDescriptor = new SearchArchivedFlowNodeInstanceDescriptor();
         searchProfileDescriptor = new SearchProfileDescriptor();
         searchProfileEntryDescriptor = new SearchProfileEntryDescriptor();
-        profileMemberUserDescriptor = new SearchProfileMemberUserDescriptor(identityModelBuilder.getUserBuilder());
-        profileMemberGroupDescriptor = new SearchProfileMemberGroupDescriptor(identityModelBuilder);
-        profileMemberRoleDescriptor = new SearchProfileMemberRoleDescriptor(identityModelBuilder.getRoleBuilder());
-        profileMemberRoleAndGroupDescriptor = new SearchProfileMemberRoleAndGroupDescriptor(identityModelBuilder);
+        searchProfileMemberUserDescriptor = new SearchProfileMemberUserDescriptor();
+        searchProfileMemberGroupDescriptor = new SearchProfileMemberGroupDescriptor();
+        searchProfileMemberRoleDescriptor = new SearchProfileMemberRoleDescriptor();
+        searchProfileMemberRoleAndGroupDescriptor = new SearchProfileMemberRoleAndGroupDescriptor();
+        searchThemeDescriptor = new SearchThemeDescriptor();
+        searchEventTriggerInstanceDescriptor = new SearchEventTriggerInstanceDescriptor();
+        searchPageDescriptor = new SearchPageDescriptor();
+        searchApplicationDescriptor = new SearchApplicationDescriptor();
+        searchApplicationMenuDescriptor = new SearchApplicationMenuDescriptor();
+        searchApplicationPageDescriptor = new SearchApplicationPageDescriptor();
+        searchFormMappingDescriptor = new SearchFormMappingDescriptor();
     }
 
-    public SearchUserDescriptor getUserDescriptor() {
-        return userDescriptor;
+    public SearchUserDescriptor getSearchUserDescriptor() {
+        return searchUserDescriptor;
     }
 
-    public SearchRoleDescriptor getRoleDescriptor() {
-        return roleDescriptor;
+    public SearchRoleDescriptor getSearchRoleDescriptor() {
+        return searchRoleDescriptor;
     }
 
-    public SearchHumanTaskInstanceDescriptor getHumanTaskInstanceDescriptor() {
-        return humanTaskInstanceDescriptor;
+    public SearchGroupDescriptor getSearchGroupDescriptor() {
+        return searchGroupDescriptor;
     }
 
-    public SearchArchivedHumanTaskInstanceDescriptor getArchivedHumanTaskInstanceDescriptor() {
-        return archivedHumanTaskInstanceDescriptor;
+    public SearchCustomUserInfoValueDescriptor getSearchCustomUserInfoValueDescriptor() {
+        return searchCustomUserInfoValueDescriptor;
     }
 
-    public SearchGroupDescriptor getGroupDescriptor() {
-        return groupDescriptor;
+    public SearchProcessInstanceDescriptor getSearchProcessInstanceDescriptor() {
+        return searchProcessInstanceDescriptor;
     }
 
-    public SearchProcessInstanceDescriptor getProcessInstanceDescriptor() {
-        return processInstanceDescriptor;
+    public SearchArchivedProcessInstancesDescriptor getSearchArchivedProcessInstanceDescriptor() {
+        return searchArchivedProcessInstanceDescriptor;
     }
 
-    public SearchArchivedProcessInstancesDescriptor getArchivedProcessInstancesDescriptor() {
-        return archivedProcessInstanceDescriptor;
+    public SearchHumanTaskInstanceDescriptor getSearchHumanTaskInstanceDescriptor() {
+        return searchHumanTaskInstanceDescriptor;
     }
 
-    public SearchProcessDefinitionsDescriptor getProcessDefinitionsDescriptor() {
+    public SearchArchivedHumanTaskInstanceDescriptor getSearchArchivedHumanTaskInstanceDescriptor() {
+        return searchArchivedHumanTaskInstanceDescriptor;
+    }
+
+    public SearchProcessDefinitionsDescriptor getSearchProcessDefinitionsDescriptor() {
         return searchProcessDefinitionsDescriptor;
     }
 
-    public SearchCommentDescriptor getCommentDescriptor() {
-        return commentDescriptor;
+    public SearchCommentDescriptor getSearchCommentDescriptor() {
+        return searchCommentDescriptor;
     }
 
-    public SearchConnectorInstanceDescriptor getConnectorInstanceDescriptor() {
-        return connectorInstanceDescriptor;
+    public SearchDocumentDescriptor getSearchDocumentDescriptor() {
+        return searchDocumentDescriptor;
     }
 
-    public SearchDocumentDescriptor getDocumentDescriptor() {
-        return documentDescriptor;
+    public SearchEntityMemberUserDescriptor getSearchEntityMemberUserDescriptor() {
+        return searchEntityMemberUserDescriptor;
     }
 
-    public SearchEntityMemberUserDescriptor getEntityMemberUserDescriptor() {
-        return entityMemberUserDescriptor;
+    public SearchArchivedDocumentDescriptor getSearchArchivedDocumentDescriptor() {
+        return searchArchivedDocumentDescriptor;
     }
 
-    public SearchArchivedDocumentDescriptor getArchivedDocumentDescriptor() {
-        return archivedDocumentDescriptor;
+    public SearchActivityInstanceDescriptor getSearchActivityInstanceDescriptor() {
+        return searchActivityInstanceDescriptor;
     }
 
-    public SearchActivityInstanceDescriptor getActivityInstanceDescriptor() {
-        return activityInstanceDescriptor;
+    public SearchFlowNodeInstanceDescriptor getSearchFlowNodeInstanceDescriptor() {
+        return searchFlowNodeInstanceDescriptor;
     }
 
-    public SearchArchivedActivityInstanceDescriptor getArchivedActivityInstanceDescriptor() {
-        return archivedActivityInstanceDescriptor;
+    public SearchArchivedActivityInstanceDescriptor getSearchArchivedActivityInstanceDescriptor() {
+        return searchArchivedActivityInstanceDescriptor;
     }
 
-    public SearchArchivedCommentsDescriptor getArchivedCommentsDescriptor() {
+    public SearchArchivedCommentsDescriptor getSearchArchivedCommentsDescriptor() {
         return searchArchivedCommentsDescriptor;
     }
 
-    public SearchArchivedConnectorInstanceDescriptor getArchivedConnectorInstanceDescriptor() {
+    public SearchArchivedConnectorInstanceDescriptor getSearchArchivedConnectorInstanceDescriptor() {
         return searchArchivedConnectorInstanceDescriptor;
     }
 
-    public SearchFlowNodeInstanceDescriptor getFlowNodeInstanceDescriptor() {
-        return flowNodeInstanceDescriptor;
-    }
-
-    public SearchCommandDescriptor getCommandDescriptor() {
+    public SearchCommandDescriptor getSearchCommandDescriptor() {
         return searchCommandDescriptor;
     }
 
-    public SearchArchivedFlowNodeInstanceDescriptor getArchivedFlowNodeInstanceDescriptor() {
-        return archivedFlowNodeInstanceDescriptor;
+    public SearchArchivedFlowNodeInstanceDescriptor getSearchArchivedFlowNodeInstanceDescriptor() {
+        return searchArchivedFlowNodeInstanceDescriptor;
     }
 
-    public SearchProfileDescriptor getProfileDescriptor() {
+    public SearchConnectorInstanceDescriptor getSearchConnectorInstanceDescriptor() {
+        return searchConnectorInstanceDescriptor;
+    }
+
+    public SearchProfileDescriptor getSearchProfileDescriptor() {
         return searchProfileDescriptor;
     }
 
-    public SearchProfileEntryDescriptor getProfileEntryDescriptor() {
+    public SearchFormMappingDescriptor getSearchFormMappingDescriptor() {
+        return searchFormMappingDescriptor;
+    }
+
+    public SearchProfileEntryDescriptor getSearchProfileEntryDescriptor() {
         return searchProfileEntryDescriptor;
     }
 
-    public SearchProfileMemberUserDescriptor getProfileMemberUserDescriptor() {
-        return profileMemberUserDescriptor;
+    public SearchProfileMemberUserDescriptor getSearchProfileMemberUserDescriptor() {
+        return searchProfileMemberUserDescriptor;
     }
 
-    public SearchProfileMemberGroupDescriptor getProfileMemberGroupDescriptor() {
-        return profileMemberGroupDescriptor;
+    public SearchProfileMemberGroupDescriptor getSearchProfileMemberGroupDescriptor() {
+        return searchProfileMemberGroupDescriptor;
     }
 
-    public SearchProfileMemberRoleDescriptor getProfileMemberRoleDescriptor() {
-        return profileMemberRoleDescriptor;
+    public SearchProfileMemberRoleDescriptor getSearchProfileMemberRoleDescriptor() {
+        return searchProfileMemberRoleDescriptor;
     }
 
-    public SearchProfileMemberRoleAndGroupDescriptor getProfileMemberRoleAndGroupDescriptor() {
-        return profileMemberRoleAndGroupDescriptor;
+    public SearchProfileMemberRoleAndGroupDescriptor getSearchProfileMemberRoleAndGroupDescriptor() {
+        return searchProfileMemberRoleAndGroupDescriptor;
+    }
+
+    public SearchThemeDescriptor getSearchThemeDescriptor() {
+        return searchThemeDescriptor;
+    }
+
+    public SearchEventTriggerInstanceDescriptor getSearchEventTriggerInstanceDescriptor() {
+        return searchEventTriggerInstanceDescriptor;
+    }
+
+    public SearchPageDescriptor getSearchPageDescriptor() {
+        return searchPageDescriptor;
+    }
+
+    public SearchApplicationDescriptor getSearchApplicationDescriptor() {
+        return searchApplicationDescriptor;
+    }
+
+    public SearchApplicationMenuDescriptor getSearchApplicationMenuDescriptor() {
+        return searchApplicationMenuDescriptor;
+    }
+
+    public SearchApplicationPageDescriptor getSearchApplicationPageDescriptor() {
+        return searchApplicationPageDescriptor;
     }
 
 }

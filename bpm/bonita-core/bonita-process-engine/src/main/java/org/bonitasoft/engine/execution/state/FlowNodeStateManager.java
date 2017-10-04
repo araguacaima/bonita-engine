@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,10 +16,13 @@ package org.bonitasoft.engine.execution.state;
 import java.util.Set;
 
 import org.bonitasoft.engine.bpm.flownode.FlowNodeType;
+import org.bonitasoft.engine.core.process.definition.model.SFlowNodeType;
 import org.bonitasoft.engine.core.process.definition.model.SProcessDefinition;
 import org.bonitasoft.engine.core.process.instance.api.exceptions.SActivityExecutionException;
 import org.bonitasoft.engine.core.process.instance.api.states.FlowNodeState;
 import org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance;
+import org.bonitasoft.engine.execution.ProcessExecutor;
+import org.bonitasoft.engine.execution.StateBehaviors;
 
 /**
  * @author Baptiste Mesta
@@ -30,27 +33,19 @@ import org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance;
  */
 public interface FlowNodeStateManager {
 
-    FlowNodeState getNextNormalState(SProcessDefinition processDefinition, SFlowNodeInstance flowNodeInstance, int currentState)
+    FlowNodeState getNextNormalState(SProcessDefinition processDefinition, SFlowNodeInstance flowNodeInstance, int currentStateId)
             throws SActivityExecutionException;
 
     FlowNodeState getFailedState();// TODO get the old state?
 
     FlowNodeState getState(int stateId);
 
-    FlowNodeState getNormalFinalState(SFlowNodeInstance flowNodeInstance);
-
-    FlowNodeState getInitialState(SFlowNodeInstance flowNodeInstance);
-
-    Set<Integer> getUnstableStateIds();
-
-    Set<Integer> getStableStateIds();
-
-    Set<Integer> getAllStates();
-
     Set<String> getSupportedState(FlowNodeType nodeType);
 
-    FlowNodeState getSkippedState(SFlowNodeInstance flownNodeInstance);
+    void setProcessExecutor(ProcessExecutor processExecutor);
 
-    FlowNodeState getCanceledState(SFlowNodeInstance flownNodeInstance);
+    StateBehaviors getStateBehaviors();
+
+    public FlowNodeState getFirstState(SFlowNodeType nodeType);
 
 }

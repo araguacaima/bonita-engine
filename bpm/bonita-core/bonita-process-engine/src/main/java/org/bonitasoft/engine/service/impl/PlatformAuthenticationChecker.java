@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,14 +13,13 @@
  **/
 package org.bonitasoft.engine.service.impl;
 
-import org.bonitasoft.engine.exception.BonitaHomeNotSetException;
+import java.io.IOException;
+import java.util.Properties;
+
 import org.bonitasoft.engine.home.BonitaHomeServer;
 import org.bonitasoft.engine.platform.authentication.PlatformAuthenticationService;
 import org.bonitasoft.engine.platform.authentication.SInvalidPasswordException;
 import org.bonitasoft.engine.platform.authentication.SInvalidUserException;
-
-import java.io.IOException;
-import java.util.Properties;
 
 /**
  * @author Lu Kai
@@ -41,8 +40,6 @@ public class PlatformAuthenticationChecker implements PlatformAuthenticationServ
             if (passProperty == null || !passProperty.equals(password)) {
                 throw new SInvalidPasswordException("Invalid password");
             }
-        } catch (final BonitaHomeNotSetException bhnse) {
-            throw new SInvalidUserException(bhnse);
         } catch (final IOException ioe) {
             throw new SInvalidUserException(ioe);
         }

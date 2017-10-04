@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,6 +19,7 @@ import org.bonitasoft.engine.bpm.process.ArchivedProcessInstance;
 import org.bonitasoft.engine.bpm.process.ArchivedProcessInstancesSearchDescriptor;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.commons.transaction.TransactionContentWithResult;
+import org.bonitasoft.engine.core.process.definition.ProcessDefinitionService;
 import org.bonitasoft.engine.core.process.instance.api.ProcessInstanceService;
 import org.bonitasoft.engine.persistence.OrderByType;
 import org.bonitasoft.engine.search.Order;
@@ -42,24 +43,28 @@ public class GetArchivedProcessInstanceList implements TransactionContentWithRes
 
     private List<ArchivedProcessInstance> processInstanceList;
 
-    public GetArchivedProcessInstanceList(final ProcessInstanceService processInstanceService, final SearchEntitiesDescriptor searchEntitiesDescriptor,
-            final long processInstanceId, final int startIndex, final int maxResults) {
+    private final ProcessDefinitionService processDefinitionService;
+
+    public GetArchivedProcessInstanceList(final ProcessInstanceService processInstanceService, final ProcessDefinitionService processDefinitionService,
+            final SearchEntitiesDescriptor searchEntitiesDescriptor, final long processInstanceId, final int startIndex, final int maxResults) {
         this.processInstanceService = processInstanceService;
+        this.processDefinitionService = processDefinitionService;
         this.searchEntitiesDescriptor = searchEntitiesDescriptor;
         searchOptionsBuilder = new SearchOptionsBuilder(startIndex, maxResults);
         searchOptionsBuilder.filter(ArchivedProcessInstancesSearchDescriptor.SOURCE_OBJECT_ID, processInstanceId);
     }
 
-    public GetArchivedProcessInstanceList(final ProcessInstanceService processInstanceService, final SearchEntitiesDescriptor searchEntitiesDescriptor,
-            final long processInstanceId, final int startIndex, final int maxResults,
+    public GetArchivedProcessInstanceList(final ProcessInstanceService processInstanceService, final ProcessDefinitionService processDefinitionService,
+            final SearchEntitiesDescriptor searchEntitiesDescriptor, final long processInstanceId, final int startIndex, final int maxResults,
             final String field, final OrderByType order) {
-        this(processInstanceService, searchEntitiesDescriptor, processInstanceId, startIndex, maxResults);
+        this(processInstanceService, processDefinitionService, searchEntitiesDescriptor, processInstanceId, startIndex, maxResults);
         searchOptionsBuilder.sort(field, Order.valueOf(order.name()));
     }
 
-    public GetArchivedProcessInstanceList(final ProcessInstanceService processInstanceService, final SearchEntitiesDescriptor searchEntitiesDescriptor,
-            final SearchOptions searchOptions) {
+    public GetArchivedProcessInstanceList(final ProcessInstanceService processInstanceService, final ProcessDefinitionService processDefinitionService,
+            final SearchEntitiesDescriptor searchEntitiesDescriptor, final SearchOptions searchOptions) {
         this.processInstanceService = processInstanceService;
+        this.processDefinitionService = processDefinitionService;
         this.searchEntitiesDescriptor = searchEntitiesDescriptor;
         searchOptionsBuilder = new SearchOptionsBuilder(searchOptions);
     }
@@ -67,7 +72,7 @@ public class GetArchivedProcessInstanceList implements TransactionContentWithRes
     @Override
     public void execute() throws SBonitaException {
         final SearchArchivedProcessInstances searchArchivedProcessInstances = new SearchArchivedProcessInstances(processInstanceService,
-                searchEntitiesDescriptor.getArchivedProcessInstancesDescriptor(), searchOptionsBuilder.done());
+                processDefinitionService, searchEntitiesDescriptor.getSearchArchivedProcessInstanceDescriptor(), searchOptionsBuilder.done());
         searchArchivedProcessInstances.execute();
         processInstanceList = searchArchivedProcessInstances.getResult().getResult();
     }

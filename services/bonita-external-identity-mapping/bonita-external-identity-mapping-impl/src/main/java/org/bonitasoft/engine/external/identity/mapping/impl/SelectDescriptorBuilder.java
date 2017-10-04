@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -26,15 +26,15 @@ import org.bonitasoft.engine.persistence.SelectOneDescriptor;
 public class SelectDescriptorBuilder {
 
     public static SelectByIdDescriptor<SExternalIdentityMapping> getExternalIdentityMappingWithoutDisplayNameById(final long mappingId) {
-        return new SelectByIdDescriptor<SExternalIdentityMapping>("getExternalIdentityMappingWithoutDisplayNameById", SExternalIdentityMapping.class, mappingId);
+        return new SelectByIdDescriptor<SExternalIdentityMapping>(SExternalIdentityMapping.class, mappingId);
     }
 
     public static SelectByIdDescriptor<SExternalIdentityMapping> getExternalIdentityMappingById(final long mappingId) {
-        return new SelectByIdDescriptor<SExternalIdentityMapping>("getExternalIdentityMappingById", SExternalIdentityMapping.class, mappingId);
+        return new SelectByIdDescriptor<SExternalIdentityMapping>(SExternalIdentityMapping.class, mappingId);
     }
 
     public static SelectByIdDescriptor<SExternalIdentityMapping> getExternalIdentityMappingById(final long mappingId, final String suffix) {
-        return new SelectByIdDescriptor<SExternalIdentityMapping>("getExternalIdentityMappingById" + suffix, SExternalIdentityMapping.class, mappingId);
+        return new SelectByIdDescriptor<SExternalIdentityMapping>(SExternalIdentityMapping.class, mappingId);
     }
 
     public static SelectOneDescriptor<Long> getNumberOfExternalIdentityMappings(final String externalId, final String kind) {

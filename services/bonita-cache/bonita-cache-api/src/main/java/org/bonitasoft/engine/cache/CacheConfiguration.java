@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -30,6 +30,12 @@ public class CacheConfiguration {
 
     private boolean eternal = false;
 
+    private boolean readIntensive = false;
+
+    private boolean copyOnRead = false;
+
+    private boolean copyOnWrite = false;
+
     private String name;
 
     /**
@@ -43,9 +49,9 @@ public class CacheConfiguration {
      * most implementation support LRU and LFU
      * some implementation (ehcache) support FIFO also
      * by default set to LRU
-     * 
+     *
      * @param evictionPolicy
-     *            the evictionPolicy to set
+     *        the evictionPolicy to set
      */
     public void setEvictionPolicy(final String evictionPolicy) {
         this.evictionPolicy = evictionPolicy;
@@ -53,7 +59,7 @@ public class CacheConfiguration {
 
     /**
      * true if the elements are never evicted automatically
-     * 
+     *
      * @return the eternal
      */
     public boolean isEternal() {
@@ -62,7 +68,7 @@ public class CacheConfiguration {
 
     /**
      * @param eternal
-     *            the eternal to set
+     *        the eternal to set
      */
     public void setEternal(final boolean eternal) {
         this.eternal = eternal;
@@ -71,7 +77,7 @@ public class CacheConfiguration {
     /**
      * The time to live is the time elements from this cache will be kept.
      * After this time the element can be evicted
-     * 
+     *
      * @return the timeToLiveSeconds
      */
     public long getTimeToLiveSeconds() {
@@ -79,8 +85,8 @@ public class CacheConfiguration {
     }
 
     /**
-     * the maximum number of element the cache will keep in memory
-     * 
+     * the maximum number of elements the cache will keep in memory
+     *
      * @return the maxElementsInMemory
      */
     public int getMaxElementsInMemory() {
@@ -88,8 +94,8 @@ public class CacheConfiguration {
     }
 
     /**
-     * the maximum number of element the cache will keep on disk after the limite of element in memory is reached
-     * 
+     * the maximum number of element the cache will keep on disk after the limit of elements in memory is reached
+     *
      * @return the maxElementsOnDisk
      */
     public int getMaxElementsOnDisk() {
@@ -98,7 +104,7 @@ public class CacheConfiguration {
 
     /**
      * if true nothing is stored on disk
-     * 
+     *
      * @return the inMemoryOnly
      */
     public boolean isInMemoryOnly() {
@@ -107,7 +113,7 @@ public class CacheConfiguration {
 
     /**
      * @param timeToLiveSeconds
-     *            the timeToLiveSeconds to set
+     *        the timeToLiveSeconds to set
      */
     public void setTimeToLiveSeconds(final long timeToLiveSeconds) {
         this.timeToLiveSeconds = timeToLiveSeconds;
@@ -115,7 +121,7 @@ public class CacheConfiguration {
 
     /**
      * @param maxElementsInMemory
-     *            the maxElementsInMemory to set
+     *        the maxElementsInMemory to set
      */
     public void setMaxElementsInMemory(final int maxElementsInMemory) {
         this.maxElementsInMemory = maxElementsInMemory;
@@ -123,7 +129,7 @@ public class CacheConfiguration {
 
     /**
      * @param maxElementsOnDisk
-     *            the maxElementsOnDisk to set
+     *        the maxElementsOnDisk to set
      */
     public void setMaxElementsOnDisk(final int maxElementsOnDisk) {
         this.maxElementsOnDisk = maxElementsOnDisk;
@@ -131,7 +137,7 @@ public class CacheConfiguration {
 
     /**
      * @param inMemoryOnly
-     *            the inMemoryOnly to set
+     *        the inMemoryOnly to set
      */
     public void setInMemoryOnly(final boolean inMemoryOnly) {
         this.inMemoryOnly = inMemoryOnly;
@@ -143,6 +149,39 @@ public class CacheConfiguration {
 
     public String getName() {
         return name;
+    }
+
+    /**
+     * Are the elements stored in the cache read more often than written ?
+     *
+     * @return readIntensive
+     */
+    public boolean isReadIntensive() {
+        return readIntensive;
+    }
+
+    /**
+     * @param readIntensive
+     *        the readIntensive to set
+     */
+    public void setReadIntensive(final boolean readIntensive) {
+        this.readIntensive = readIntensive;
+    }
+
+    public boolean isCopyOnRead() {
+        return copyOnRead;
+    }
+
+    public void setCopyOnRead(final boolean copyOnRead) {
+        this.copyOnRead = copyOnRead;
+    }
+
+    public boolean isCopyOnWrite() {
+        return copyOnWrite;
+    }
+
+    public void setCopyOnWrite(final boolean copyOnWrite) {
+        this.copyOnWrite = copyOnWrite;
     }
 
 }

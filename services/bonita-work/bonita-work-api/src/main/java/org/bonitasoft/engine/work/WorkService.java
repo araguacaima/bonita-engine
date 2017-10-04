@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,54 +13,49 @@
  **/
 package org.bonitasoft.engine.work;
 
-import java.util.concurrent.TimeoutException;
+import org.bonitasoft.engine.commons.TenantLifecycleService;
 
 /**
  * This service allows to trigger the execution of work asynchronously
  * Any runnable registered on the service will be launched in other thread at the end of the transaction.
- * 
+ *
  * @author Charles Souillard
  * @author Baptiste Mesta
+ * @author Matthieu Chaffotte
  */
-public interface WorkService {
+public interface WorkService extends TenantLifecycleService {
 
     /**
-     * @param runnable
-     * @throws WorkRegisterException
+     * This operation MUST be called within an active transaction. If no active transaction is found, a SWorkRegisterException is thrown
+     *
+     * @param work
+     * @throws SWorkRegisterException
      * @since 6.0
      */
-    void registerWork(final AbstractBonitaWork runnable) throws WorkRegisterException;
+    void registerWork(final BonitaWork work) throws SWorkRegisterException;
 
     /**
-     * 
-     * Stop the execution of jobs for a tenant
-     * 
-     * @param tenantId
+     * @param work
+     * @throws SWorkRegisterException
+     * @since 6.0
      */
-    void stop(Long tenantId);
+    void executeWork(final BonitaWork work) throws SWorkRegisterException;
 
     /**
-     * 
-     * Allow to start works of this tenant
-     * 
-     * @param tenantId
+     * @return
+     *         true if the work service is stopped
+     * @since 6.3
      */
-    void start(Long tenantId);
+    boolean isStopped();
 
     /**
-     * 
-     * Stop the execution of work for this local work service
-     * 
-     * @throws TimeoutException
+     * @since 6.3.1
      */
-    void shutdown() throws TimeoutException;
+    void notifyNodeStopped(String nodeName);
 
     /**
-     * 
-     * start the execution of work for this local work service
-     * 
-     * @throws TimeoutException
+     * Removes the current <code>AbstractWorkSynchronization</code> from the current Thread.
      */
-    void startup();
+    void removeSynchronization();
 
 }

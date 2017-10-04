@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -23,18 +23,11 @@ import org.bonitasoft.engine.core.operation.model.impl.SLeftOperandImpl;
  */
 public class SLeftOperandBuilderImpl implements SLeftOperandBuilder {
 
-    private SLeftOperandImpl leftOperand;
+    private final SLeftOperandImpl leftOperand;
 
-    @Override
-    public SLeftOperandBuilder createNewInstance() {
-        leftOperand = new SLeftOperandImpl();
-        return this;
-    }
-
-    @Override
-    public SLeftOperandBuilder setExternal(final boolean external) {
-        leftOperand.setExternal(external);
-        return this;
+    public SLeftOperandBuilderImpl(final SLeftOperandImpl leftOperand) {
+        super();
+        this.leftOperand = leftOperand;
     }
 
     @Override
@@ -46,6 +39,12 @@ public class SLeftOperandBuilderImpl implements SLeftOperandBuilder {
     @Override
     public SLeftOperand done() {
         return leftOperand;
+    }
+
+    @Override
+    public SLeftOperandBuilder setType(final String type) {
+        leftOperand.setType(type);
+        return this;
     }
 
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -12,6 +12,8 @@
  * Floor, Boston, MA 02110-1301, USA.
  **/
 package org.bonitasoft.engine.bpm.flownode;
+
+import java.util.Date;
 
 import org.bonitasoft.engine.bpm.ArchivedElement;
 import org.bonitasoft.engine.bpm.BaseElement;
@@ -32,6 +34,12 @@ public interface ArchivedFlowNodeInstance extends NamedElement, BaseElement, Arc
 
     long getProcessInstanceId();
 
+    /**
+     * @return the parent activity instance id
+     * @since 6.2
+     */
+    long getParentActivityInstanceId();
+
     String getState();
 
     FlowNodeType getType();
@@ -40,18 +48,24 @@ public interface ArchivedFlowNodeInstance extends NamedElement, BaseElement, Arc
 
     String getDisplayDescription();
 
-    long getSourceObjectId();
-
     /**
-     * @return id of the user who originally executed the flownode
+     * @return The identifier of the user who executed the flow node
      * @since 6.0.1
      */
     long getExecutedBy();
 
     /**
-     * @return id of the user (delegate) who executed the flownode for the original executer
-     * @since 6.0.1
+     * @return The identifier of the substitute user (as Process manager or Administrator) who executed the flow node.
+     * @since 6.3.0
      */
+    long getExecutedBySubstitute();
+
+    /**
+     * @return The identifier of the substitute user (as Process manager or Administrator) who executed the flow node.
+     * @since 6.0.1
+     * @deprecated since 6.3.0, use {@link ArchivedFlowNodeInstance#getExecutedBySubstitute()}
+     */
+    @Deprecated
     long getExecutedByDelegate();
 
     String getDescription();
@@ -63,4 +77,13 @@ public interface ArchivedFlowNodeInstance extends NamedElement, BaseElement, Arc
      */
     boolean isTerminal();
 
+    /**
+     * @return the Date when this Archived flownode reached this state.
+     */
+    Date getReachedStateDate();
+
+    /**
+     * @return the Date when this Archived flownode was last updated.
+     */
+    Date getLastUpdateDate();
 }

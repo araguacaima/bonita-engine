@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -25,12 +25,11 @@ import org.bonitasoft.engine.expression.model.SExpression;
  */
 public class SOperationBuilderImpl implements SOperationBuilder {
 
-    private SOperationImpl operation;
-
-    @Override
-    public SOperationBuilder createNewInstance() {
-        operation = new SOperationImpl();
-        return this;
+    private final SOperationImpl operation;
+    
+    public SOperationBuilderImpl(final SOperationImpl operation) {
+        super();
+        this.operation = operation;
     }
 
     @Override

@@ -5,7 +5,7 @@
 	<parent>
 		<artifactId>bonita-login</artifactId>
 		<groupId>org.bonitasoft.engine.core.login</groupId>
-		<version>6.1.0-SNAPSHOT</version>
+		<version>7.5.3-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>bonita-login-api-impl</artifactId>
@@ -13,6 +13,16 @@
 	<name>Bonita Login: Service Implementation</name>
 
 	<dependencies>
+		<dependency>
+			<groupId>org.powermock</groupId>
+			<artifactId>powermock-module-junit4</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.powermock</groupId>
+			<artifactId>powermock-api-mockito</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>org.bonitasoft.engine.core.login</groupId>
 			<artifactId>bonita-login-api</artifactId>
@@ -43,16 +53,32 @@
 			<artifactId>bonita-session-accessor-write</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-		
+		<dependency>
+			<groupId>org.bonitasoft.engine.api</groupId>
+			<artifactId>bonita-common-api</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.log</groupId>
+			<artifactId>bonita-log-technical-api</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			 <scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.mockito</groupId>
 			<artifactId>mockito-all</artifactId>
-			 <scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
 		</dependency>
 	</dependencies>
 </project>

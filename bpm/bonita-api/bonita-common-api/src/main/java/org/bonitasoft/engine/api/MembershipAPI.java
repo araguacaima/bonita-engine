@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -18,21 +18,23 @@ import java.util.List;
 import org.bonitasoft.engine.exception.AlreadyExistsException;
 import org.bonitasoft.engine.exception.CreationException;
 import org.bonitasoft.engine.exception.DeletionException;
-import org.bonitasoft.engine.exception.RetrieveException;
 import org.bonitasoft.engine.exception.UpdateException;
 import org.bonitasoft.engine.identity.MembershipNotFoundException;
 import org.bonitasoft.engine.identity.UserMembership;
 import org.bonitasoft.engine.identity.UserMembershipCriterion;
-import org.bonitasoft.engine.session.InvalidSessionException;
 
 /**
+ * MembershipAPI forms part of the {@link OrganizationAPI} and gives access to all the Administration operations available on <code>UserMembership</code>s:
+ * creation, deletion, updating, retrieval, etc...
+ * 
  * @author Matthieu Chaffotte
+ * @author Emmanuel Duchastenier
+ * @see UserMembership
  */
 public interface MembershipAPI {
 
     /**
      * Associates the user with the group and the role.
-     * <b>
      * The association is called a user membership.
      * 
      * @param userId
@@ -46,7 +48,7 @@ public interface MembershipAPI {
      *             If the triplet userId/groupId/roleId is already taken by an existing user membership
      * @throws CreationException
      *             If an exception occurs during the user membership creation
-     * @throws InvalidSessionException
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
      *             If the session is invalid (expired, unknown, ...)
      * @since 6.0
      */
@@ -54,7 +56,6 @@ public interface MembershipAPI {
 
     /**
      * Associates the users with the group and the role.
-     * <b>
      * The association is called a user membership.
      * 
      * @param userIds
@@ -63,12 +64,11 @@ public interface MembershipAPI {
      *            the identifier of the group
      * @param roleId
      *            the identifier of the role
-     * @return the user membership
      * @throws AlreadyExistsException
      *             If the triplet userId/groupId/roleId is already taken by an existing user membership
      * @throws CreationException
      *             If an exception occurs during the user membership creation
-     * @throws InvalidSessionException
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
      *             If the session is invalid (expired, unknown, ...)
      * @since 6.0
      */
@@ -76,7 +76,6 @@ public interface MembershipAPI {
 
     /**
      * Changes the association of the user membership.
-     * <b>
      * It associates the user membership to the new role and group identifiers.
      * 
      * @param userMembershipId
@@ -90,7 +89,7 @@ public interface MembershipAPI {
      *             If the identifier of the user membership does not refer to an existing user membership
      * @throws UpdateException
      *             If an exception occurs during the user membership update
-     * @throws InvalidSessionException
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
      *             If the session is invalid (expired, unknown, ...)
      * @since 6.0
      */
@@ -103,7 +102,7 @@ public interface MembershipAPI {
      *            the identifier of the user membership
      * @throws DeletionException
      *             If an exception occurs during the user membership deletion
-     * @throws InvalidSessionException
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
      *             If the session is invalid (expired, unknown, ...)
      * @since 6.0
      */
@@ -120,7 +119,7 @@ public interface MembershipAPI {
      *            the identifier of the role
      * @throws DeletionException
      *             If an exception occurs during the user membership deletion
-     * @throws InvalidSessionException
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
      *             If the session is invalid (expired, unknown, ...)
      * @since 6.0
      */
@@ -137,7 +136,7 @@ public interface MembershipAPI {
      *            the identifier of the role
      * @throws DeletionException
      *             If an exception occurs during the user membership deletion
-     * @throws InvalidSessionException
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
      *             If the session is invalid (expired, unknown, ...)
      * @since 6.0
      */
@@ -146,13 +145,14 @@ public interface MembershipAPI {
     /**
      * Retrieves the user membership.
      * 
-     * @param userMembershipId
-     *            the identifier of the user membership
+     * @param membershipId
+     *            the identifier of the user membership to retrieve.
+     * @return the found <code>UserMembership</code> with the provided id
      * @throws MembershipNotFoundException
      *             If the identifier of the user membership does not refer to an existing user membership
-     * @throws RetrieveException
+     * @throws org.bonitasoft.engine.exception.RetrieveException
      *             If an exception occurs during the user membership retrieving
-     * @throws InvalidSessionException
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
      *             If the session is invalid (expired, unknown, ...)
      */
     UserMembership getUserMembership(long membershipId) throws MembershipNotFoundException;
@@ -163,16 +163,15 @@ public interface MembershipAPI {
      * @param userId
      *            the identifier of the user
      * @return the total number of memberships of the user
-     * @throws RetrieveException
+     * @throws org.bonitasoft.engine.exception.RetrieveException
      *             If an exception occurs during the count retrieving
-     * @throws InvalidSessionException
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
      *             If the session is invalid (expired, unknown, ...)
      */
     long getNumberOfUserMemberships(long userId);
 
     /**
      * Retrieves the paginated list of user memberships of the user.
-     * <b>
      * It retrieves from the startIndex to the startIndex + maxResults.
      * 
      * @param userId
@@ -184,9 +183,9 @@ public interface MembershipAPI {
      * @param criterion
      *            the sorting criterion
      * @return the paginated list of user memberships
-     * @throws RetrieveException
+     * @throws org.bonitasoft.engine.exception.RetrieveException
      *             If an exception occurs during the count retrieving
-     * @throws InvalidSessionException
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
      *             If the session is invalid (expired, unknown, ...)
      * @since 6.0
      */
@@ -194,7 +193,6 @@ public interface MembershipAPI {
 
     /**
      * Retrieves the paginated list of user memberships of the group.
-     * <b>
      * It retrieves from the startIndex to the startIndex + maxResults.
      * 
      * @param groupId
@@ -204,9 +202,9 @@ public interface MembershipAPI {
      * @param maxResults
      *            the max number of user memberships
      * @return the paginated list of user memberships
-     * @throws RetrieveException
+     * @throws org.bonitasoft.engine.exception.RetrieveException
      *             If an exception occurs during the count retrieving
-     * @throws InvalidSessionException
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
      *             If the session is invalid (expired, unknown, ...)
      * @since 6.0
      */
@@ -214,7 +212,6 @@ public interface MembershipAPI {
 
     /**
      * Retrieves the paginated list of user memberships of the role.
-     * <b>
      * It retrieves from the startIndex to the startIndex + maxResults.
      * 
      * @param roleId
@@ -224,9 +221,9 @@ public interface MembershipAPI {
      * @param maxResults
      *            the max number of user memberships
      * @return the paginated list of user memberships
-     * @throws RetrieveException
+     * @throws org.bonitasoft.engine.exception.RetrieveException
      *             If an exception occurs during the count retrieving
-     * @throws InvalidSessionException
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
      *             If the session is invalid (expired, unknown, ...)
      * @since 6.0
      */

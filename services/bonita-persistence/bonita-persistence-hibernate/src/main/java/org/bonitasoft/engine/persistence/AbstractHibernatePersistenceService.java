@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,37 +13,26 @@
  **/
 package org.bonitasoft.engine.persistence;
 
-import static org.bonitasoft.engine.persistence.search.FilterOperationType.L_PARENTHESIS;
-import static org.bonitasoft.engine.persistence.search.FilterOperationType.R_PARENTHESIS;
-import static org.bonitasoft.engine.persistence.search.FilterOperationType.isNormalOperator;
+import static org.bonitasoft.engine.services.Vendor.*;
 
-import java.io.IOException;
-import java.net.URL;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.Set;
 
 import javax.sql.DataSource;
 
 import org.bonitasoft.engine.commons.ClassReflector;
-import org.bonitasoft.engine.commons.EnumToObjectConvertible;
-import org.bonitasoft.engine.commons.IOUtil;
-import org.bonitasoft.engine.commons.StringUtil;
 import org.bonitasoft.engine.log.technical.TechnicalLogSeverity;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
-import org.bonitasoft.engine.persistence.search.FilterOperationType;
 import org.bonitasoft.engine.sequence.SequenceManager;
 import org.bonitasoft.engine.services.SPersistenceException;
 import org.bonitasoft.engine.services.UpdateDescriptor;
+import org.bonitasoft.engine.sessionaccessor.STenantIdNotSetException;
 import org.hibernate.AssertionFailure;
 import org.hibernate.HibernateException;
 import org.hibernate.Interceptor;
@@ -53,20 +42,25 @@ import org.hibernate.SessionFactory;
 import org.hibernate.StaleStateException;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.exception.LockAcquisitionException;
+import org.hibernate.mapping.PersistentClass;
 import org.hibernate.stat.Statistics;
 
 /**
  * Hibernate implementation of the persistence service
- * 
+ *
  * @author Charles Souillard
  * @author Nicolas Chabanoles
  * @author Yanyan Liu
  * @author Matthieu Chaffotte
  * @author Celine Souchet
+ * @author Laurent Vaills
+ * @author Guillaume Rosinosky
  */
 public abstract class AbstractHibernatePersistenceService extends AbstractDBPersistenceService {
 
     private final SessionFactory sessionFactory;
+
+    private final OrderByCheckingMode orderByCheckingMode;
 
     private final Map<String, String> classAliasMappings;
 
@@ -77,43 +71,102 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
     protected final Map<String, Class<? extends PersistentObject>> interfaceToClassMapping;
 
     protected final List<String> mappingExclusions;
-
+    protected final OrderByBuilder orderByBuilder;
     Statistics statistics;
-
     int stat_display_count;
+    private QueryBuilderFactory queryBuilderFactory = new QueryBuilderFactory();
 
-    TechnicalLoggerService logger;
+    // ----
 
-    @SuppressWarnings("unchecked")
+    /**
+     * @param sessionFactory
+     * @param classMapping
+     * @param classAliasMappings
+     * @param enableWordSearch
+     * @param wordSearchExclusionMappings
+     * @param logger
+     * @throws ClassNotFoundException
+     */
+    protected AbstractHibernatePersistenceService(final SessionFactory sessionFactory, final List<Class<? extends PersistentObject>> classMapping,
+            final Map<String, String> classAliasMappings, final boolean enableWordSearch,
+            final Set<String> wordSearchExclusionMappings, final TechnicalLoggerService logger)
+            throws ClassNotFoundException {
+        super("TEST", '#', enableWordSearch, wordSearchExclusionMappings, logger);
+        this.sessionFactory = sessionFactory;
+        this.classAliasMappings = classAliasMappings;
+        this.classMapping = classMapping;
+        orderByCheckingMode = getOrderByCheckingMode();
+        statistics = sessionFactory.getStatistics();
+        cacheQueries = Collections.emptyMap();
+        interfaceToClassMapping = Collections.emptyMap();
+        mappingExclusions = Collections.emptyList();
+        orderByBuilder = new DefaultOrderByBuilder();
+    }
+
+    // Setter for session
+
+    // ----
+
+    /**
+     * @param name
+     * @param hbmConfigurationProvider
+     * @param likeEscapeCharacter
+     * @param logger
+     * @param sequenceManager
+     * @param datasource
+     * @param enableWordSearch
+     * @param wordSearchExclusionMappings
+     * @throws SPersistenceException
+     * @throws ClassNotFoundException
+     */
     public AbstractHibernatePersistenceService(final String name, final HibernateConfigurationProvider hbmConfigurationProvider,
-            final DBConfigurationsProvider tenantConfigurationsProvider, final String statementDelimiter, final String likeEscapeCharacter,
-            final TechnicalLoggerService logger, final SequenceManager sequenceManager, final DataSource datasource) throws SPersistenceException {
-        super(name, tenantConfigurationsProvider, statementDelimiter, likeEscapeCharacter, sequenceManager, datasource);
+            final Properties extraHibernateProperties,
+            final char likeEscapeCharacter, final TechnicalLoggerService logger, final SequenceManager sequenceManager, final DataSource datasource,
+            final boolean enableWordSearch, final Set<String> wordSearchExclusionMappings)
+            throws SPersistenceException, ClassNotFoundException {
+        super(name, likeEscapeCharacter, sequenceManager, datasource, enableWordSearch,
+                wordSearchExclusionMappings, logger);
+        orderByCheckingMode = getOrderByCheckingMode();
         Configuration configuration;
         try {
             configuration = hbmConfigurationProvider.getConfiguration();
+            if (extraHibernateProperties != null) {
+                configuration.addProperties(extraHibernateProperties);
+            }
         } catch (final ConfigurationException e) {
             throw new SPersistenceException(e);
         }
+
         final String dialect = configuration.getProperty("hibernate.dialect");
+        OrderByBuilder orderByBuilder = new DefaultOrderByBuilder();
+
+        configuration.registerTypeOverride(new XMLType());
         if (dialect != null) {
-            if (dialect.contains("PostgreSQL")) {
+            if (dialect.toLowerCase().contains("postgresql")) {
                 configuration.setInterceptor(new PostgresInterceptor());
-            } else if (dialect.contains("SQLServer")) {
-                configuration.setInterceptor(new SQLServerInterceptor());
+                configuration.registerTypeOverride(new PostgresMaterializedBlobType());
+                configuration.registerTypeOverride(new PostgresMaterializedClobType());
+                queryBuilderFactory.setVendor(POSTGRES);
+            } else if (dialect.toLowerCase().contains("sqlserver")) {
+                SQLServerInterceptor sqlServerInterceptor = new SQLServerInterceptor();
+                configuration.setInterceptor(sqlServerInterceptor);
+                orderByBuilder = new SQLServerOrderByBuilder();
+                queryBuilderFactory.setVendor(SQLSERVER);
+            } else if (dialect.toLowerCase().contains("oracle")) {
+                queryBuilderFactory.setVendor(ORACLE);
+            } else if (dialect.toLowerCase().contains("mysql")) {
+                queryBuilderFactory.setVendor(MYSQL);
+
             }
         }
+        this.orderByBuilder = orderByBuilder;
         final String className = configuration.getProperty("hibernate.interceptor");
         if (className != null && !className.isEmpty()) {
             try {
                 final Interceptor interceptor = (Interceptor) Class.forName(className).newInstance();
                 configuration.setInterceptor(interceptor);
-            } catch (final ClassNotFoundException cnfe) {
+            } catch (final ClassNotFoundException | IllegalAccessException | InstantiationException cnfe) {
                 throw new SPersistenceException(cnfe);
-            } catch (InstantiationException e) {
-                throw new SPersistenceException(e);
-            } catch (IllegalAccessException e) {
-                throw new SPersistenceException(e);
             }
 
         }
@@ -121,8 +174,8 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
         sessionFactory = configuration.buildSessionFactory();
         statistics = sessionFactory.getStatistics();
 
-        final Iterator<org.hibernate.mapping.PersistentClass> classMappingsIterator = configuration.getClassMappings();
-        classMapping = new ArrayList<Class<? extends PersistentObject>>();
+        final Iterator<PersistentClass> classMappingsIterator = configuration.getClassMappings();
+        classMapping = new ArrayList<>();
         while (classMappingsIterator.hasNext()) {
             classMapping.add(classMappingsIterator.next().getMappedClass());
         }
@@ -134,7 +187,11 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
         mappingExclusions = hbmConfigurationProvider.getMappingExclusions();
 
         cacheQueries = hbmConfigurationProvider.getCacheQueries();
-        this.logger = logger;
+    }
+
+    private OrderByCheckingMode getOrderByCheckingMode() {
+        final String property = System.getProperty("sysprop.bonita.orderby.checking.mode");
+        return property != null && !property.isEmpty() ? OrderByCheckingMode.valueOf(property) : OrderByCheckingMode.NONE;
     }
 
     /**
@@ -166,9 +223,8 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
     protected Session getSession(final boolean useTenant) throws SPersistenceException {
         logStats();
         try {
-            final org.hibernate.classic.Session currentSession = sessionFactory.getCurrentSession();
-            return currentSession;
-        } catch (HibernateException e) {
+            return sessionFactory.getCurrentSession();
+        } catch (final HibernateException e) {
             throw new SPersistenceException(e);
         }
     }
@@ -178,10 +234,25 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
         session.flush();
     }
 
+    protected <T> void logWarningMessage(final SelectListDescriptor<T> selectDescriptor, final Query query) {
+        final StringBuilder message = new StringBuilder();
+        message.append("selectList call without \"order by\" clause ");
+        message.append("\n");
+        message.append(query.toString());
+        message.append("\n");
+        message.append(String.format("query name:%s\nentity:%s\nstart index:%d\npage size:%d", selectDescriptor.getQueryName(), selectDescriptor
+                .getEntityType().getCanonicalName(), selectDescriptor.getStartIndex(), selectDescriptor.getPageSize()));
+        logger.log(this.getClass(), TechnicalLogSeverity.WARNING, message.toString());
+
+        // throw new IllegalArgumentException("Query " + selectDescriptor.getQueryName());
+    }
+
     @Override
     public void delete(final PersistentObject entity) throws SPersistenceException {
-        logger.log(this.getClass(), TechnicalLogSeverity.DEBUG,
-                "Deleting instance of class " + entity.getClass().getSimpleName() + " with id=" + entity.getId());
+        if (logger.isLoggable(getClass(), TechnicalLogSeverity.DEBUG)) {
+            logger.log(this.getClass(), TechnicalLogSeverity.DEBUG,
+                    "Deleting instance of class " + entity.getClass().getSimpleName() + " with id=" + entity.getId());
+        }
         final Class<? extends PersistentObject> mappedClass = getMappedClass(entity.getClass());
         final Session session = getSession(true);
         try {
@@ -192,12 +263,26 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
                 final Object pe = session.get(mappedClass, new PersistentObjectId(entity.getId(), 0));
                 session.delete(pe);
             }
-        } catch (final AssertionFailure af) {
-            throw new SRetryableException(af);
-        } catch (final LockAcquisitionException lae) {
-            throw new SRetryableException(lae);
-        } catch (final StaleStateException sse) {
-            throw new SRetryableException(sse);
+        } catch (final AssertionFailure | LockAcquisitionException | StaleStateException e) {
+            throw new SRetryableException(e);
+        } catch (final HibernateException he) {
+            throw new SPersistenceException(he);
+        }
+    }
+
+    @Override
+    public int update(final String updateQueryName) throws SPersistenceException {
+        return update(updateQueryName, null);
+    }
+
+    @Override
+    public int update(final String updateQueryName, final Map<String, Object> inputParameters) throws SPersistenceException {
+        final Query query = getSession(true).getNamedQuery(updateQueryName);
+        try {
+            if (inputParameters != null) {
+                setParameters(query, inputParameters);
+            }
+            return query.executeUpdate();
         } catch (final HibernateException he) {
             throw new SPersistenceException(he);
         }
@@ -209,12 +294,8 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
         final Query query = getSession(true).getNamedQuery("deleteAll" + mappedClass.getSimpleName());
         try {
             query.executeUpdate();
-        } catch (final AssertionFailure af) {
-            throw new SRetryableException(af);
-        } catch (final LockAcquisitionException lae) {
-            throw new SRetryableException(lae);
-        } catch (final StaleStateException sse) {
-            throw new SRetryableException(sse);
+        } catch (final AssertionFailure | LockAcquisitionException | StaleStateException e) {
+            throw new SRetryableException(e);
         } catch (final HibernateException he) {
             throw new SPersistenceException(he);
         }
@@ -228,12 +309,8 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
         setId(entity);
         try {
             session.save(entity);
-        } catch (final AssertionFailure af) {
-            throw new SRetryableException(af);
-        } catch (final LockAcquisitionException lae) {
-            throw new SRetryableException(lae);
-        } catch (final StaleStateException sse) {
-            throw new SRetryableException(sse);
+        } catch (final AssertionFailure | LockAcquisitionException | StaleStateException e) {
+            throw new SRetryableException(e);
         } catch (final HibernateException he) {
             throw new SPersistenceException(he);
         }
@@ -253,27 +330,6 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
     }
 
     @Override
-    public void purge(final String classToPurge) throws SPersistenceException {
-        final int index = classToPurge.lastIndexOf('.');
-        String suffix = classToPurge;
-        if (index != -1) {
-            suffix = classToPurge.substring(index + 1, classToPurge.length());
-        }
-        final Query query = getSession(true).getNamedQuery("purge" + suffix);
-        try {
-            query.executeUpdate();
-        } catch (final AssertionFailure af) {
-            throw new SRetryableException(af);
-        } catch (final LockAcquisitionException lae) {
-            throw new SRetryableException(lae);
-        } catch (final StaleStateException sse) {
-            throw new SRetryableException(sse);
-        } catch (final HibernateException he) {
-            throw new SPersistenceException(he);
-        }
-    }
-
-    @Override
     public void update(final UpdateDescriptor updateDescriptor) throws SPersistenceException {
         // FIXME: deal with disconnected objects:
         final Class<? extends PersistentObject> entityClass = updateDescriptor.getEntity().getClass();
@@ -288,12 +344,11 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
         }
     }
 
-    private void setField(final PersistentObject entity, final String fieldName, final Object parameterValue) throws SPersistenceException {
+    void setField(final PersistentObject entity, final String fieldName, final Object parameterValue) throws SPersistenceException {
         Long id = null;
         try {
             id = entity.getId();
-            final String setterName = "set" + StringUtil.firstCharToUpperCase(fieldName);
-            ClassReflector.invokeMethodByName(entity, setterName, parameterValue);
+            ClassReflector.setField(entity, fieldName, parameterValue);
         } catch (final Exception e) {
             throw new SPersistenceException("Problem while updating entity: " + entity + " with id: " + id, e);
         }
@@ -335,6 +390,11 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
         }
     }
 
+    @Override
+    protected void setId(PersistentObject entity) throws SPersistenceException {
+        super.setId(entity);
+    }
+
     @SuppressWarnings("unchecked")
     <T extends PersistentObject> T selectById(final Session session, final SelectByIdDescriptor<T> selectDescriptor) throws SBonitaReadException {
         Class<? extends PersistentObject> mappedClass = null;
@@ -345,12 +405,8 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
         }
         try {
             return (T) session.get(mappedClass, selectDescriptor.getId());
-        } catch (final AssertionFailure af) {
-            throw new SRetryableException(af);
-        } catch (final LockAcquisitionException lae) {
-            throw new SRetryableException(lae);
-        } catch (final StaleStateException sse) {
-            throw new SRetryableException(sse);
+        } catch (final AssertionFailure | LockAcquisitionException | StaleStateException e) {
+            throw new SRetryableException(e);
         } catch (final HibernateException he) {
             throw new SBonitaReadException(he);
         }
@@ -367,202 +423,16 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
         final Query query = session.getNamedQuery(selectDescriptor.getQueryName());
         setQueryCache(query, selectDescriptor.getQueryName());
         if (parameters != null) {
-            setPramaters(query, parameters);
+            setParameters(query, parameters);
         }
         query.setMaxResults(1);
         try {
             return (T) query.uniqueResult();
-        } catch (final AssertionFailure af) {
-            throw new SRetryableException(af);
-        } catch (final LockAcquisitionException lae) {
-            throw new SRetryableException(lae);
-        } catch (final StaleStateException sse) {
-            throw new SRetryableException(sse);
+        } catch (final AssertionFailure | LockAcquisitionException | StaleStateException e) {
+            throw new SRetryableException(e);
         } catch (final HibernateException he) {
             throw new SBonitaReadException(he);
         }
-    }
-
-    protected <T> String getQueryWithFilters(final String query, final List<FilterOption> filters, SearchFields multipleFilter) {
-        final StringBuilder builder = new StringBuilder(query);
-        final Set<String> specificFilters = new HashSet<String>(filters.size());
-        FilterOption previousFilter = null;
-        if (!filters.isEmpty()) {
-            if (!query.contains("WHERE")) {
-                builder.append(" WHERE (");
-            } else {
-                builder.append(" AND (");
-            }
-            for (final FilterOption filterOption : filters) {
-                if (previousFilter != null) {
-                    final FilterOperationType prevOp = previousFilter.getFilterOperationType();
-                    final FilterOperationType currOp = filterOption.getFilterOperationType();
-                    // Auto add AND if previous operator was normal op or ')' and that current op is normal op or '(' :
-                    if ((isNormalOperator(prevOp) || prevOp == R_PARENTHESIS) && (isNormalOperator(currOp) || currOp == L_PARENTHESIS)) {
-                        builder.append(" AND ");
-                    }
-                }
-                final StringBuilder aliasBuilder = appendFilterClause(builder, filterOption);
-                // FIXME: is it really filterOption.getFieldName() or is it its formatted value: classAliasMappings.get(.......) ?:
-                // specificFilters.add(filterOption.getFieldName());
-                if (aliasBuilder != null) {
-                    specificFilters.add(aliasBuilder.toString());
-                }
-                previousFilter = filterOption;
-            }
-            builder.append(")");
-        }
-        if (multipleFilter != null && multipleFilter.getTerms() != null && !multipleFilter.getTerms().isEmpty()) {
-            final Map<Class<? extends PersistentObject>, Set<String>> allTextFields = multipleFilter.getFields();
-            final Set<String> fields = new HashSet<String>();
-            for (final Entry<Class<? extends PersistentObject>, Set<String>> entry : allTextFields.entrySet()) {
-                final String alias = getClassAliasMappings().get(entry.getKey().getName());
-                for (final String field : entry.getValue()) {
-                    final StringBuilder aliasBuilder = new StringBuilder(alias);
-                    aliasBuilder.append('.').append(field);
-                    fields.add(aliasBuilder.toString());
-                }
-            }
-            fields.removeAll(specificFilters);
-            final Iterator<String> fieldIterator = fields.iterator();
-            final List<String> terms = multipleFilter.getTerms();
-            if (!fields.isEmpty()) {
-                if (!builder.toString().contains("WHERE")) {
-                    builder.append(" WHERE (");
-                } else {
-                    builder.append(" AND (");
-                }
-                while (fieldIterator.hasNext()) {
-                    final Iterator<String> termIterator = terms.iterator();
-                    final String currentField = fieldIterator.next();
-                    while (termIterator.hasNext()) {
-                        final String currentTerm = termIterator.next();
-                        builder.append(currentField).append(getLikeEscapeClause(currentTerm));
-                        if (termIterator.hasNext() || fieldIterator.hasNext()) {
-                            builder.append(" OR ");
-                        }
-                    }
-                }
-                builder.append(")");
-            }
-        }
-        return builder.toString();
-    }
-
-    private <T> String getQueryWithOrderByClause(final String query, final SelectListDescriptor<T> selectDescriptor) throws SBonitaReadException {
-        final StringBuilder builder = new StringBuilder(query);
-        appendOrderByClause(builder, selectDescriptor);
-        return builder.toString();
-    }
-
-    private StringBuilder appendFilterClause(final StringBuilder clause, final FilterOption filterOption) {
-        final FilterOperationType type = filterOption.getFilterOperationType();
-        StringBuilder completeField = null;
-        if (filterOption.getPersistentClass() != null) {
-            completeField = new StringBuilder(getClassAliasMappings().get(filterOption.getPersistentClass().getName())).append('.').append(
-                    filterOption.getFieldName());
-        }
-        Object fieldValue = filterOption.getValue();
-        if (fieldValue instanceof String) {
-            fieldValue = "'" + fieldValue + "'";
-        } else if (fieldValue instanceof EnumToObjectConvertible) {
-            fieldValue = ((EnumToObjectConvertible) fieldValue).fromEnum();
-        }
-        switch (type) {
-            case EQUALS:
-                if (fieldValue == null) {
-                    clause.append(completeField).append(" IS NULL");
-                } else {
-                    clause.append(completeField).append(" = ").append(fieldValue);
-                }
-                break;
-            case GREATER:
-                clause.append(completeField).append(" > ").append(fieldValue);
-                break;
-            case GREATER_OR_EQUALS:
-                clause.append(completeField).append(" >= ").append(fieldValue);
-                break;
-            case LESS:
-                clause.append(completeField).append(" < ").append(fieldValue);
-                break;
-            case LESS_OR_EQUALS:
-                clause.append(completeField).append(" <= ").append(fieldValue);
-                break;
-            case DIFFERENT:
-                clause.append(completeField).append(" != ").append(fieldValue);
-                break;
-            case IN:
-                // TODO:write IN
-                break;
-            case BETWEEN:
-                final Object from = filterOption.getFrom() instanceof String ? "'" + filterOption.getFrom() + "'" : filterOption.getFrom();
-                final Object to = filterOption.getTo() instanceof String ? "'" + filterOption.getTo() + "'" : filterOption.getTo();
-                clause.append("(").append(from).append(" <= ").append(completeField);
-                clause.append(" AND ").append(completeField).append(" <= ").append(to).append(")");
-                break;
-            case LIKE:
-                // TODO:write LIKE
-                clause.append(completeField).append(" LIKE '%").append(filterOption.getValue()).append("%'");
-                break;
-            case L_PARENTHESIS:
-                clause.append(" (");
-                break;
-            case R_PARENTHESIS:
-                clause.append(" )");
-                break;
-            case AND:
-                clause.append(" AND ");
-                break;
-            case OR:
-                clause.append(" OR ");
-                break;
-            default:
-                // TODO:do we want default behaviour?
-                break;
-        }
-        return completeField;
-    }
-
-    private <T> void appendOrderByClause(final StringBuilder builder, final SelectListDescriptor<T> selectDescriptor) throws SBonitaReadException {
-        builder.append(" ORDER BY ");
-        boolean startWithComma = false;
-        boolean sortedById = false;
-        for (final OrderByOption orderByOption : selectDescriptor.getQueryOptions().getOrderByOptions()) {
-            if (startWithComma) {
-                builder.append(',');
-            }
-            final Class<? extends PersistentObject> clazz = orderByOption.getClazz();
-            if (clazz != null) {
-                appendClassAlias(builder, clazz);
-            }
-            final String fieldName = orderByOption.getFieldName();
-            if ("id".equalsIgnoreCase(fieldName) || "sourceObjectId".equalsIgnoreCase(fieldName)) {
-                sortedById = true;
-            }
-            builder.append(fieldName);
-            builder.append(' ');
-            builder.append(orderByOption.getOrderByType().toString());
-            startWithComma = true;
-        }
-        if (!sortedById) {
-            if (startWithComma) {
-                builder.append(',');
-            }
-            appendClassAlias(builder, selectDescriptor.getEntityType());
-            builder.append("id");
-            builder.append(' ');
-            builder.append("ASC");
-        }
-    }
-
-    private void appendClassAlias(final StringBuilder builder, final Class<? extends PersistentObject> clazz) throws SBonitaReadException {
-        final String className = clazz.getName();
-        final String classAlias = getClassAliasMappings().get(className);
-        if (classAlias == null || classAlias.trim().isEmpty()) {
-            throw new SBonitaReadException("No class alias found for class " + className);
-        }
-        builder.append(classAlias);
-        builder.append('.');
     }
 
     protected void setQueryCache(final Query query, final String name) {
@@ -578,22 +448,34 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
             checkClassMapping(entityClass);
 
             final Session session = getSession(true);
-            Query query = session.getNamedQuery(selectDescriptor.getQueryName());
 
+            Query query = session.getNamedQuery(selectDescriptor.getQueryName());
+            QueryBuilder queryBuilder = queryBuilderFactory.createQueryBuilderFor(query, selectDescriptor.getEntityType(), orderByBuilder,
+                    classAliasMappings, interfaceToClassMapping,
+                    likeEscapeCharacter);
             if (selectDescriptor.hasAFilter()) {
                 final QueryOptions queryOptions = selectDescriptor.getQueryOptions();
-                query = session.createQuery(getQueryWithFilters(query.getQueryString(), queryOptions.getFilters(), queryOptions.getMultipleFilter()));
+                final boolean enableWordSearch = isWordSearchEnabled(selectDescriptor.getEntityType());
+                queryBuilder.appendFilters(queryOptions.getFilters(), queryOptions.getMultipleFilter(), enableWordSearch);
             }
             if (selectDescriptor.hasOrderByParameters()) {
-                query = session.createQuery(getQueryWithOrderByClause(query.getQueryString(), selectDescriptor));
+                queryBuilder.appendOrderByClause(selectDescriptor.getQueryOptions().getOrderByOptions(), selectDescriptor.getEntityType());
+            }
+
+            if (queryBuilder.hasChanged()) {
+                query = queryBuilder.buildQuery(session);
             }
             setQueryCache(query, selectDescriptor.getQueryName());
-
-            if (selectDescriptor != null) {
-                setPramaters(query, selectDescriptor.getInputParameters());
+            try {
+                queryBuilder.setTenantId(query, getTenantId());
+            } catch (STenantIdNotSetException e) {
+                throw new SBonitaReadException(e);
             }
+            setParameters(query, selectDescriptor.getInputParameters());
             query.setFirstResult(selectDescriptor.getStartIndex());
             query.setMaxResults(selectDescriptor.getPageSize());
+
+            checkOrderByClause(query);
 
             @SuppressWarnings("unchecked")
             final List<T> list = query.list();
@@ -601,20 +483,35 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
                 return list;
             }
             return Collections.emptyList();
-        } catch (final AssertionFailure af) {
-            throw new SRetryableException(af);
-        } catch (final LockAcquisitionException lae) {
-            throw new SRetryableException(lae);
-        } catch (final StaleStateException sse) {
-            throw new SRetryableException(sse);
-        } catch (final HibernateException e) {
-            throw new SBonitaReadException(e, selectDescriptor);
-        } catch (final SPersistenceException e) {
+        } catch (final AssertionFailure | LockAcquisitionException | StaleStateException e) {
+            throw new SRetryableException(e);
+        } catch (final HibernateException | SPersistenceException e) {
             throw new SBonitaReadException(e, selectDescriptor);
         }
     }
 
-    protected void setPramaters(Query query, final Map<String, Object> inputParameters) {
+    private void checkOrderByClause(final Query query) {
+        if (!query.getQueryString().toLowerCase().contains("order by")) {
+            switch (orderByCheckingMode) {
+                case NONE:
+                    break;
+                case WARNING:
+                    logger.log(
+                            AbstractHibernatePersistenceService.class,
+                            TechnicalLogSeverity.WARNING,
+                            "Query '"
+                                    + query.getQueryString()
+                                    + "' does not contain 'ORDER BY' clause. It's better to modify your query to order the result, especially if you use the pagination.");
+                    break;
+                case STRICT:
+                default:
+                    throw new IllegalArgumentException("Query " + query.getQueryString()
+                            + " does not contain 'ORDER BY' clause hence is not allowed. Please specify ordering before re-sending the query");
+            }
+        }
+    }
+
+    protected void setParameters(final Query query, final Map<String, Object> inputParameters) {
         for (final Map.Entry<String, Object> entry : inputParameters.entrySet()) {
             final Object value = entry.getValue();
             if (value instanceof Collection<?>) {
@@ -625,141 +522,40 @@ public abstract class AbstractHibernatePersistenceService extends AbstractDBPers
         }
     }
 
-    @Override
-    protected void doExecuteSQL(final String sqlResource, final String statementDelimiter, final Map<String, String> replacements,
-            final boolean useDataSourceConnection) throws SPersistenceException, IOException {
-        final URL url = this.getClass().getResource(sqlResource);
-        if (url == null) {
-            throw new IOException("SQL file not found, path=" + sqlResource);
-        }
-        final String fileContent = new String(IOUtil.getAllContentFrom(url));
-
-        logger.log(getClass(), TechnicalLogSeverity.TRACE, "Processing SQL resource : " + sqlResource);
-        final String regex = statementDelimiter.concat("\r?\n");
-        final List<String> commands = new ArrayList<String>();
-        final String[] tmp = fileContent.split(regex);
-        for (final String command : tmp) {
-            final String filledCommand = fillTemplate(replacements, command);
-            if (!filledCommand.isEmpty()) {
-                commands.add(filledCommand);
-            }
-        }
-        if (commands.isEmpty()) {
-            return;
-        }
-        final int lastIndex = commands.size() - 1;
-        String lastCommand = commands.get(lastIndex);
-        final int index = lastCommand.lastIndexOf(statementDelimiter);
-        if (index > 0) {
-            lastCommand = lastCommand.substring(0, index);
-            commands.remove(lastIndex);
-            commands.add(lastCommand);
-        }
-
-        if (useDataSourceConnection) {
-            doExecuteSQLThroughJDBC(commands);
-        } else {
-            doExecuteSQLThroughHibernate(sqlResource, commands);
-        }
-    }
-
-    private void doExecuteSQLThroughHibernate(final String sqlResource, final List<String> commands) throws SPersistenceException {
-        final Session session = getSession(false);
-        for (final String command : commands) {
-            try {
-                session.createSQLQuery(command).executeUpdate();// FIXME autocommit
-                // session.flush();
-                // session.clear(); // lvaills : Why clearing the session ? the tx is not committed.
-            } catch (final AssertionFailure af) {
-                throw new SRetryableException("Unable to execute command of file " + sqlResource + " content:\n " + command, af);
-            } catch (final LockAcquisitionException lae) {
-                throw new SRetryableException("Unable to execute command of file " + sqlResource + " content:\n " + command, lae);
-            } catch (final StaleStateException sse) {
-                throw new SRetryableException("Unable to execute command of file " + sqlResource + " content:\n " + command, sse);
-            } catch (final HibernateException e) {
-                throw new SPersistenceException("Unable to execute command of file " + sqlResource + " content:\n " + command, e);
-            }
-        }
-    }
-
-    private void doExecuteSQLThroughJDBC(final List<String> commands) throws SPersistenceException {
-        try {
-            final Connection connection = datasource.getConnection();
-            connection.setAutoCommit(false);
-            try {
-                for (final String command : commands) {
-                    final Statement stmt = connection.createStatement();
-                    try {
-                        stmt.execute(command);
-                    } finally {
-                        stmt.close();
-                    }
-                }
-                connection.commit();
-            } catch (final SQLException sqe) {
-                connection.rollback();
-                throw sqe;
-            } finally {
-                connection.close();
-            }
-        } catch (final SQLException e) {
-            throw new SPersistenceException(e);
-        }
-    }
-
-    private String fillTemplate(final Map<String, String> replacements, final String command) {
-        String trimmedCommand = command.trim();
-        if (trimmedCommand.isEmpty() || replacements == null) {
-            return trimmedCommand;
-        }
-
-        for (final Map.Entry<String, String> tableMapping : replacements.entrySet()) {
-            final String stringToReplace = tableMapping.getKey();
-            final String value = tableMapping.getValue();
-            trimmedCommand = trimmedCommand.replaceAll(stringToReplace, value);
-        }
-        return trimmedCommand;
-    }
-
     public Map<String, String> getClassAliasMappings() {
         return classAliasMappings;
     }
 
-
-
-        @Override
+    @Override
     public void delete(final long id, final Class<? extends PersistentObject> entityClass) throws SPersistenceException {
         final Class<? extends PersistentObject> mappedClass = getMappedClass(entityClass);
         final Query query = getSession(true).getNamedQuery("delete" + mappedClass.getSimpleName());
         query.setLong("id", id);
         try {
             query.executeUpdate();
-        } catch (final AssertionFailure af) {
-            throw new SRetryableException(af);
-        } catch (final LockAcquisitionException lae) {
-            throw new SRetryableException(lae);
-        } catch (final StaleStateException sse) {
-            throw new SRetryableException(sse);
+        } catch (final AssertionFailure | LockAcquisitionException | StaleStateException e) {
+            throw new SRetryableException(e);
         } catch (final HibernateException he) {
             throw new SPersistenceException(he);
         }
     }
 
-        @Override
+    @Override
     public void delete(final List<Long> ids, final Class<? extends PersistentObject> entityClass) throws SPersistenceException {
         final Class<? extends PersistentObject> mappedClass = getMappedClass(entityClass);
         final Query query = getSession(true).getNamedQuery("deleteByIds" + mappedClass.getSimpleName());
         query.setParameterList("ids", ids);
         try {
             query.executeUpdate();
-        } catch (final AssertionFailure af) {
-            throw new SRetryableException(af);
-        } catch (final LockAcquisitionException lae) {
-            throw new SRetryableException(lae);
-        } catch (final StaleStateException sse) {
-            throw new SRetryableException(sse);
-        } catch (final HibernateException he) {
-            throw new SPersistenceException(he);
+        } catch (final AssertionFailure | LockAcquisitionException | StaleStateException e) {
+            throw new SRetryableException(e);
+        } catch (final HibernateException sse) {
+            throw new SPersistenceException(sse);
         }
+    }
+
+    public void destroy() {
+        logger.log(getClass(), TechnicalLogSeverity.INFO, "Closing Hibernate session factory of " + getClass().getName());
+        sessionFactory.close();
     }
 }

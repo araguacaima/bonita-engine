@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -25,13 +25,11 @@ public interface State<T> {
     StateCode execute(SProcessDefinition processDefinition, T instance) throws SActivityStateExecutionException;
 
     /**
-     * @param processDefinition
-     * @param parentInstance
-     * @param childInstance
-     *            TODO
+     *
+     * Called when a children of the flow node parentInstance finish
+     *
      * @return
      *         true if the state is finished (the execution will continue automatically)
-     * @throws SActivityStateExecutionException
      */
     boolean hit(SProcessDefinition processDefinition, T parentInstance, T childInstance) throws SActivityStateExecutionException;
 

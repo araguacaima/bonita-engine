@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -45,7 +45,7 @@ public class GetNumberOfProcessInstance implements TransactionContentWithResult<
     @Override
     public void execute() throws SBonitaException {
         final SearchProcessInstances searchProcessInstances = new SearchProcessInstances(processInstanceService,
-                searchEntitiesDescriptor.getProcessInstanceDescriptor(), null, processDefinitionService);
+                searchEntitiesDescriptor.getSearchProcessInstanceDescriptor(), null, processDefinitionService);
         final QueryOptions queryOptions = new QueryOptions(0, QueryOptions.UNLIMITED_NUMBER_OF_RESULTS);
         number = searchProcessInstances.executeCount(queryOptions);
     }

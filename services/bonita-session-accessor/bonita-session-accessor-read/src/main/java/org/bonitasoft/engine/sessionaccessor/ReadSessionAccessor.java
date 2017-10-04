@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -32,10 +32,10 @@ public interface ReadSessionAccessor {
      * Get the tenant id
      * 
      * @return the identifier of the tenant
-     * @throws TenantIdNotSetException
+     * @throws STenantIdNotSetException
      *             if no tenant exists for the given id, throw exception
      * @since 6.0
      */
-    long getTenantId() throws TenantIdNotSetException;
+    long getTenantId() throws STenantIdNotSetException;
 
 }

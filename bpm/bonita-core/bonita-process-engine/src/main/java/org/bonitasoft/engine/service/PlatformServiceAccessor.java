@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,22 +19,21 @@ import org.bonitasoft.engine.classloader.ClassLoaderService;
 import org.bonitasoft.engine.commons.transaction.TransactionExecutor;
 import org.bonitasoft.engine.core.platform.login.PlatformLoginService;
 import org.bonitasoft.engine.dependency.DependencyService;
-import org.bonitasoft.engine.dependency.model.builder.DependencyBuilderAccessor;
-import org.bonitasoft.engine.identity.IdentityService;
-import org.bonitasoft.engine.identity.model.builder.IdentityModelBuilder;
+import org.bonitasoft.engine.exception.NotFoundException;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
 import org.bonitasoft.engine.platform.PlatformService;
+import org.bonitasoft.engine.platform.authentication.PlatformAuthenticationService;
 import org.bonitasoft.engine.platform.command.PlatformCommandService;
-import org.bonitasoft.engine.platform.command.model.SPlatformCommandBuilderAccessor;
-import org.bonitasoft.engine.platform.model.builder.SPlatformBuilder;
-import org.bonitasoft.engine.platform.model.builder.STenantBuilder;
 import org.bonitasoft.engine.platform.session.PlatformSessionService;
 import org.bonitasoft.engine.scheduler.SchedulerService;
-import org.bonitasoft.engine.session.SessionService;
 import org.bonitasoft.engine.transaction.TransactionService;
-import org.bonitasoft.engine.work.WorkService;
 
 /**
+ * Accessor for tenant level engine services.
+ * <p>
+ * All server side services of the platform can be accessed using this class. Using server side services instead of an API might cause unexpected behaviors and
+ * damage your data.
+ * 
  * @author Matthieu Chaffotte
  * @author Elias Ricken de Medeiros
  * @author Zhao Na
@@ -42,8 +41,6 @@ import org.bonitasoft.engine.work.WorkService;
 public interface PlatformServiceAccessor extends ServiceAccessor {
 
     PlatformService getPlatformService();
-
-    SPlatformBuilder getSPlatformBuilder();
 
     PlatformLoginService getPlatformLoginService();
 
@@ -53,34 +50,28 @@ public interface PlatformServiceAccessor extends ServiceAccessor {
 
     TransactionService getTransactionService();
 
-    STenantBuilder getSTenantBuilder();
-
-    IdentityService getIdentityService();
-
-    IdentityModelBuilder getIdentityModelBuilder();
-
     TenantServiceAccessor getTenantServiceAccessor(long tenantId);
 
     TransactionExecutor getTransactionExecutor();
 
     PlatformSessionService getPlatformSessionService();
 
-    SessionService getSessionService();
-
     ClassLoaderService getClassLoaderService();
 
     DependencyService getDependencyService();
 
-    DependencyBuilderAccessor getDependencyBuilderAccessor();
-
     PlatformCommandService getPlatformCommandService();
 
-    SPlatformCommandBuilderAccessor getSPlatformCommandBuilderAccessor();
-
-    NodeConfiguration getPlaformConfiguration();
-
-    WorkService getWorkService();
+    NodeConfiguration getPlatformConfiguration();
 
     PlatformCacheService getPlatformCacheService();
 
+    void destroy();
+    BroadcastService getBroadcastService();
+
+    PlatformAuthenticationService getPlatformAuthenticationService();
+
+    <T> T lookup(String serviceName) throws NotFoundException;
+
+    ServicesResolver getServicesResolver();
 }

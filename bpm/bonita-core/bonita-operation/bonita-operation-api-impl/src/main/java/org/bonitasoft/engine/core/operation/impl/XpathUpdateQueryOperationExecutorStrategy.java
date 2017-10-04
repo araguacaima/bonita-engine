@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -15,11 +15,9 @@ package org.bonitasoft.engine.core.operation.impl;
 
 import java.io.IOException;
 import java.io.StringReader;
-
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactoryConfigurationError;
 import javax.xml.xpath.XPath;
@@ -28,10 +26,9 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
 import org.bonitasoft.engine.core.expression.control.model.SExpressionContext;
+import org.bonitasoft.engine.core.operation.OperationExecutorStrategy;
 import org.bonitasoft.engine.core.operation.exception.SOperationExecutionException;
 import org.bonitasoft.engine.core.operation.model.SOperation;
-import org.bonitasoft.engine.data.instance.api.DataInstanceService;
-import org.bonitasoft.engine.data.instance.model.builder.SDataInstanceBuilders;
 import org.bonitasoft.engine.xml.DocumentManager;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
@@ -46,12 +43,11 @@ import org.xml.sax.SAXException;
  * @author Matthieu Chaffotte
  * @author Baptiste Mesta
  */
-public class XpathUpdateQueryOperationExecutorStrategy extends UpdateOperationExecutorStrategy {
+public class XpathUpdateQueryOperationExecutorStrategy implements OperationExecutorStrategy {
 
     public static final String TYPE_XPATH_UPDATE_QUERY = "XPATH_UPDATE_QUERY";
 
-    public XpathUpdateQueryOperationExecutorStrategy(final DataInstanceService dataInstanceService, final SDataInstanceBuilders sDataInstanceBuilders) {
-        super(dataInstanceService, sDataInstanceBuilders);
+    public XpathUpdateQueryOperationExecutorStrategy() {
     }
 
     @Override
@@ -62,29 +58,25 @@ public class XpathUpdateQueryOperationExecutorStrategy extends UpdateOperationEx
     private String getStringValue(final Object variableValue) {
         if (variableValue instanceof String) {
             return (String) variableValue;
-        } else {
-            return String.valueOf(variableValue);
         }
+        return String.valueOf(variableValue);
     }
 
     private boolean isSetAttribute(final String xpathExpression, final Object variableValue) {
         if (variableValue instanceof Attr) {
             return true;
-        } else {
-            final String[] segments = xpathExpression.split("/");
-            return segments[segments.length - 1].startsWith("@");
         }
+        final String[] segments = xpathExpression.split("/");
+        return segments[segments.length - 1].startsWith("@");
     }
 
     @Override
-    public Object getValue(final SOperation operation, final Object value, final long containerId, final String containerType,
-            final SExpressionContext expressionContext) throws SOperationExecutionException {
+    public Object computeNewValueForLeftOperand(final SOperation operation, final Object value, final SExpressionContext expressionContext,
+            final boolean shouldPersistValue) throws SOperationExecutionException {
         try {
             final String dataInstanceName = operation.getLeftOperand().getName();
             // should be a String because the data is an xml expression
             final String dataValue = (String) expressionContext.getInputValues().get(dataInstanceName);
-            final SExpressionContext sExpressionContext = new SExpressionContext();
-            sExpressionContext.setInputValues(expressionContext.getInputValues());
             final Object variableValue = value;
 
             final DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -139,20 +131,13 @@ public class XpathUpdateQueryOperationExecutorStrategy extends UpdateOperationEx
                 parentNode.appendChild(document.createTextNode(getStringValue(variableValue)));
             }
             return DocumentManager.getDocumentContent(document);
-        } catch (final ParserConfigurationException pce) {
+        } catch (final ParserConfigurationException | SAXException | IOException | XPathExpressionException | TransformerFactoryConfigurationError | TransformerException pce) {
             throw new SOperationExecutionException(pce);
-        } catch (final SAXException saxe) {
-            throw new SOperationExecutionException(saxe);
-        } catch (final IOException ioe) {
-            throw new SOperationExecutionException(ioe);
-        } catch (final XPathExpressionException xpee) {
-            throw new SOperationExecutionException(xpee);
-        } catch (final TransformerConfigurationException tce) {
-            throw new SOperationExecutionException(tce);
-        } catch (final TransformerFactoryConfigurationError tfce) {
-            throw new SOperationExecutionException(tfce);
-        } catch (final TransformerException te) {
-            throw new SOperationExecutionException(te);
         }
+    }
+
+    @Override
+    public boolean shouldPersistOnNullValue() {
+        return false;
     }
 }

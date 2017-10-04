@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
- * BonitaSoft, 31 rue Gustave Eiffel - 38000 Grenoble
+ * Copyright (C) 2015 BonitaSoft S.A.
+ * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
  * version 2.1 of the License.
@@ -13,54 +13,13 @@
  **/
 package org.bonitasoft.engine.bpm.flownode.impl;
 
-import java.util.List;
-import java.util.Set;
-
-import org.bonitasoft.engine.bpm.BaseElement;
-import org.bonitasoft.engine.bpm.connector.ConnectorDefinition;
-import org.bonitasoft.engine.bpm.data.DataDefinition;
-import org.bonitasoft.engine.bpm.document.DocumentDefinition;
-import org.bonitasoft.engine.bpm.flownode.ActivityDefinition;
-import org.bonitasoft.engine.bpm.flownode.EndEventDefinition;
-import org.bonitasoft.engine.bpm.flownode.FlowNodeDefinition;
-import org.bonitasoft.engine.bpm.flownode.GatewayDefinition;
-import org.bonitasoft.engine.bpm.flownode.IntermediateCatchEventDefinition;
-import org.bonitasoft.engine.bpm.flownode.IntermediateThrowEventDefinition;
-import org.bonitasoft.engine.bpm.flownode.StartEventDefinition;
-import org.bonitasoft.engine.bpm.flownode.TransitionDefinition;
-
 /**
  * @author Matthieu Chaffotte
- * @author Celine Souchets
+ * @author Celine Souchet
+ * @deprecated in this package since 6.2.3. Instead use {@link org.bonitasoft.engine.bpm.flownode.FlowElementContainerDefinition}
+ * @see org.bonitasoft.engine.bpm.flownode.FlowElementContainerDefinition
  */
-public interface FlowElementContainerDefinition extends BaseElement {
-
-    List<ActivityDefinition> getActivities();
-
-    ActivityDefinition getActivity(String name);
-
-    Set<TransitionDefinition> getTransitions();
-
-    Set<GatewayDefinition> getGateways();
-
-    GatewayDefinition getGateway(String name);
-
-    List<StartEventDefinition> getStartEvents();
-
-    List<IntermediateCatchEventDefinition> getIntermediateCatchEvents();
-
-    List<IntermediateThrowEventDefinition> getIntermediateThrowEvents();
-
-    List<EndEventDefinition> getEndEvents();
-
-    List<DataDefinition> getDataDefinitions();
-
-    List<DocumentDefinition> getDocumentDefinitions();
-
-    List<ConnectorDefinition> getConnectors();
-
-    FlowNodeDefinition getFlowNode(long sourceId);
-
-    FlowNodeDefinition getFlowNode(String sourceName);
+@Deprecated
+public interface FlowElementContainerDefinition extends org.bonitasoft.engine.bpm.flownode.FlowElementContainerDefinition {
 
 }

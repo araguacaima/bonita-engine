@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,7 +17,6 @@ import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.commons.transaction.TransactionContent;
 import org.bonitasoft.engine.platform.PlatformService;
 import org.bonitasoft.engine.scheduler.SchedulerService;
-import org.bonitasoft.engine.work.WorkService;
 
 /**
  * @author Baptiste Mesta
@@ -31,21 +30,17 @@ public final class DeactivateTenant implements TransactionContent {
 
     private final SchedulerService schedulerService;
 
-    private final WorkService workService;
-
-    public DeactivateTenant(final long tenantId, final PlatformService platformService, final SchedulerService schedulerService, final WorkService workService) {
+    public DeactivateTenant(final long tenantId, final PlatformService platformService, final SchedulerService schedulerService) {
         this.tenantId = tenantId;
         this.platformService = platformService;
         this.schedulerService = schedulerService;
-        this.workService = workService;
     }
 
     @Override
     public void execute() throws SBonitaException {
-        workService.stop(tenantId);
         platformService.deactiveTenant(tenantId);
         if (schedulerService.isStarted()) {
-            schedulerService.delete(ActivateTenant.BPM_EVENT_HANDLING);
+            schedulerService.pauseJobs(tenantId);
             schedulerService.delete(ActivateTenant.CLEAN_INVALID_SESSIONS);
         }
     }

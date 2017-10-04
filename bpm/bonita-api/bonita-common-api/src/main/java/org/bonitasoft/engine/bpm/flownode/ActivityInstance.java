@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,16 +13,13 @@
  **/
 package org.bonitasoft.engine.bpm.flownode;
 
-import java.util.Date;
-
 /**
+ * Corresponding to a instance of {@link ActivityDefinition}.
+ * 
  * @author Baptiste Mesta
  * @author Matthieu Chaffotte
+ * @author Celine Souchet
  */
 public interface ActivityInstance extends FlowNodeInstance {
-
-    Date getReachedStateDate();
-
-    Date getLastUpdateDate();
 
 }

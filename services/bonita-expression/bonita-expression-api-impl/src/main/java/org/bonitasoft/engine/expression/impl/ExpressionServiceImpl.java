@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.bonitasoft.engine.commons.LogUtil;
+import org.bonitasoft.engine.expression.ContainerState;
 import org.bonitasoft.engine.expression.ExpressionExecutorStrategy;
 import org.bonitasoft.engine.expression.ExpressionExecutorStrategyProvider;
 import org.bonitasoft.engine.expression.ExpressionService;
@@ -29,11 +30,14 @@ import org.bonitasoft.engine.expression.model.ExpressionKind;
 import org.bonitasoft.engine.expression.model.SExpression;
 import org.bonitasoft.engine.log.technical.TechnicalLogSeverity;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
+import org.bonitasoft.engine.tracking.TimeTracker;
+import org.bonitasoft.engine.tracking.TimeTrackerRecords;
 
 /**
  * @author Zhao na
  * @author Emmanuel Duchastenier
  * @author Baptiste Mesta
+ * @author Celine Souchet
  */
 public class ExpressionServiceImpl implements ExpressionService {
 
@@ -43,71 +47,74 @@ public class ExpressionServiceImpl implements ExpressionService {
 
     private boolean checkExpressionReturnType = false;
 
+    private final TimeTracker timeTracker;
+
     public ExpressionServiceImpl(final ExpressionExecutorStrategyProvider expressionExecutorStrategyProvider, final TechnicalLoggerService logger,
-            final boolean checkExpressionReturnType) {
+            final boolean checkExpressionReturnType, final TimeTracker timeTracker) {
         super();
         final List<ExpressionExecutorStrategy> expressionExecutors = expressionExecutorStrategyProvider.getExpressionExecutors();
-        expressionExecutorsMap = new HashMap<ExpressionKind, ExpressionExecutorStrategy>(expressionExecutors.size());
+        expressionExecutorsMap = new HashMap<>(expressionExecutors.size());
         this.checkExpressionReturnType = checkExpressionReturnType;
         for (final ExpressionExecutorStrategy expressionExecutorStrategy : expressionExecutors) {
             expressionExecutorsMap.put(expressionExecutorStrategy.getExpressionKind(), expressionExecutorStrategy);
         }
         this.logger = logger;
+        this.timeTracker = timeTracker;
     }
 
     @Override
-    public Object evaluate(final SExpression expression, final Map<Integer, Object> resolvedExpressions) throws SExpressionTypeUnknownException,
-            SExpressionEvaluationException, SExpressionDependencyMissingException, SInvalidExpressionException {
-        return evaluate(expression, null, resolvedExpressions);
-    }
-
-    @Override
-    public Object evaluate(final SExpression expression, Map<String, Object> dependencyValues, final Map<Integer, Object> resolvedExpressions)
+    public Object evaluate(final SExpression expression, final Map<Integer, Object> resolvedExpressions, final ContainerState containerState)
             throws SExpressionTypeUnknownException, SExpressionEvaluationException, SExpressionDependencyMissingException, SInvalidExpressionException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
+        return evaluate(expression, new HashMap<String, Object>(1), resolvedExpressions, containerState);
+    }
+
+    @Override
+    public Object evaluate(final SExpression expression, final Map<String, Object> dependencyValues, final Map<Integer, Object> resolvedExpressions,
+            final ContainerState containerState) throws SExpressionTypeUnknownException, SExpressionEvaluationException,
+            SExpressionDependencyMissingException, SInvalidExpressionException {
+        final boolean isTraceEnable = logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE);
+        if (isTraceEnable) {
             logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "evaluate"));
         }
-        Object expressionResult;
-        if (dependencyValues == null) {
-            dependencyValues = new HashMap<String, Object>(1);
+
+        final ExpressionExecutorStrategy expressionExecutorStrategy = getStrategy(expression.getExpressionKind());
+        validateExpression(expressionExecutorStrategy, expression);
+
+        Object expressionResult = null;
+        final long startTime = System.currentTimeMillis();
+        try {
+            expressionResult = expressionExecutorStrategy.evaluate(expression, dependencyValues, resolvedExpressions, containerState);
+        } finally {
+            if (timeTracker.isTrackable(TimeTrackerRecords.EVALUATE_EXPRESSION)) {
+                final long endTime = System.currentTimeMillis();
+                timeTracker.track(TimeTrackerRecords.EVALUATE_EXPRESSION, "Expression: " + expression + " - " + "dependencyValues: " + dependencyValues + " - " + "strategy: " + expressionExecutorStrategy, endTime - startTime);
+            }
+        }
+        if (mustCheckExpressionReturnType()) {
+            new ReturnTypeChecker().checkReturnType(expression, expressionResult, dependencyValues);
         }
 
-        final ExpressionExecutorStrategy expressionExecutorStrategy = expressionExecutorsMap.get(expression.getExpressionKind());
-        final String expressContent = expression.getContent();
-        if (expressionExecutorStrategy == null) {
-            logger.log(
-                    this.getClass(),
-                    TechnicalLogSeverity.TRACE,
-                    LogUtil.getLogOnExceptionMethod(this.getClass(), "evaluate",
-                            "Unable to find an executor for expression type " + expression.getExpressionKind()));
-            throw new SExpressionTypeUnknownException("Unable to find an executor for expression type " + expression.getExpressionKind());
+        if (isTraceEnable) {
+            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "evaluate"));
         }
+        return expressionResult;
+    }
+
+    private void validateExpression(final ExpressionExecutorStrategy expressionExecutorStrategy, final SExpression expression)
+            throws SInvalidExpressionException {
         try {
             // this will throw exception if the expression is invalid
             expressionExecutorStrategy.validate(expression);
         } catch (final SInvalidExpressionException e) {
             if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
                 logger.log(this.getClass(), TechnicalLogSeverity.TRACE,
-                        LogUtil.getLogOnExceptionMethod(this.getClass(), "evaluate", "Invalid Expression: " + expressContent));
+                        LogUtil.getLogOnExceptionMethod(this.getClass(), "evaluate", "Invalid Expression : " + expression.getContent()));
             }
             throw e;
         }
-        expressionResult = expressionExecutorStrategy.evaluate(expression, dependencyValues, resolvedExpressions);
-        checkReturnType(expression, expressionResult);
-
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "evaluate"));
-        }
-        return expressionResult;
     }
 
-    @Override
-    public List<Object> evaluate(final ExpressionKind expressionKind, final List<SExpression> expressions, final Map<String, Object> dependencyValues,
-            final Map<Integer, Object> resolvedExpressions) throws SExpressionTypeUnknownException, SExpressionEvaluationException,
-            SExpressionDependencyMissingException, SInvalidExpressionException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "evaluate"));
-        }
+    private ExpressionExecutorStrategy getStrategy(final ExpressionKind expressionKind) throws SExpressionTypeUnknownException {
         final ExpressionExecutorStrategy expressionExecutorStrategy = expressionExecutorsMap.get(expressionKind);
         if (expressionExecutorStrategy == null) {
             if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
@@ -116,49 +123,45 @@ public class ExpressionServiceImpl implements ExpressionService {
             }
             throw new SExpressionTypeUnknownException("Unable to find an executor for expression type " + expressionKind);
         }
-        final List<Object> list = expressionExecutorStrategy.evaluate(expressions, dependencyValues, resolvedExpressions);
+        return expressionExecutorStrategy;
+    }
+
+    @Override
+    public List<Object> evaluate(final ExpressionKind expressionKind, final List<SExpression> expressions, final Map<String, Object> dependencyValues,
+            final Map<Integer, Object> resolvedExpressions, final ContainerState containerState) throws SExpressionTypeUnknownException,
+            SExpressionEvaluationException, SExpressionDependencyMissingException {
+        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
+            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "evaluate"));
+        }
+        final ExpressionExecutorStrategy expressionExecutorStrategy = getStrategy(expressionKind);
+
+        List<Object> list = null;
+        final long startTime = System.currentTimeMillis();
+        try {
+            list = expressionExecutorStrategy.evaluate(expressions, dependencyValues, resolvedExpressions, containerState);
+        } finally {
+            if (timeTracker.isTrackable(TimeTrackerRecords.EVALUATE_EXPRESSIONS)) {
+                final long endTime = System.currentTimeMillis();
+                timeTracker.track(TimeTrackerRecords.EVALUATE_EXPRESSIONS, "Expressions: " + expressions + " - " + "dependencyValues: " + dependencyValues + " - " + "strategy: " + expressionExecutorStrategy, endTime - startTime);
+            }
+        }
         if (list == null || list.size() != expressions.size()) {
             final String exceptionMessage = "Result list size " + (list == null ? 0 : list.size()) + " is different from expression list size "
                     + expressions.size();
             if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
                 logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "evaluate", exceptionMessage));
             }
-            throw new SExpressionEvaluationException(exceptionMessage);
+            throw new SExpressionEvaluationException(exceptionMessage, null);
         }
-        for (int i = 0; i < list.size(); i++) {
-            checkReturnType(expressions.get(i), list.get(i));
+        if (mustCheckExpressionReturnType()) {
+            for (int i = 0; i < list.size(); i++) {
+                new ReturnTypeChecker().checkReturnType(expressions.get(i), list.get(i), dependencyValues);
+            }
         }
         if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
             logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "evaluate"));
         }
         return list;
-    }
-
-    /**
-     * Check if the declared return type is compatible with the real Expression evaluation return type. If the result of the Expression evaluation is null, then
-     * this method returns true.
-     * 
-     * @param expression
-     *            the evaluated expression
-     * @param result
-     *            the expression result to check
-     * @throws SInvalidExpressionException
-     *             if the condition is not fulfilled, does nothing otherwise
-     */
-    private void checkReturnType(final SExpression expression, final Object result) throws SInvalidExpressionException {
-        if (mustCheckExpressionReturnType() && result != null) {
-            try {
-                final Class<?> declaredReturnedType = Thread.currentThread().getContextClassLoader().loadClass(expression.getReturnType());
-                final Class<?> evaluatedReturnedType = result.getClass();
-                if (!declaredReturnedType.isAssignableFrom(evaluatedReturnedType)) {
-                    throw new SInvalidExpressionException("Declared return type " + declaredReturnedType + " is not compatible with evaluated type "
-                            + evaluatedReturnedType + " for expression " + expression.getName());
-                }
-            } catch (final ClassNotFoundException e) {
-                throw new SInvalidExpressionException(
-                        "Declared return type unknown: " + expression.getReturnType() + " for expression " + expression.getName(), e);
-            }
-        }
     }
 
     @Override

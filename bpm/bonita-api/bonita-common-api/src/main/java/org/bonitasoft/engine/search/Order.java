@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,5 +17,5 @@ package org.bonitasoft.engine.search;
  * @author Matthieu Chaffotte
  */
 public enum Order {
-    DESC, ASC;
+    DESC, ASC, ASC_NULLS_LAST, DESC_NULLS_FIRST, ASC_NULLS_FIRST, DESC_NULLS_LAST
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -24,12 +24,12 @@ import org.bonitasoft.engine.execution.StateBehaviors;
  * @author Baptiste Mesta
  * @author Matthieu Chaffotte
  */
-public class ExecutingAutomaticActivityStateImpl extends FlowNodeStateWithConnectors {
+public class ExecutingAutomaticActivityStateImpl extends OnEnterAndFinishConnectorState {
 
     private final StateBehaviors stateBehaviors;
 
     public ExecutingAutomaticActivityStateImpl(final StateBehaviors stateBehaviors) {
-        super(stateBehaviors, true, true);
+        super(stateBehaviors);
         this.stateBehaviors = stateBehaviors;
     }
 

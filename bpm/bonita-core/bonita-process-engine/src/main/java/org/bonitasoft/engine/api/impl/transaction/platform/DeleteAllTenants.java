@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,6 +17,7 @@ import java.util.List;
 
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.commons.transaction.TransactionContent;
+import org.bonitasoft.engine.persistence.OrderByType;
 import org.bonitasoft.engine.persistence.QueryOptions;
 import org.bonitasoft.engine.platform.PlatformService;
 import org.bonitasoft.engine.platform.model.STenant;
@@ -36,11 +37,11 @@ public class DeleteAllTenants implements TransactionContent {
     public void execute() throws SBonitaException {
         List<STenant> tenants;
         do {
-            tenants = platformService.getTenants(QueryOptions.defaultQueryOptions());
-            for (STenant sTenant : tenants) {
+            tenants = platformService.getTenants(new QueryOptions(0, 100, STenant.class, "id", OrderByType.ASC));
+            for (final STenant sTenant : tenants) {
+                platformService.deactiveTenant(sTenant.getId());
                 platformService.deleteTenant(sTenant.getId());
             }
         } while (tenants.size() > 0);
     }
-
 }

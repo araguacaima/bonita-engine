@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,10 +14,12 @@
 package org.bonitasoft.engine.bpm.connector;
 
 /**
+ * Current state of a connector instance.
+ * 
  * @author Baptiste Mesta
  */
 public enum ConnectorState {
 
-    TO_BE_EXECUTED, TO_RE_EXECUTE, DONE, FAILED, SKIPPED
+    TO_BE_EXECUTED, EXECUTING, TO_RE_EXECUTE, DONE, FAILED, SKIPPED
 
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,6 +19,9 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
+import org.bonitasoft.engine.log.technical.TechnicalLogSeverity;
+import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
 
 /**
  * Use ThreadPoolExecutor as ExecutorService
@@ -42,7 +45,15 @@ public class DefaultBonitaExecutorServiceFactory implements BonitaExecutorServic
 
     private final long keepAliveTimeSeconds;
 
-    public DefaultBonitaExecutorServiceFactory(final int corePoolSize, final int queueCapacity, final int maximumPoolSize, final long keepAliveTimeSeconds) {
+    private final TechnicalLoggerService logger;
+
+    private final long tenantId;
+
+    public DefaultBonitaExecutorServiceFactory(final TechnicalLoggerService logger, final long tenantId, final int corePoolSize, final int queueCapacity,
+            final int maximumPoolSize,
+            final long keepAliveTimeSeconds) {
+        this.logger = logger;
+        this.tenantId = tenantId;
         this.corePoolSize = corePoolSize;
         this.queueCapacity = queueCapacity;
         this.maximumPoolSize = maximumPoolSize;
@@ -50,11 +61,12 @@ public class DefaultBonitaExecutorServiceFactory implements BonitaExecutorServic
     }
 
     @Override
-    public ThreadPoolExecutor createExecutorService() {
-        final BlockingQueue<Runnable> workQueue = new ArrayBlockingQueue<Runnable>(queueCapacity);
+    public BonitaExecutorService createExecutorService() {
+        final BlockingQueue<Runnable> workQueue = new ArrayBlockingQueue<>(queueCapacity);
         final RejectedExecutionHandler handler = new QueueRejectedExecutionHandler();
-        final WorkerThreadFactory threadFactory = new WorkerThreadFactory("Bonita-Worker");
-        return new ThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTimeSeconds, TimeUnit.SECONDS, workQueue, threadFactory, handler);
+        final WorkerThreadFactory threadFactory = new WorkerThreadFactory("Bonita-Worker", tenantId, maximumPoolSize);
+        return new BonitaThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTimeSeconds, TimeUnit.SECONDS, workQueue,
+                threadFactory, handler, logger);
     }
 
     private final class QueueRejectedExecutionHandler implements RejectedExecutionHandler {
@@ -64,8 +76,15 @@ public class DefaultBonitaExecutorServiceFactory implements BonitaExecutorServic
 
         @Override
         public void rejectedExecution(final Runnable task, final ThreadPoolExecutor executor) {
-            throw new RejectedExecutionException("Unable to run the task " + task
-                    + "\n your work queue is full you might consider changing your configuration to scale more");
+            if (executor.isShutdown()) {
+                logger.log(getClass(), TechnicalLogSeverity.INFO, "Tried to run work " + task
+                        + " but the work service is shutdown. work will be restarted with the node");
+            } else {
+                throw new RejectedExecutionException(
+                        "Unable to run the task "
+                                + task
+                                + "\n your work queue is full you might consider changing your configuration to scale more. See parameter 'queueCapacity' in bonita.home configuration files.");
+            }
         }
 
     }

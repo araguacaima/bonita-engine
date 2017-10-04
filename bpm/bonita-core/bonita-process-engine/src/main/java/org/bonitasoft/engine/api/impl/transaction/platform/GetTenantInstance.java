@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -28,29 +28,16 @@ public class GetTenantInstance implements TransactionContentWithResult<STenant> 
 
     private final PlatformService platformService;
 
-    private final String tenantName;
-
     private final long tenantId;
-
-    public GetTenantInstance(final String tenantName, final PlatformService platformService) {
-        this.tenantName = tenantName;
-        this.platformService = platformService;
-        tenantId = -1;
-    }
 
     public GetTenantInstance(final long tenantId, final PlatformService platformService) {
         this.tenantId = tenantId;
         this.platformService = platformService;
-        tenantName = null;
     }
 
     @Override
     public void execute() throws SBonitaException {
-        if (tenantName == null) {
-            sTenant = platformService.getTenant(tenantId);
-        } else {
-            sTenant = platformService.getTenantByName(tenantName);
-        }
+        sTenant = platformService.getTenant(tenantId);
     }
 
     @Override

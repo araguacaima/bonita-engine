@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -24,12 +24,12 @@ import org.bonitasoft.engine.execution.StateBehaviors;
  * @author Matthieu Chaffotte
  * @author Elias Ricken de Medeiros
  */
-public class InitializingActivityStateImpl extends FlowNodeStateWithConnectors {
+public class InitializingActivityStateImpl extends OnEnterConnectorState {
 
     private final StateBehaviors stateBehaviors;
 
     public InitializingActivityStateImpl(final StateBehaviors stateBehaviors) {
-        super(stateBehaviors, true, false);
+        super(stateBehaviors);
         this.stateBehaviors = stateBehaviors;
     }
 
@@ -84,21 +84,16 @@ public class InitializingActivityStateImpl extends FlowNodeStateWithConnectors {
     }
 
     @Override
-    protected void beforeOnEnter(final SProcessDefinition processDefinition, final SFlowNodeInstance flowNodeInstance) throws SActivityStateExecutionException {
+    protected void beforeConnectors(SProcessDefinition processDefinition, SFlowNodeInstance flowNodeInstance) throws SActivityStateExecutionException {
         stateBehaviors.handleCatchEvents(processDefinition, flowNodeInstance);
         stateBehaviors.createData(processDefinition, flowNodeInstance);
         stateBehaviors.mapActors(flowNodeInstance, processDefinition.getProcessContainer());
     }
 
     @Override
-    protected void onEnterToOnFinish(final SProcessDefinition processDefinition, final SFlowNodeInstance flowNodeInstance)
-            throws SActivityStateExecutionException {
+    protected void afterConnectors(SProcessDefinition processDefinition, SFlowNodeInstance flowNodeInstance) throws SActivityStateExecutionException {
         stateBehaviors.updateDisplayNameAndDescription(processDefinition, flowNodeInstance);
+        stateBehaviors.updateExpectedDuration(processDefinition, flowNodeInstance);
         stateBehaviors.handleCallActivity(processDefinition, flowNodeInstance);
-    }
-
-    @Override
-    protected void afterOnFinish(final SProcessDefinition processDefinition, final SFlowNodeInstance flowNodeInstance) {
-
     }
 }

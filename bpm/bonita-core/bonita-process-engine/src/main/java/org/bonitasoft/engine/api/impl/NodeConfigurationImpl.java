@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,34 +13,35 @@
  **/
 package org.bonitasoft.engine.api.impl;
 
-import java.util.Collections;
 import java.util.List;
 
+import org.bonitasoft.engine.commons.CollectionUtil;
+import org.bonitasoft.engine.commons.PlatformLifecycleService;
 import org.bonitasoft.engine.commons.RestartHandler;
-import org.bonitasoft.engine.restart.TenantRestartHandler;
-import org.bonitasoft.engine.scheduler.JobRegister;
+import org.bonitasoft.engine.execution.work.TenantRestartHandler;
+import org.bonitasoft.engine.scheduler.AbstractBonitaPlatformJobListener;
 
 /**
  * @author Baptiste Mesta
  * @author Matthieu Chaffotte
+ * @author Laurent Vaills
+ * @author Celine Souchet
  */
 public class NodeConfigurationImpl implements NodeConfiguration {
 
-    private boolean shouldStartScheduler = true;;
+    private boolean shouldStartScheduler = true;
 
     private boolean shouldRestartElements = true;
 
     private List<RestartHandler> restartHandlers;
 
-    private String eventHandlingJobCron = "*/5 * * * * ?";
-
-    private String cleanInvalidSessionsJobCron = "0 0 */2 * * ?";
-
     private boolean shouldStartEventHandlingJob = true;
 
     private List<TenantRestartHandler> tenantRestartHandlers;
 
-    private List<JobRegister> jobsToRegister;
+    private List<PlatformLifecycleService> lifecycleServices;
+
+    private List<AbstractBonitaPlatformJobListener> jobListeners;
 
     @Override
     public boolean shouldStartScheduler() {
@@ -54,8 +55,7 @@ public class NodeConfigurationImpl implements NodeConfiguration {
 
     @Override
     public List<RestartHandler> getRestartHandlers() {
-        final List<RestartHandler> emptyList = Collections.emptyList();
-        return restartHandlers == null ? emptyList : restartHandlers;
+        return CollectionUtil.emptyOrUnmodifiable(restartHandlers);
     }
 
     public void setRestartHandlers(final List<RestartHandler> restartHandlers) {
@@ -64,8 +64,7 @@ public class NodeConfigurationImpl implements NodeConfiguration {
 
     @Override
     public List<TenantRestartHandler> getTenantRestartHandlers() {
-        final List<TenantRestartHandler> emptyList = Collections.emptyList();
-        return tenantRestartHandlers == null ? emptyList : tenantRestartHandlers;
+        return CollectionUtil.emptyOrUnmodifiable(tenantRestartHandlers);
     }
 
     public void setTenantRestartHandlers(final List<TenantRestartHandler> tenantRestartHandlers) {
@@ -73,24 +72,7 @@ public class NodeConfigurationImpl implements NodeConfiguration {
     }
 
     @Override
-    public String getEventHandlingJobCron() {
-        return eventHandlingJobCron;
-    }
-
-    @Override
     public boolean shouldStartEventHandlingJob() {
-        return shouldStartEventHandlingJob;
-    }
-
-    public boolean getShouldStartScheduler() {
-        return shouldStartScheduler;
-    }
-
-    public boolean getShouldRestartElements() {
-        return shouldRestartElements;
-    }
-
-    public boolean getShouldStartEventHandlingJob() {
         return shouldStartEventHandlingJob;
     }
 
@@ -102,39 +84,31 @@ public class NodeConfigurationImpl implements NodeConfiguration {
         this.shouldRestartElements = shouldRestartElements;
     }
 
-    public void setEventHandlingJobCron(final String eventHandlingJobCron) {
-        this.eventHandlingJobCron = eventHandlingJobCron;
-    }
-
     public void setShouldStartEventHandlingJob(final boolean shouldStartEventHandlingJob) {
         this.shouldStartEventHandlingJob = shouldStartEventHandlingJob;
-    }
-
-    public void setJobsToRegister(final List<JobRegister> jobsToRegister) {
-        this.jobsToRegister = jobsToRegister;
-    }
-
-    @Override
-    public List<JobRegister> getJobsToRegister() {
-        if (jobsToRegister == null) {
-            return Collections.emptyList();
-        } else {
-            return jobsToRegister;
-        }
-    }
-
-    @Override
-    public String getCleanInvalidSessionsJobCron() {
-        return cleanInvalidSessionsJobCron;
-    }
-
-    public void setCleanInvalidSessionsJobCron(final String cleanInvalidSessionsJobCron) {
-        this.cleanInvalidSessionsJobCron = cleanInvalidSessionsJobCron;
     }
 
     @Override
     public boolean shouldClearSessions() {
         return true;
+    }
+
+    @Override
+    public List<PlatformLifecycleService> getLifecycleServices() {
+        return lifecycleServices;
+    }
+
+    public void setLifecycleServices(final List<PlatformLifecycleService> lifecycleServices) {
+        this.lifecycleServices = lifecycleServices;
+    }
+
+    @Override
+    public List<AbstractBonitaPlatformJobListener> getJobListeners() {
+        return jobListeners;
+    }
+
+    public void setJobListeners(final List<AbstractBonitaPlatformJobListener> jobListeners) {
+        this.jobListeners = jobListeners;
     }
 
 }

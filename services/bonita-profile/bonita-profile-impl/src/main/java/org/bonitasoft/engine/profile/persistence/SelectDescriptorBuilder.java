@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -46,7 +46,7 @@ public class SelectDescriptorBuilder {
     private static final String PARENT_ID = "parentId";
 
     public static <T extends PersistentObject> SelectByIdDescriptor<T> getElementById(final Class<T> clazz, final String elementName, final long id) {
-        return new SelectByIdDescriptor<T>("get" + elementName + "ById", clazz, id);
+        return new SelectByIdDescriptor<T>(clazz, id);
     }
 
     public static SelectOneDescriptor<Long> getNumberOfElement(final String elementName, final Class<? extends PersistentObject> clazz) {
@@ -188,21 +188,23 @@ public class SelectDescriptorBuilder {
         return new SelectListDescriptor<SProfileMember>("getDirectProfileMembersOfRole", parameters, SProfileMember.class, queryOptions);
     }
 
-    public static SelectListDescriptor<SProfileMember> getProfileMembers(final String field, final OrderByType order, final int fromIndex,
-            final int numberOfElements) {
+    public static SelectListDescriptor<SProfileMember> getProfileMembers(final int fromIndex, final int numberOfElements, final String field,
+            final OrderByType order) {
         final QueryOptions queryOptions = new QueryOptions(fromIndex, numberOfElements, SProfileMember.class, field, order);
         final Map<String, Object> parameters = new HashMap<String, Object>(1);
         return new SelectListDescriptor<SProfileMember>("getProfileMembers", parameters, SProfileMember.class, queryOptions);
     }
 
-    public static SelectListDescriptor<SProfile> getProfilesOfUser(final long userId) {
+    public static SelectListDescriptor<SProfile> getProfilesOfUser(final long userId, final int fromIndex, final int numberOfElements, final String field,
+            final OrderByType order) {
+        final QueryOptions queryOptions = new QueryOptions(fromIndex, numberOfElements, SProfile.class, field, order);
         final Map<String, Object> parameters = Collections.singletonMap(USER_ID, (Object) userId);
-        return new SelectListDescriptor<SProfile>("getProfilesOfUser", parameters, SProfile.class);
+        return new SelectListDescriptor<SProfile>("getProfilesOfUser", parameters, SProfile.class, queryOptions);
     }
 
-    public static SelectListDescriptor<SProfileMember> getSProfileMembersWithoutDisplayName(final long profileId) {
+    public static SelectListDescriptor<SProfileMember> getSProfileMembersWithoutDisplayName(final long profileId, final QueryOptions queryOptions) {
         final Map<String, Object> parameters = Collections.singletonMap(PROFILE_ID, (Object) profileId);
-        return new SelectListDescriptor<SProfileMember>("getSProfileMembersWithoutDisplayName", parameters, SProfileMember.class);
+        return new SelectListDescriptor<SProfileMember>("getSProfileMembersWithoutDisplayName", parameters, SProfileMember.class, queryOptions);
     }
 
     public static SelectOneDescriptor<Long> getNumberOfUsersOfProfile(final long profileId) {
@@ -211,7 +213,7 @@ public class SelectDescriptorBuilder {
     }
 
     public static SelectByIdDescriptor<SProfileMember> getProfileMemberWithoutDisplayName(final long profileMemberId) {
-        return new SelectByIdDescriptor<SProfileMember>("getProfileMemberWithoutDisplayNameById", SProfileMember.class, profileMemberId);
+        return new SelectByIdDescriptor<SProfileMember>(SProfileMember.class, profileMemberId);
     }
 
 }

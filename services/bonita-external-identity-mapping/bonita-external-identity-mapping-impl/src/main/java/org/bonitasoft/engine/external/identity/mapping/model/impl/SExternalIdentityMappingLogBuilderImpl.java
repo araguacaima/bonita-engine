@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -30,11 +30,6 @@ public class SExternalIdentityMappingLogBuilderImpl extends CRUDELogBuilder impl
     public SPersistenceLogBuilder objectId(final long objectId) {
         queriableLogBuilder.numericIndex(SExternalIdentityMappingLogIndexesMapper.EXTERNAL_IDENTITY_MAPPING_INDEX, objectId);
         return this;
-    }
-
-    @Override
-    public String getObjectIdKey() {
-        return SExternalIdentityMappingLogIndexesMapper.EXTERNAL_IDENTITY_MAPPING_INDEX_NAME;
     }
 
     @Override

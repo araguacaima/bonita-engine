@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,10 +16,8 @@ package org.bonitasoft.engine.platform.authentication.impl;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
 import org.bonitasoft.engine.platform.authentication.SInvalidPasswordException;
 import org.bonitasoft.engine.platform.authentication.SInvalidUserException;
-import org.bonitasoft.engine.platform.authentication.impl.PlatformAuthenticationServiceImpl;
 import org.junit.Before;
 import org.junit.Test;
-
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -37,7 +35,7 @@ public class PlatformAuthenticationServiceImplTest {
     private PlatformAuthenticationServiceImpl platformAuthenticationServiceImpl;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         MockitoAnnotations.initMocks(this);
     }
 

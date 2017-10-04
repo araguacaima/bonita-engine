@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -23,7 +23,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.bonitasoft.engine.commons.IOUtil;
+import org.bonitasoft.engine.commons.io.IOUtil;
+import org.bonitasoft.engine.expression.ContainerState;
 import org.bonitasoft.engine.expression.exception.SExpressionDependencyMissingException;
 import org.bonitasoft.engine.expression.exception.SExpressionEvaluationException;
 import org.bonitasoft.engine.expression.exception.SExpressionException;
@@ -61,13 +62,6 @@ public class XPathReadExpressionExecutorStrategyTest {
         strategy = new XPathReadExpressionExecutorStrategy();
     }
 
-    /**
-     * @throws java.lang.Exception
-     */
-    @Before
-    public void setUp() throws Exception {
-    }
-
     private String getXPathType() {
         return SExpressionType.TYPE_XPATH_READ.name();
     }
@@ -95,7 +89,7 @@ public class XPathReadExpressionExecutorStrategyTest {
         final Map<Integer, Object> resolvedExpressions = new HashMap<Integer, Object>(1);
         resolvedExpressions.put(dep.getDiscriminant(), XML_CONTENT_AUTHOR);
         final HashMap<String, Object> dependencyValues = new HashMap<String, Object>(1);
-        final Object result = strategy.evaluate(expression, dependencyValues, resolvedExpressions);
+        final Object result = strategy.evaluate(expression, dependencyValues, resolvedExpressions, ContainerState.ACTIVE);
         assertEquals("XPath", result);
     }
 
@@ -111,7 +105,7 @@ public class XPathReadExpressionExecutorStrategyTest {
         final SExpression expression = new SExpressionImpl("expName1", "//article", getXPathType(), "InvalidReturnType", null, Arrays.<SExpression> asList(dep));
         final Map<Integer, Object> resolvedExpressions = getResolvedExpressionMap(expression);
         final HashMap<String, Object> dependencyValues = new HashMap<String, Object>(1);
-        strategy.evaluate(expression, dependencyValues, resolvedExpressions);
+        strategy.evaluate(expression, dependencyValues, resolvedExpressions, ContainerState.ACTIVE);
     }
 
     @Test(expected = SExpressionEvaluationException.class)
@@ -171,7 +165,7 @@ public class XPathReadExpressionExecutorStrategyTest {
         final SExpression expression = new SExpressionImpl("expName1", selector, getXPathType(), returnType.getName(), null, Arrays.<SExpression> asList(dep));
         final Map<Integer, Object> resolvedExpressions = getResolvedExpressionMap(expression);
         final HashMap<String, Object> dependencyValues = new HashMap<String, Object>(1);
-        final Object result = strategy.evaluate(expression, dependencyValues, resolvedExpressions);
+        final Object result = strategy.evaluate(expression, dependencyValues, resolvedExpressions, ContainerState.ACTIVE);
         return (T) result;
     }
 
@@ -194,7 +188,7 @@ public class XPathReadExpressionExecutorStrategyTest {
         final SExpression expression = new SExpressionImpl("expName1", "//article/@nom", getXPathType(), String.class.getName(), null, null);
         final Map<Integer, Object> resolvedExpressions = new HashMap<Integer, Object>(0);
         final HashMap<String, Object> dependencyValues = new HashMap<String, Object>(0);
-        strategy.evaluate(expression, dependencyValues, resolvedExpressions);
+        strategy.evaluate(expression, dependencyValues, resolvedExpressions, ContainerState.ACTIVE);
     }
 
     /**

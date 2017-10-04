@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -20,24 +20,17 @@ import org.bonitasoft.engine.commons.exceptions.SBonitaException;
  */
 public class SProcessInstanceHierarchicalDeletionException extends SBonitaException {
 
+    private static final long serialVersionUID = 1704316503564609224L;
+
     private final long processInstanceId;
 
-    /**
-     * @param string
-     * @param rootProcessInstanceId
-     */
     public SProcessInstanceHierarchicalDeletionException(final String string, final long processInstanceId) {
         super(string);
         this.processInstanceId = processInstanceId;
-
     }
 
-    private static final long serialVersionUID = 1704316503564609224L;
-
-    /**
-     * @return the processInstanceId
-     */
     public long getProcessInstanceId() {
         return processInstanceId;
     }
+
 }

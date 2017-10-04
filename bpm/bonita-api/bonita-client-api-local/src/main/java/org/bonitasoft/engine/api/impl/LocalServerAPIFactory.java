@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -18,14 +18,29 @@ import org.bonitasoft.engine.exception.ServerAPIException;
 
 /**
  * @author Matthieu Chaffotte
+ * @author Emmanuel Duchastenier
+ * @author Celine Souchet
  */
 public class LocalServerAPIFactory {
 
-    private static final String CLASS_NAME = "org.bonitasoft.engine.api.impl.ServerAPIImpl";
+    private static Class<?> forName = null;
+
+    private LocalServerAPIFactory() {
+        // For Sonar
+    }
+
+    static {
+        try {
+            forName = Class.forName("org.bonitasoft.engine.api.impl.ServerAPIFactory");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace(System.err);
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     public static ServerAPI getServerAPI() throws ServerAPIException {
         try {
-            return (ServerAPI) Class.forName(CLASS_NAME).newInstance();
+            return (ServerAPI) forName.getMethod("getServerAPI").invoke(null);
         } catch (final Exception e) {
             throw new ServerAPIException(e);
         }

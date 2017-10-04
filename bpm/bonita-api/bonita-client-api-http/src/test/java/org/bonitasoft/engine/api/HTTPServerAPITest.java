@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -24,7 +24,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.lang.reflect.UndeclaredThrowableException;
+import java.net.URLDecoder;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,14 +36,16 @@ import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.entity.mime.MultipartEntity;
 import org.bonitasoft.engine.api.internal.ServerWrappedException;
 import org.bonitasoft.engine.exception.BonitaException;
+import org.bonitasoft.engine.io.IOUtil;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
+import org.mockito.Matchers;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
@@ -47,23 +53,29 @@ import com.thoughtworks.xstream.XStream;
 
 /**
  * @author Celine Souchet
- * 
  */
+/*
+ * ignore the ssl because it causes java.security.NoSuchAlgorithmException: class configured for SSLContext: sun.security.ssl.SSLContextImpl not a SSLContext
+ * see http://mathieuhicauber-java.blogspot.fr/2013/07/powermock-and-ssl-context.html
+ */
+@PowerMockIgnore("javax.net.ssl.*")
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ HTTPServerAPI.class })
 public class HTTPServerAPITest {
 
-    @Mock
-    private Map<String, String> parameters;
+    private XStream xstream;
+
+    private HTTPServerAPI httpServerAPI;
 
     @Before
-    public void initialize() throws Exception {
-        MockitoAnnotations.initMocks(this);
-    }
+    public void initialize() {
+        xstream = new XStream();
+        xstream.registerConverter(new BonitaStackTraceElementConverter(), XStream.PRIORITY_VERY_HIGH);
+        HashMap<String, String> map = new HashMap<String, String>();
+        map.put(HTTPServerAPI.SERVER_URL, "localhost:8080");
+        map.put(HTTPServerAPI.APPLICATION_NAME, "bonita");
+        httpServerAPI = new HTTPServerAPI(map);
 
-    @Test
-    public final void invokeMethod() throws Exception {
-        // TODO : Not yet implemented
     }
 
     @Test(expected = ServerWrappedException.class)
@@ -87,9 +99,9 @@ public class HTTPServerAPITest {
             final HTTPServerAPI httpServerAPI = mock(HTTPServerAPI.class);
             final String response = "response";
             doReturn(response).when(httpServerAPI, "executeHttpPost", eq(options), eq(apiInterfaceName), eq(methodName), eq(classNameParameters),
-                    eq(parametersValues), Mockito.any(XStream.class));
+                    eq(parametersValues), Matchers.any(XStream.class));
             doThrow(new UndeclaredThrowableException(new BonitaException("Bonita exception"), "Exception plop")).when(httpServerAPI, "checkInvokeMethodReturn",
-                    eq(response), Mockito.any(XStream.class));
+                    eq(response), Matchers.any(XStream.class));
 
             // Let's call it for real:
             doCallRealMethod().when(httpServerAPI).invokeMethod(options, apiInterfaceName, methodName, classNameParameters, parametersValues);
@@ -97,7 +109,6 @@ public class HTTPServerAPITest {
         } finally {
             System.setErr(printStream);
             final String logs = myOut.toString();
-            System.out.println(logs);
             assertTrue("should have written in logs an exception", logs.contains("java.lang.reflect.UndeclaredThrowableException"));
             assertTrue("should have written in logs an exception", logs.contains("BonitaException"));
             assertTrue("should have written in logs an exception", logs.contains("Exception plop"));
@@ -105,13 +116,30 @@ public class HTTPServerAPITest {
     }
 
     @Test
-    public final void serialize() throws Exception {
-        // TODO : Not yet implemented
+    public void serializeSimpleParameters() throws Exception {
+
+        HttpEntity entity = httpServerAPI.buildEntity(Collections.<String, Serializable> emptyMap(), Arrays.asList("param1", "param2"), new Object[] {
+                "Välue1", Collections.singletonMap("key", "välue") }, xstream);
+        String content = IOUtil.read(entity.getContent());
+        String decodedContent = URLDecoder.decode(content, "UTF-8");
+        assertTrue(decodedContent.contains("välue"));
+        assertTrue(decodedContent.contains("Välue1"));
+
     }
 
     @Test
-    public final void deserialize() throws Exception {
-        // TODO : Not yet implemented
+    public void serializeByteArrayParameters() throws Exception {
+        MultipartEntity entity = (MultipartEntity) httpServerAPI.buildEntity(Collections.<String, Serializable> emptyMap(),
+                Arrays.asList(String.class.getName(), "java.util.Map", byte[].class.getName()),
+                new Object[] {
+                        "Välue1", Collections.singletonMap("key", "välue"), new byte[] {} }, xstream);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        entity.writeTo(outputStream);
+        byte[] content = outputStream.toByteArray();
+        String contentAsString = new String(content, Charset.forName("UTF-8"));
+        assertTrue(contentAsString.contains("välue"));
+        assertTrue(contentAsString.contains("Välue1"));
+
     }
 
 }

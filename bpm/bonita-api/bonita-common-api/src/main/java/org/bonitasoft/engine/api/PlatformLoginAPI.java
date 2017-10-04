@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,18 +13,18 @@
  **/
 package org.bonitasoft.engine.api;
 
+import org.bonitasoft.engine.platform.InvalidPlatformCredentialsException;
 import org.bonitasoft.engine.platform.PlatformLoginException;
 import org.bonitasoft.engine.platform.PlatformLogoutException;
 import org.bonitasoft.engine.session.PlatformSession;
 import org.bonitasoft.engine.session.SessionNotFoundException;
 
 /**
- * <b>Manage the login on the platform</b>
+ * <b>Manage the login on the platform.</b>
  * <p>
- * Using this API you can obtain a {@link PlatformSession} that can be used to retreive a {@link org.bonitasoft.engine.api.PlatformAPIAccessor
- * PlatformAPIAccessor}
+ * Using this API you can obtain a {@link PlatformSession} that can be used to retreive a PlatformAPIAccessor.
  * <p>
- * Platform session allows to access only to platform APIs:
+ * <code>PlatformSession</code> gives access to platform APIs only:
  * <ul>
  * <li>{@link PlatformAPI}</li>
  * <li>{@link PlatformCommandAPI}</li>
@@ -32,6 +32,7 @@ import org.bonitasoft.engine.session.SessionNotFoundException;
  * 
  * @author Matthieu Chaffotte
  * @author Baptiste Mesta
+ * @author Emmanuel Duchastenier
  */
 public interface PlatformLoginAPI {
 
@@ -46,21 +47,23 @@ public interface PlatformLoginAPI {
      *         the session created for you, can be used to retrieve platform APIs
      * @throws PlatformLoginException
      *             occurs when an exception is thrown during login the platform
+     * @throws InvalidPlatformCredentialsException
+     *             occurs when thr username or password is not valid
      */
-	@NoSessionRequired
-    PlatformSession login(String userName, String password) throws PlatformLoginException;
+    @NoSessionRequired
+    PlatformSession login(String userName, String password) throws PlatformLoginException, InvalidPlatformCredentialsException;
 
     /**
      * Logout from a platform.
      * 
-     * @param the
-     *            platform session to logout from
+     * @param session
+     *            the platform session to logout from.
      * @throws PlatformLogoutException
      *             occurs when an exception is thrown during logout the platform
      * @throws SessionNotFoundException
      *             if the session is not found on the server side. This may occurs when the session has expired.
      */
-	@NoSessionRequired
+    @NoSessionRequired
     void logout(PlatformSession session) throws PlatformLogoutException, SessionNotFoundException;
 
 }

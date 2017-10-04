@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,7 +17,7 @@ import java.util.List;
 
 import org.bonitasoft.engine.persistence.OrderByType;
 import org.bonitasoft.engine.persistence.QueryOptions;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
 import org.bonitasoft.engine.queriablelogger.model.SQueriableLog;
 import org.bonitasoft.engine.queriablelogger.model.SQueriableLogSeverity;
 
@@ -47,50 +47,6 @@ public interface QueriableLoggerService {
      * @since 6.0
      */
     boolean isLoggable(final String actionType, final SQueriableLogSeverity severity);
-
-    /**
-     * Get the queriable logs having the given value for the given Long index
-     * 
-     * @param pos
-     *            position of the LongIndex (between 0 and 4)
-     * @param value
-     *            the LongIndex value
-     * @param fromIndex
-     *            first result to be considered(>=0)
-     * @param maxSize
-     *            the max number of queriable logs to be returned (>=0)
-     * @param pageCriterion
-     *            the criterion to be used to order the result
-     * @return the queriable logs having the given value for the given Long index
-     * @throws IllegalIndexPositionException
-     *             if LongIndex position is out of range
-     * @throws SQueriableLogException
-     * @since 6.0
-     */
-    List<SQueriableLog> getLogsFromLongIndex(int pos, long value, final int fromIndex, final int numberOfResults, String fieldName, OrderByType orderByType)
-            throws IllegalIndexPositionException, SQueriableLogException;
-
-    /**
-     * Get the queriable logs having the given value for the given Long index
-     * 
-     * @param pos
-     *            position of the LongIndex (between 0 and 4)
-     * @param value
-     *            the LongIndex value
-     * @param fromIndex
-     *            first result to be considered(>=0)
-     * @param maxSize
-     *            the max number of queriable logs to be returned (>=0)
-     * @param pageCriterion
-     *            the criterion to be used to order the result
-     * @return the queriable logs having the given value for the given Long index
-     * @throws IllegalIndexPositionException
-     *             if LongIndex position is out of range
-     * @throws SQueriableLogException
-     * @since 6.0
-     */
-    List<SQueriableLog> getLogsFromLongIndex(int pos, long value, final int fromIndex, final int numberOfResults) throws IllegalIndexPositionException,
-            SQueriableLogException;
 
     /**
      * Get the queriable log from its id.
@@ -132,10 +88,10 @@ public interface QueriableLoggerService {
      * @param QueryOptions
      *            The criterion used to search sQueriableLog
      * @return queriable logs number matching to the given searchOptions.
-     * @throws SBonitaSearchException
+     * @throws SBonitaReadException
      * @since 6.0
      */
-    long getNumberOfLogs(final QueryOptions searchOptions) throws SBonitaSearchException;
+    long getNumberOfLogs(final QueryOptions searchOptions) throws SBonitaReadException;
 
     /**
      * Gets the queriable logs matching to the given searchOptions.
@@ -143,9 +99,9 @@ public interface QueriableLoggerService {
      * @param searchOptions
      *            The criterion used to search sQueriableLog
      * @return logs list matching to the given searchOptions.
-     * @throws SBonitaSearchException
+     * @throws SBonitaReadException
      * @since 6.0
      */
-    List<SQueriableLog> searchLogs(final QueryOptions searchOptions) throws SBonitaSearchException;
+    List<SQueriableLog> searchLogs(final QueryOptions searchOptions) throws SBonitaReadException;
 
 }

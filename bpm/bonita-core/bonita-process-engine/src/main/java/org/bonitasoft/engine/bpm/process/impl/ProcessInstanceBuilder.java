@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,6 +16,7 @@ package org.bonitasoft.engine.bpm.process.impl;
 import java.util.Date;
 
 import org.bonitasoft.engine.bpm.process.ProcessInstance;
+import org.bonitasoft.engine.bpm.process.impl.internal.ProcessInstanceImpl;
 
 /**
  * @author Emmanuel Duchastenier
@@ -25,15 +26,24 @@ import org.bonitasoft.engine.bpm.process.ProcessInstance;
  */
 public class ProcessInstanceBuilder {
 
-    protected ProcessInstanceImpl processInstance;
+    protected final ProcessInstanceImpl processInstance;
+
+    private ProcessInstanceBuilder() {
+        this.processInstance = null;
+    }
+    
+    private ProcessInstanceBuilder(final ProcessInstanceImpl processInstance) {
+        super();
+        this.processInstance = processInstance;
+    }
 
     public ProcessInstance done() {
         return processInstance;
     }
 
     public ProcessInstanceBuilder createNewInstance(final String name) {
-        processInstance = new ProcessInstanceImpl(name);
-        return this;
+        final ProcessInstanceImpl processInstance = new ProcessInstanceImpl(name);
+        return new ProcessInstanceBuilder(processInstance);
     }
 
     public ProcessInstanceBuilder setState(final String state) {
@@ -51,8 +61,8 @@ public class ProcessInstanceBuilder {
         return this;
     }
 
-    public ProcessInstanceBuilder setStartedByDelegate(final long startedByDelegate) {
-        processInstance.setStartedByDelegate(startedByDelegate);
+    public ProcessInstanceBuilder setStartedBySubstitute(final long startedBySubstitute) {
+        processInstance.setStartedBySubstitute(startedBySubstitute);
         return this;
     }
 
@@ -118,6 +128,10 @@ public class ProcessInstanceBuilder {
 
     public void setStringIndexLabel(final int index, final String stringIndexLabel) {
         processInstance.setStringIndexLabel(index, stringIndexLabel);
+    }
+
+    public static ProcessInstanceBuilder getInstance() {
+        return new ProcessInstanceBuilder(null);
     }
 
 }

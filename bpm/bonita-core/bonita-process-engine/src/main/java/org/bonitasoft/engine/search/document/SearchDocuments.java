@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -15,10 +15,10 @@ package org.bonitasoft.engine.search.document;
 
 import java.util.List;
 
-import org.bonitasoft.engine.core.process.document.api.ProcessDocumentService;
-import org.bonitasoft.engine.core.process.document.model.SProcessDocument;
+import org.bonitasoft.engine.core.document.api.DocumentService;
+import org.bonitasoft.engine.core.document.model.SMappedDocument;
 import org.bonitasoft.engine.persistence.QueryOptions;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
 import org.bonitasoft.engine.search.AbstractDocumentSearchEntity;
 import org.bonitasoft.engine.search.SearchOptions;
 import org.bonitasoft.engine.search.descriptor.SearchDocumentDescriptor;
@@ -28,21 +28,21 @@ import org.bonitasoft.engine.search.descriptor.SearchDocumentDescriptor;
  */
 public class SearchDocuments extends AbstractDocumentSearchEntity {
 
-    private final ProcessDocumentService processDocumentService;
+    private final DocumentService documentService;
 
-    public SearchDocuments(final ProcessDocumentService processDocumentService, final SearchDocumentDescriptor searchDescriptor, final SearchOptions options) {
-        super(searchDescriptor, options);
-        this.processDocumentService = processDocumentService;
+    public SearchDocuments(final DocumentService documentService, final SearchDocumentDescriptor searchDescriptor, final SearchOptions options) {
+        super(searchDescriptor, options, documentService);
+        this.documentService = documentService;
     }
 
     @Override
-    public long executeCount(final QueryOptions searchOptions) throws SBonitaSearchException {
-        return processDocumentService.getNumberOfDocuments(searchOptions);
+    public long executeCount(final QueryOptions searchOptions) throws SBonitaReadException {
+        return documentService.getNumberOfDocuments(searchOptions);
     }
 
     @Override
-    public List<SProcessDocument> executeSearch(final QueryOptions searchOptions) throws SBonitaSearchException {
-        return processDocumentService.searchDocuments(searchOptions);
+    public List<SMappedDocument> executeSearch(final QueryOptions searchOptions) throws SBonitaReadException {
+        return documentService.searchDocuments(searchOptions);
     }
 
 }

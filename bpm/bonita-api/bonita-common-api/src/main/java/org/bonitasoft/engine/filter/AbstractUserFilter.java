@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.bonitasoft.engine.api.APIAccessor;
+import org.bonitasoft.engine.connector.ConnectorValidationException;
 import org.bonitasoft.engine.connector.EngineExecutionContext;
 
 /**
@@ -42,10 +43,22 @@ public abstract class AbstractUserFilter implements UserFilter {
     }
 
     protected Object getInputParameter(final String paramName) throws IllegalStateException {
-        if (inputParameters.containsKey(paramName)) {
-            return inputParameters.get(paramName);
-        } else {
-            throw new IllegalStateException("Input parameter '" + paramName + "' is not set");
+        return inputParameters.get(paramName);
+    }
+
+    @SuppressWarnings("unchecked")
+    protected <T> T getOptinalInputParameter(final String paramName) {
+        return (T) inputParameters.get(paramName);
+    }
+
+    protected String getStringInputParameter(final String paramName) {
+        return (String) getInputParameter(paramName);
+    }
+
+    protected void validateStringInputParameterIsNotNulOrEmpty(final String paramName) throws ConnectorValidationException {
+        final String paramValue = (String) getInputParameter(paramName);
+        if (paramValue == null || "".equals(paramValue.trim())) {
+            throw new ConnectorValidationException("The input parameter '" + paramName + "' cannot be null or empty");
         }
     }
 

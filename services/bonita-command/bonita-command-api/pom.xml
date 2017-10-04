@@ -5,7 +5,7 @@
 	<parent>
 		<artifactId>bonita-command</artifactId>
 		<groupId>org.bonitasoft.engine.command</groupId>
-		<version>6.1.0-SNAPSHOT</version>
+		<version>7.5.3-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>bonita-command-api</artifactId>
@@ -14,14 +14,24 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.bonitasoft.engine.command</groupId>
-			<artifactId>bonita-command-model</artifactId>
+			<groupId>org.bonitasoft.engine.persistence</groupId>
+			<artifactId>bonita-persistence-read</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-		<dependency>
-			<groupId>org.bonitasoft.engine.events</groupId>
-			<artifactId>bonita-events-api</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-	</dependencies>
+        <dependency>
+            <groupId>org.bonitasoft.engine.recorder</groupId>
+            <artifactId>bonita-recorder-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bonitasoft.engine.log</groupId>
+            <artifactId>bonita-log-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bonitasoft.engine</groupId>
+            <artifactId>bonita-commons</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
 </project>

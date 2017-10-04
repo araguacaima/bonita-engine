@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,9 +13,11 @@
  **/
 package org.bonitasoft.engine.actor.mapping.impl;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.bonitasoft.engine.actor.mapping.ActorMappingService;
@@ -27,19 +29,23 @@ import org.bonitasoft.engine.actor.mapping.SActorMemberNotFoundException;
 import org.bonitasoft.engine.actor.mapping.SActorNotFoundException;
 import org.bonitasoft.engine.actor.mapping.SActorUpdateException;
 import org.bonitasoft.engine.actor.mapping.model.SActor;
+import org.bonitasoft.engine.actor.mapping.model.SActorLogBuilder;
+import org.bonitasoft.engine.actor.mapping.model.SActorLogBuilderFactory;
 import org.bonitasoft.engine.actor.mapping.model.SActorMember;
 import org.bonitasoft.engine.actor.mapping.model.impl.SActorMemberImpl;
 import org.bonitasoft.engine.actor.mapping.persistence.SelectDescriptorBuilder;
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.events.EventActionType;
 import org.bonitasoft.engine.events.EventService;
 import org.bonitasoft.engine.events.model.SDeleteEvent;
 import org.bonitasoft.engine.events.model.SInsertEvent;
 import org.bonitasoft.engine.events.model.SUpdateEvent;
-import org.bonitasoft.engine.events.model.builders.SEventBuilder;
+import org.bonitasoft.engine.events.model.builders.SEventBuilderFactory;
 import org.bonitasoft.engine.identity.IdentityService;
 import org.bonitasoft.engine.identity.SIdentityException;
 import org.bonitasoft.engine.identity.model.SGroup;
 import org.bonitasoft.engine.persistence.OrderByType;
+import org.bonitasoft.engine.persistence.QueryOptions;
 import org.bonitasoft.engine.persistence.ReadPersistenceService;
 import org.bonitasoft.engine.persistence.SBonitaReadException;
 import org.bonitasoft.engine.persistence.SelectByIdDescriptor;
@@ -47,8 +53,8 @@ import org.bonitasoft.engine.persistence.SelectListDescriptor;
 import org.bonitasoft.engine.persistence.SelectOneDescriptor;
 import org.bonitasoft.engine.queriablelogger.model.SQueriableLog;
 import org.bonitasoft.engine.queriablelogger.model.SQueriableLogSeverity;
+import org.bonitasoft.engine.queriablelogger.model.builder.ActionType;
 import org.bonitasoft.engine.queriablelogger.model.builder.HasCRUDEAction;
-import org.bonitasoft.engine.queriablelogger.model.builder.HasCRUDEAction.ActionType;
 import org.bonitasoft.engine.queriablelogger.model.builder.SLogBuilder;
 import org.bonitasoft.engine.queriablelogger.model.builder.SPersistenceLogBuilder;
 import org.bonitasoft.engine.recorder.Recorder;
@@ -66,8 +72,6 @@ import org.bonitasoft.engine.services.QueriableLoggerService;
  * @author Celine Souchet
  */
 public class ActorMappingServiceImpl implements ActorMappingService {
-
-    private static final int NUMBER_OF_RESULT = 50;
 
     private static final int BATCH_SIZE = 100;
 
@@ -105,7 +109,7 @@ public class ActorMappingServiceImpl implements ActorMappingService {
         final InsertRecord insertRecord = new InsertRecord(actor);
         SInsertEvent insertEvent = null;
         if (eventService.hasHandlers(ACTOR, EventActionType.CREATED)) {
-            insertEvent = (SInsertEvent) eventService.getEventBuilder().createInsertEvent(ACTOR).setObject(actor).done();
+            insertEvent = (SInsertEvent) BuilderFactory.get(SEventBuilderFactory.class).createInsertEvent(ACTOR).setObject(actor).done();
         }
         try {
             recorder.recordInsert(insertRecord, insertEvent);
@@ -118,14 +122,14 @@ public class ActorMappingServiceImpl implements ActorMappingService {
     }
 
     private SActorLogBuilder getQueriableLog(final ActionType actionType, final String message) {
-        final SActorLogBuilder logBuilder = new SActorLogBuilder();
+        final SActorLogBuilder logBuilder = BuilderFactory.get(SActorLogBuilderFactory.class).createNewInstance();
         this.initializeLogBuilder(logBuilder, message);
         this.updateLog(actionType, logBuilder);
         return logBuilder;
     }
 
     private <T extends SLogBuilder> void initializeLogBuilder(final T logBuilder, final String message) {
-        logBuilder.createNewInstance().actionStatus(SQueriableLog.STATUS_FAIL).severity(SQueriableLogSeverity.INTERNAL).rawMessage(message);
+        logBuilder.actionStatus(SQueriableLog.STATUS_FAIL).severity(SQueriableLogSeverity.INTERNAL).rawMessage(message);
     }
 
     private <T extends HasCRUDEAction> void updateLog(final ActionType actionType, final T logBuilder) {
@@ -192,9 +196,9 @@ public class ActorMappingServiceImpl implements ActorMappingService {
 
     @Override
     public SActor getActor(final String actorName, final long scopeId) throws SActorNotFoundException {
-        final SelectOneDescriptor<SActor> selectListDescriptor = SelectDescriptorBuilder.getActor(actorName, scopeId);
+        final SelectOneDescriptor<SActor> selectOneDescriptor = SelectDescriptorBuilder.getActor(actorName, scopeId);
         try {
-            final SActor actor = persistenceService.selectOne(selectListDescriptor);
+            final SActor actor = persistenceService.selectOne(selectOneDescriptor);
             if (actor == null) {
                 throw new SActorNotFoundException("Actor not found with name: " + actorName + " of scopeId: " + scopeId);
             }
@@ -212,8 +216,7 @@ public class ActorMappingServiceImpl implements ActorMappingService {
         final UpdateRecord updateRecord = UpdateRecord.buildSetFields(actor, descriptor);
         SUpdateEvent updateEvent = null;
         if (eventService.hasHandlers(ACTOR, EventActionType.UPDATED)) {
-            final SEventBuilder eventBuilder = eventService.getEventBuilder();
-            updateEvent = (SUpdateEvent) eventBuilder.createUpdateEvent(ACTOR).setObject(actor).done();
+            updateEvent = (SUpdateEvent) BuilderFactory.get(SEventBuilderFactory.class).createUpdateEvent(ACTOR).setObject(actor).done();
         }
         try {
             recorder.recordUpdate(updateRecord, updateEvent);
@@ -227,26 +230,33 @@ public class ActorMappingServiceImpl implements ActorMappingService {
 
     @Override
     public void deleteActors(final long scopeId) throws SActorDeletionException {
-        final SelectListDescriptor<SActor> selectDescriptor = SelectDescriptorBuilder.getActorsOfScope(scopeId);
         try {
-            final List<SActor> actors = persistenceService.selectList(selectDescriptor);
-            for (final SActor actor : actors) {
-                // First delete its members:
-                List<SActorMember> actorMembers;
-                do {
-                    actorMembers = getActorMembers(actor.getId(), 0, NUMBER_OF_RESULT);
-                    for (SActorMember sActorMember : actorMembers) {
-                        removeActorMember(sActorMember);
-                    }
-                } while (actorMembers.size() > 0);
-                // then the actor itself:
-                deleteActor(actor);
+            final QueryOptions queryOptions = new QueryOptions(0, 100, SActor.class, "id", OrderByType.ASC);
+            List<SActor> actors = getActors(scopeId, queryOptions);
+            while (!actors.isEmpty()) {
+                for (final SActor actor : actors) {
+                    // First delete its members:
+                    deleteActorMembers(actor);
+                    // then the actor itself:
+                    deleteActor(actor);
+                }
+                actors = getActors(scopeId, queryOptions);
             }
         } catch (final SBonitaReadException bre) {
             throw new SActorDeletionException(bre);
-        } catch (SActorMemberDeletionException e) {
+        } catch (final SActorMemberDeletionException e) {
             throw new SActorDeletionException(e);
         }
+    }
+
+    private void deleteActorMembers(final SActor actor) throws SBonitaReadException, SActorMemberDeletionException {
+        List<SActorMember> actorMembers;
+        do {
+            actorMembers = getActorMembers(actor.getId(), 0, BATCH_SIZE);
+            for (final SActorMember sActorMember : actorMembers) {
+                deleteActorMember(sActorMember);
+            }
+        } while (actorMembers.size() > 0);
     }
 
     private void deleteActor(final SActor actor) throws SActorDeletionException {
@@ -254,8 +264,7 @@ public class ActorMappingServiceImpl implements ActorMappingService {
         final DeleteRecord deleteRecord = new DeleteRecord(actor);
         SDeleteEvent deleteEvent = null;
         if (eventService.hasHandlers(ACTOR, EventActionType.DELETED)) {
-            final SEventBuilder eventBuilder = eventService.getEventBuilder();
-            deleteEvent = (SDeleteEvent) eventBuilder.createDeleteEvent(ACTOR).setObject(actor).done();
+            deleteEvent = (SDeleteEvent) BuilderFactory.get(SEventBuilderFactory.class).createDeleteEvent(ACTOR).setObject(actor).done();
         }
         try {
             recorder.recordDelete(deleteRecord, deleteEvent);
@@ -273,7 +282,7 @@ public class ActorMappingServiceImpl implements ActorMappingService {
     }
 
     @Override
-    public SActorMember addUserToActor(final long actorId, final long userId) throws SActorNotFoundException, SActorMemberCreationException {
+    public SActorMember addUserToActor(final long actorId, final long userId) throws SActorMemberCreationException {
         final SActorMemberImpl actorMember = new SActorMemberImpl();
         actorMember.setActorId(actorId);
         actorMember.setUserId(userId);
@@ -285,8 +294,7 @@ public class ActorMappingServiceImpl implements ActorMappingService {
         final InsertRecord insertRecord = new InsertRecord(actorMember);
         SInsertEvent insertEvent = null;
         if (eventService.hasHandlers(ACTOR_MEMBER, EventActionType.CREATED)) {
-            final SEventBuilder eventBuilder = eventService.getEventBuilder();
-            insertEvent = (SInsertEvent) eventBuilder.createInsertEvent(ACTOR_MEMBER).setObject(actorMember).done();
+            insertEvent = (SInsertEvent) BuilderFactory.get(SEventBuilderFactory.class).createInsertEvent(ACTOR_MEMBER).setObject(actorMember).done();
         }
         try {
             recorder.recordInsert(insertRecord, insertEvent);
@@ -317,7 +325,7 @@ public class ActorMappingServiceImpl implements ActorMappingService {
             return addActorMember;
         } catch (final SIdentityException e) {
             throw new SActorMemberCreationException(e);
-        } catch (SBonitaReadException e) {
+        } catch (final SBonitaReadException e) {
             throw new SActorMemberCreationException(e);
         }
     }
@@ -330,7 +338,7 @@ public class ActorMappingServiceImpl implements ActorMappingService {
     }
 
     @Override
-    public SActorMember addRoleToActor(final long actorId, final long roleId) throws SActorNotFoundException, SActorMemberCreationException {
+    public SActorMember addRoleToActor(final long actorId, final long roleId) throws SActorMemberCreationException {
         final SActorMemberImpl actorMember = new SActorMemberImpl();
         actorMember.setActorId(actorId);
         actorMember.setRoleId(roleId);
@@ -366,11 +374,11 @@ public class ActorMappingServiceImpl implements ActorMappingService {
     }
 
     @Override
-    public SActorMember removeActorMember(final long actorMemberId) throws SActorMemberNotFoundException, SActorMemberDeletionException {
+    public SActorMember deleteActorMember(final long actorMemberId) throws SActorMemberNotFoundException, SActorMemberDeletionException {
         final SActorLogBuilder logBuilder = getQueriableLog(ActionType.DELETED, "Deleting an actor member");
         try {
             final SActorMember actorMember = getActorMember(actorMemberId);
-            removeActorMember(actorMember);
+            deleteActorMember(actorMember);
             return actorMember;
         } catch (final SBonitaReadException e) {
             initiateLogBuilder(actorMemberId, SQueriableLog.STATUS_FAIL, logBuilder, "removeActorMember");
@@ -379,15 +387,14 @@ public class ActorMappingServiceImpl implements ActorMappingService {
     }
 
     @Override
-    public void removeActorMember(final SActorMember sActorMember) throws SActorMemberDeletionException {
+    public void deleteActorMember(final SActorMember sActorMember) throws SActorMemberDeletionException {
         final SActorLogBuilder logBuilder = getQueriableLog(ActionType.DELETED, "Deleting an actor member");
-        long actorMemberId = sActorMember.getId();
+        final long actorMemberId = sActorMember.getId();
         try {
             final DeleteRecord deleteRecord = new DeleteRecord(sActorMember);
             SDeleteEvent deleteEvent = null;
             if (eventService.hasHandlers(ACTOR_MEMBER, EventActionType.DELETED)) {
-                final SEventBuilder eventBuilder = eventService.getEventBuilder();
-                deleteEvent = (SDeleteEvent) eventBuilder.createDeleteEvent(ACTOR_MEMBER).setObject(sActorMember).done();
+                deleteEvent = (SDeleteEvent) BuilderFactory.get(SEventBuilderFactory.class).createDeleteEvent(ACTOR_MEMBER).setObject(sActorMember).done();
             }
             recorder.recordDelete(deleteRecord, deleteEvent);
             initiateLogBuilder(actorMemberId, SQueriableLog.STATUS_OK, logBuilder, "removeActorMember");
@@ -407,6 +414,12 @@ public class ActorMappingServiceImpl implements ActorMappingService {
     }
 
     @Override
+    public SActorMember getActorMember(final long actorId, final long userId, final long groupId, final long roleId) throws SBonitaReadException {
+        final SelectOneDescriptor<SActorMember> descriptor = SelectDescriptorBuilder.getActorMember(actorId, userId, groupId, roleId);
+        return persistenceService.selectOne(descriptor);
+    }
+
+    @Override
     public long getNumberOfActorMembers(final long actorId) throws SBonitaReadException {
         final SelectOneDescriptor<Long> descriptor = SelectDescriptorBuilder.getNumberOfActorMembers(actorId);
         return persistenceService.selectOne(descriptor);
@@ -418,26 +431,15 @@ public class ActorMappingServiceImpl implements ActorMappingService {
         return persistenceService.selectList(descriptor);
     }
 
-    public List<SActorMember> getActorMembers(final int fromIndex, final int numberOfActorMembers) throws SBonitaReadException {
-        final SelectListDescriptor<SActorMember> descriptor = SelectDescriptorBuilder.getActorMembers(fromIndex, numberOfActorMembers);
+    @Override
+    public List<SActorMember> getActorMembersOfUser(final long userId, final int fromIndex, final int numberOfActorMembers) throws SBonitaReadException {
+        final SelectListDescriptor<SActorMember> descriptor = SelectDescriptorBuilder.getActorMembersOfUser(userId, fromIndex, numberOfActorMembers);
         return persistenceService.selectList(descriptor);
     }
 
     @Override
-    public List<SActor> getActors(final long scopeId) throws SBonitaReadException {
-        final SelectListDescriptor<SActor> descriptor = SelectDescriptorBuilder.getActorsOfScope(scopeId);
-        return persistenceService.selectList(descriptor);
-    }
-
-    @Override
-    public List<SActorMember> getActorMembersOfUser(final long userId) throws SBonitaReadException {
-        final SelectListDescriptor<SActorMember> descriptor = SelectDescriptorBuilder.getActorMembersOfUser(userId);
-        return persistenceService.selectList(descriptor);
-    }
-
-    @Override
-    public List<SActorMember> getActorMembersOfGroup(final long groupId) throws SBonitaReadException {
-        final SelectListDescriptor<SActorMember> descriptor = SelectDescriptorBuilder.getActorMembersOfGroup(groupId);
+    public List<SActorMember> getActorMembersOfGroup(final long groupId, final int fromIndex, final int numberOfActorMembers) throws SBonitaReadException {
+        final SelectListDescriptor<SActorMember> descriptor = SelectDescriptorBuilder.getActorMembersOfGroup(groupId, fromIndex, numberOfActorMembers);
         return persistenceService.selectList(descriptor);
     }
 
@@ -447,22 +449,36 @@ public class ActorMappingServiceImpl implements ActorMappingService {
     }
 
     @Override
-    public List<SActorMember> getActorMembersOfRole(final long roleId) throws SBonitaReadException {
-        final SelectListDescriptor<SActorMember> descriptor = SelectDescriptorBuilder.getActorMembersOfRole(roleId);
+    public List<SActorMember> getActorMembersOfRole(final long roleId, final int fromIndex, final int numberOfActorMembers) throws SBonitaReadException {
+        final SelectListDescriptor<SActorMember> descriptor = SelectDescriptorBuilder.getActorMembersOfRole(roleId, fromIndex, numberOfActorMembers);
         return persistenceService.selectList(descriptor);
     }
 
     @Override
-    public List<SActor> getActorsOfUserCanStartProcessDefinition(final long userId, final long processDefinitionid) throws SBonitaReadException {
-        final SelectListDescriptor<SActor> descriptor = SelectDescriptorBuilder.getActorsOfUserCanStartProcessDefinition(userId, processDefinitionid);
-        return persistenceService.selectList(descriptor);
+    public boolean canUserStartProcessDefinition(final long userId, final long processDefinitionId) throws SBonitaReadException {
+        final SelectListDescriptor<Long> descriptor = SelectDescriptorBuilder.getActorMembersInitiatorForProcess(processDefinitionId, 0,
+                QueryOptions.UNLIMITED_NUMBER_OF_RESULTS);
+        final List<Long> actorMembersForProcess = persistenceService.selectList(descriptor);
+        final int BATCH_SIZE = 80;
+        boolean found = false;
+        while (!found && actorMembersForProcess.size() > 0) {
+            found = 0 < persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfUserMembersForUserOrManagerForActorMembers(userId,
+                    retrieveFirstResultsAndRemoveFromOriginalList(BATCH_SIZE, actorMembersForProcess)));
+        }
+        return found;
+    }
+
+    private List<Long> retrieveFirstResultsAndRemoveFromOriginalList(int howMany, List<Long> ids) {
+        List<Long> subList = new ArrayList<Long>(howMany);
+        for (int i = 0; i < howMany && ids.size() > 0; i++) {
+            subList.add(ids.remove(0));
+        }
+        return subList;
     }
 
     @Override
-    public List<SActor> getActors(final long processDefinitionId, final int pageNumber, final int numberPerPage, final String orderByField,
-            final OrderByType order) throws SBonitaReadException {
-        final SelectListDescriptor<SActor> descriptor = SelectDescriptorBuilder.getActorsOfScope(processDefinitionId, pageNumber, numberPerPage, orderByField,
-                order);
+    public List<SActor> getActors(final long processDefinitionId, final QueryOptions queryOptions) throws SBonitaReadException {
+        final SelectListDescriptor<SActor> descriptor = SelectDescriptorBuilder.getActorsOfScope(processDefinitionId, queryOptions);
         return persistenceService.selectList(descriptor);
     }
 
@@ -484,6 +500,14 @@ public class ActorMappingServiceImpl implements ActorMappingService {
         } catch (final SRecorderException e) {
             throw new SActorMemberDeletionException("Can't delete all actor members.", e);
         }
+    }
+
+    @Override
+    public List<Long> getPossibleUserIdsOfActorId(final long actorId, final int startIndex, final int maxResults) throws SBonitaReadException {
+        final Map<String, Object> parameters = Collections.singletonMap("actorId", (Object) actorId);
+        final SelectListDescriptor<Long> descriptor = new SelectListDescriptor<Long>("getPossibleUserIdsOfActorId", parameters, SActor.class, new QueryOptions(
+                startIndex, maxResults));
+        return persistenceService.selectList(descriptor);
     }
 
 }

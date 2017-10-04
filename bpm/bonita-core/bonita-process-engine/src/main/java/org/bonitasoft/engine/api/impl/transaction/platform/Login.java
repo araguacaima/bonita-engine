@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,6 +13,11 @@
  **/
 package org.bonitasoft.engine.api.impl.transaction.platform;
 
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.bonitasoft.engine.authentication.AuthenticationConstants;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.commons.transaction.TransactionContentWithResult;
 import org.bonitasoft.engine.core.login.LoginService;
@@ -43,7 +48,11 @@ public class Login implements TransactionContentWithResult<SSession> {
 
     @Override
     public void execute() throws SBonitaException {
-        sSession = loginService.login(tenantId, userName, password);
+        Map<String, Serializable> credentials = new HashMap<String, Serializable>();
+        credentials.put(AuthenticationConstants.BASIC_USERNAME, userName);
+        credentials.put(AuthenticationConstants.BASIC_PASSWORD, password);
+        credentials.put(AuthenticationConstants.BASIC_TENANT_ID, tenantId);
+        sSession = loginService.login(credentials);
     }
 
     @Override

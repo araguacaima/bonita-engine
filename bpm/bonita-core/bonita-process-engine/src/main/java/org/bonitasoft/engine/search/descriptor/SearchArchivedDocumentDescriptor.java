@@ -1,17 +1,16 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
- * BonitaSoft, 31 rue Gustave Eiffel - 38000 Grenoble
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2.0 of the License, or
- * (at your option) any later version.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
+ * Copyright (C) 2015 BonitaSoft S.A.
+ * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
+ * This library is free software; you can redistribute it and/or modify it under the terms
+ * of the GNU Lesser General Public License as published by the Free Software Foundation
+ * version 2.1 of the License.
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Lesser General Public License for more details.
+ * You should have received a copy of the GNU Lesser General Public License along with this
+ * program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+ * Floor, Boston, MA 02110-1301, USA.
+ **/
 package org.bonitasoft.engine.search.descriptor;
 
 import java.util.HashMap;
@@ -20,9 +19,9 @@ import java.util.Map;
 import java.util.Set;
 
 import org.bonitasoft.engine.bpm.document.ArchivedDocumentsSearchDescriptor;
-import org.bonitasoft.engine.core.process.document.mapping.model.archive.SADocumentMapping;
-import org.bonitasoft.engine.core.process.document.mapping.model.archive.builder.SADocumentMappingBuilder;
-import org.bonitasoft.engine.core.process.document.mapping.model.builder.SDocumentMappingBuilderAccessor;
+import org.bonitasoft.engine.builder.BuilderFactory;
+import org.bonitasoft.engine.core.document.model.archive.SAMappedDocument;
+import org.bonitasoft.engine.core.document.model.archive.builder.SADocumentMappingBuilderFactory;
 import org.bonitasoft.engine.persistence.PersistentObject;
 
 /**
@@ -35,40 +34,43 @@ public class SearchArchivedDocumentDescriptor extends SearchEntityDescriptor {
 
     private final Map<Class<? extends PersistentObject>, Set<String>> documentAllFields;
 
-    SearchArchivedDocumentDescriptor(final SDocumentMappingBuilderAccessor sDocumentMappingBuilderAccessor) {
-        searchEntityKeys = new HashMap<String, FieldDescriptor>(11);
-        final SADocumentMappingBuilder documentMappingBuilder = sDocumentMappingBuilderAccessor.getSADocumentMappingBuilder();
+    SearchArchivedDocumentDescriptor() {
+        searchEntityKeys = new HashMap<>(12);
+        final SADocumentMappingBuilderFactory fact = BuilderFactory.get(SADocumentMappingBuilderFactory.class);
         searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.ARCHIVE_DATE,
-                new FieldDescriptor(SADocumentMapping.class, documentMappingBuilder.getArchiveDateKey()));
-        searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.CONTENT_STORAGE_ID,
-                new FieldDescriptor(SADocumentMapping.class, documentMappingBuilder.getContentStorageIdKey()));
+                new FieldDescriptor(SAMappedDocument.class, fact.getArchiveDateKey()));
         searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.DOCUMENT_AUTHOR,
-                new FieldDescriptor(SADocumentMapping.class, documentMappingBuilder.getDocumentAuthorKey()));
+                new FieldDescriptor(SAMappedDocument.class, "document." + fact.getAuthorKey()));
         searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.DOCUMENT_CONTENT_FILENAME,
-                new FieldDescriptor(SADocumentMapping.class, documentMappingBuilder.getDocumentContentFileNameKey()));
+                new FieldDescriptor(SAMappedDocument.class, "document." + fact.getFileNameKey()));
         searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.DOCUMENT_CONTENT_MIMETYPE,
-                new FieldDescriptor(SADocumentMapping.class, documentMappingBuilder.getDocumentContentMimeTypeKey()));
+                new FieldDescriptor(SAMappedDocument.class, "document." + fact.getMimeTypeKey()));
         searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.DOCUMENT_CREATIONDATE,
-                new FieldDescriptor(SADocumentMapping.class, documentMappingBuilder.getDocumentCreationDateKey()));
+                new FieldDescriptor(SAMappedDocument.class, "document." + fact.getCreationDateKey()));
         searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.DOCUMENT_HAS_CONTENT,
-                new FieldDescriptor(SADocumentMapping.class, documentMappingBuilder.getDocumentHasContentKey()));
+                new FieldDescriptor(SAMappedDocument.class, "document." + fact.getHasContentKey()));
         searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.DOCUMENT_NAME,
-                new FieldDescriptor(SADocumentMapping.class, documentMappingBuilder.getDocumentNameKey()));
+                new FieldDescriptor(SAMappedDocument.class, fact.getNameKey()));
+        searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.DOCUMENT_DESCRIPTION, new FieldDescriptor(SAMappedDocument.class, fact.getDescriptionKey()));
+        searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.DOCUMENT_VERSION, new FieldDescriptor(SAMappedDocument.class, fact.getVersionKey()));
+        searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.LIST_INDEX, new FieldDescriptor(SAMappedDocument.class, fact.getIndexKey()));
         searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.DOCUMENT_URL,
-                new FieldDescriptor(SADocumentMapping.class, documentMappingBuilder.getDocumentURLKey()));
+                new FieldDescriptor(SAMappedDocument.class, "document." + fact.getURLKey()));
         searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.PROCESSINSTANCE_ID,
-                new FieldDescriptor(SADocumentMapping.class, documentMappingBuilder.getProcessInstanceIdKey()));
+                new FieldDescriptor(SAMappedDocument.class, fact.getProcessInstanceIdKey()));
         searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.SOURCEOBJECT_ID,
-                new FieldDescriptor(SADocumentMapping.class, documentMappingBuilder.getSourceObjectIdKey()));
+                new FieldDescriptor(SAMappedDocument.class, fact.getSourceObjectIdKey()));
+        searchEntityKeys.put(ArchivedDocumentsSearchDescriptor.CONTENT_STORAGE_ID,
+                new FieldDescriptor(SAMappedDocument.class, fact.getContentStorageIdKey()));
 
-        documentAllFields = new HashMap<Class<? extends PersistentObject>, Set<String>>(1);
+        documentAllFields = new HashMap<>(1);
         final Set<String> documentFields = new HashSet<String>(7);
-        documentFields.add(documentMappingBuilder.getDocumentNameKey());
-        documentFields.add(documentMappingBuilder.getContentStorageIdKey());
-        documentFields.add(documentMappingBuilder.getDocumentContentFileNameKey());
-        documentFields.add(documentMappingBuilder.getDocumentContentMimeTypeKey());
-        documentFields.add(documentMappingBuilder.getDocumentURLKey());
-        documentAllFields.put(SADocumentMapping.class, documentFields);
+        documentFields.add(fact.getNameKey());
+        documentFields.add(fact.getDescriptionKey());
+        documentFields.add("document." + fact.getFileNameKey());
+        documentFields.add("document." + fact.getMimeTypeKey());
+        documentFields.add("document." + fact.getURLKey());
+        documentAllFields.put(SAMappedDocument.class, documentFields);
     }
 
     @Override

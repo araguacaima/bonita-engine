@@ -5,7 +5,7 @@
 	<parent>
 		<artifactId>services</artifactId>
 		<groupId>org.bonitasoft.engine</groupId>
-		<version>6.1.0-SNAPSHOT</version>
+		<version>7.5.3-SNAPSHOT</version>
 	</parent>
 
 	<groupId>org.bonitasoft.engine.platform.session</groupId>
@@ -15,9 +15,7 @@
 	<name>Bonita Platform Session</name>
 
 	<modules>
-		<module>bonita-platform-session-model</module>
-		<module>bonita-platform-session-model-impl</module>
 		<module>bonita-platform-session-api</module>
-		<module>bonita-platform-session-api-impl</module>
+		<module>bonita-platform-session-impl</module>
 	</modules>
 </project>

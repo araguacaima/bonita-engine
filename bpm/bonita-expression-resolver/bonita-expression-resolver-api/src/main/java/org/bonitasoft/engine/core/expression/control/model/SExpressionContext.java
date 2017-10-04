@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,14 +14,15 @@
 package org.bonitasoft.engine.core.expression.control.model;
 
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.bonitasoft.engine.core.process.definition.model.SFlowElementContainerDefinition;
 import org.bonitasoft.engine.core.process.definition.model.SProcessDefinition;
 import org.bonitasoft.engine.data.definition.model.SDataDefinition;
+import org.bonitasoft.engine.expression.ContainerState;
 import org.bonitasoft.engine.expression.model.SExpression;
 
 /**
@@ -33,23 +34,27 @@ public class SExpressionContext implements Serializable {
 
     private static final long serialVersionUID = 6417383664862870145L;
 
-    public static final String containerIdKey = "containerId";
+    public static final String CONTAINER_ID_KEY = "containerId";
 
-    public static final String containerTypeKey = "containerType";
+    public static final String CONTAINER_TYPE_KEY = "containerType";
 
-    public static final String timeKey = "time";
+    public static final String TIME_KEY = "time";
 
-    public static final String processDefinitionIdKey = "processDefinitionId";
+    public static final String PROCESS_DEFINITION_ID_KEY = "processDefinitionId";
 
-    public static final String processDefinitionKey = "processDefinition";
+    public static final String PROCESS_DEFINITION_KEY = "processDefinition";
 
     private Long containerId;
 
     private String containerType;
 
+    private ContainerState containerState;
+
     private long time;
 
     private Long processDefinitionId;
+
+    private Long parentProcessDefinitionId;
 
     private SProcessDefinition processDefinition;
 
@@ -62,35 +67,22 @@ public class SExpressionContext implements Serializable {
     private Map<SExpression, String> invertedDataMap;
 
     public SExpressionContext() {
-        inputValues = new HashMap<String, Object>();
+        inputValues = new HashMap<>();
     }
 
     public SExpressionContext(final Long containerId, final String containerType, final Long processDefinitionId) {
+        this(containerId, containerType, processDefinitionId, null);
+    }
+
+    public SExpressionContext(final long containerId, final String containerType, final Long processDefinitionId, final Map<String, Object> inputValues) {
         this.containerId = containerId;
         this.containerType = containerType;
         this.processDefinitionId = processDefinitionId;
-        inputValues = new HashMap<String, Object>();
-    }
-
-    public SExpressionContext(final Long containerId, final String containerType, final Map<String, Serializable> inputValues) {
-        this.containerId = containerId;
-        this.containerType = containerType;
         if (inputValues == null) {
-            this.inputValues = new HashMap<String, Object>();
+            this.inputValues = new HashMap<>();
         } else {
-            this.inputValues = new HashMap<String, Object>(inputValues);
+            this.inputValues = new HashMap<>(inputValues);
         }
-    }
-
-    public SExpressionContext(final Long containerId, final String containerType, final Map<String, Serializable> inputValues, final long time) {
-        this.containerId = containerId;
-        this.containerType = containerType;
-        if (inputValues == null) {
-            this.inputValues = new HashMap<String, Object>();
-        } else {
-            this.inputValues = new HashMap<String, Object>(inputValues);
-        }
-        this.time = time;
     }
 
     public Long getProcessDefinitionId() {
@@ -101,12 +93,6 @@ public class SExpressionContext implements Serializable {
         this.processDefinitionId = processDefinitionId;
     }
 
-    public void setSerializableInputValues(final Map<String, Serializable> inputValues) {
-        if (inputValues != null) {
-            this.inputValues.putAll(inputValues);
-        }
-    }
-
     public long getTime() {
         return time;
     }
@@ -115,20 +101,28 @@ public class SExpressionContext implements Serializable {
         this.time = time;
     }
 
+    public Long getContainerId() {
+        return containerId;
+    }
+
     public void setContainerId(final Long containerId) {
         this.containerId = containerId;
+    }
+
+    public String getContainerType() {
+        return containerType;
     }
 
     public void setContainerType(final String containerType) {
         this.containerType = containerType;
     }
 
-    public Long getContainerId() {
-        return containerId;
+    public ContainerState getContainerState() {
+        return containerState;
     }
 
-    public String getContainerType() {
-        return containerType;
+    public void setContainerState(final ContainerState containerState) {
+        this.containerState = containerState;
     }
 
     public Map<String, Object> getInputValues() {
@@ -143,8 +137,8 @@ public class SExpressionContext implements Serializable {
         this.processDefinition = processDefinition;
         final SFlowElementContainerDefinition processContainer = processDefinition.getProcessContainer();
         final List<SDataDefinition> dataDefinitions = processContainer.getDataDefinitions();
-        dataMap = new HashMap<String, SExpression>(dataDefinitions.size());
-        invertedDataMap = new HashMap<SExpression, String>(dataDefinitions.size());
+        dataMap = new HashMap<>(dataDefinitions.size());
+        invertedDataMap = new HashMap<>(dataDefinitions.size());
         for (final SDataDefinition dataDef : dataDefinitions) {
             dataMap.put(dataDef.getName(), dataDef.getDefaultValueExpression());
             invertedDataMap.put(dataDef.getDefaultValueExpression(), dataDef.getName());
@@ -154,24 +148,34 @@ public class SExpressionContext implements Serializable {
     public SExpression getDefaultValueFor(final String name) {
         if (evaluateInDefinition) {
             return dataMap.get(name);
-        } else {
-            return null;
         }
+        return null;
     }
 
     public String isDefaultValueOf(final SExpression exp) {
         if (evaluateInDefinition) {
             return invertedDataMap.get(exp);
-        } else {
-            return null;
         }
+        return null;
     }
 
     public void setInputValues(final Map<String, Object> inputValues) {
         if (inputValues == null) {
-            this.inputValues = Collections.emptyMap();
+            this.inputValues = new HashMap<>();
         } else {
-            this.inputValues = inputValues;
+            this.inputValues = new HashMap<>(inputValues);
+        }
+    }
+
+    public void putAllInputValues(final Map<String, Object> inputValues) {
+        if (inputValues != null) {
+            this.inputValues.putAll(inputValues);
+        }
+    }
+
+    public void setSerializableInputValues(final Map<String, Serializable> inputValues) {
+        if (inputValues != null) {
+            this.inputValues.putAll(inputValues);
         }
     }
 
@@ -183,4 +187,44 @@ public class SExpressionContext implements Serializable {
         return evaluateInDefinition;
     }
 
+    @Override
+    public String toString() {
+        return "context [containerId=" + containerId + ", containerType=" + containerType + ", processDefinitionId="
+                + processDefinitionId
+                + (processDefinition != null ? ", processDefinition=" + processDefinition.getName() + " -- " + processDefinition.getVersion() : "") + "]";
+    }
+
+    public Long getParentProcessDefinitionId() {
+        return parentProcessDefinitionId;
+    }
+
+    public void setParentProcessDefinitionId(final Long parentProcessDefinitionId) {
+        this.parentProcessDefinitionId = parentProcessDefinitionId;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (!(o instanceof SExpressionContext))
+            return false;
+        SExpressionContext that = (SExpressionContext) o;
+        return Objects.equals(time, that.time) &&
+                Objects.equals(evaluateInDefinition, that.evaluateInDefinition) &&
+                Objects.equals(containerId, that.containerId) &&
+                Objects.equals(containerType, that.containerType) &&
+                Objects.equals(containerState, that.containerState) &&
+                Objects.equals(processDefinitionId, that.processDefinitionId) &&
+                Objects.equals(parentProcessDefinitionId, that.parentProcessDefinitionId) &&
+                Objects.equals(processDefinition, that.processDefinition) &&
+                Objects.equals(inputValues, that.inputValues) &&
+                Objects.equals(dataMap, that.dataMap) &&
+                Objects.equals(invertedDataMap, that.invertedDataMap);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(containerId, containerType, containerState, time, processDefinitionId, parentProcessDefinitionId, processDefinition, inputValues,
+                evaluateInDefinition, dataMap, invertedDataMap);
+    }
 }

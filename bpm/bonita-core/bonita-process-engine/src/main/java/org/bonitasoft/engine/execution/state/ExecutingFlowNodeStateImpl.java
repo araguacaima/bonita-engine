@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -24,19 +24,13 @@ import org.bonitasoft.engine.execution.StateBehaviors;
  * @author Matthieu Chaffotte
  * @author Elias Ricken de Medeiros
  */
-public class ExecutingFlowNodeStateImpl extends FlowNodeStateWithConnectors {
+public class ExecutingFlowNodeStateImpl extends OnFinishConnectorState {
+
+    private StateBehaviors stateBehaviors;
 
     public ExecutingFlowNodeStateImpl(final StateBehaviors stateBehaviors) {
-        super(stateBehaviors, false, true);
-    }
-
-    /**
-     * @param stateBehaviors
-     * @param b
-     * @param c
-     */
-    public ExecutingFlowNodeStateImpl(final StateBehaviors stateBehaviors, final boolean executeOnEnter, final boolean executeOnFinish) {
-        super(stateBehaviors, executeOnEnter, executeOnFinish);
+        super(stateBehaviors);
+        this.stateBehaviors = stateBehaviors;
     }
 
     @Override
@@ -89,19 +83,14 @@ public class ExecutingFlowNodeStateImpl extends FlowNodeStateWithConnectors {
         return "";
     }
 
-    @SuppressWarnings("unused")
     @Override
-    protected void beforeOnEnter(final SProcessDefinition processDefinition, final SFlowNodeInstance flowNodeInstance) throws SActivityStateExecutionException {
-    }
+    protected void beforeConnectors(SProcessDefinition processDefinition, SFlowNodeInstance flowNodeInstance) throws SActivityStateExecutionException {
 
-    @SuppressWarnings("unused")
-    @Override
-    protected void onEnterToOnFinish(final SProcessDefinition processDefinition, final SFlowNodeInstance flowNodeInstance)
-            throws SActivityStateExecutionException {
     }
 
     @Override
-    protected void afterOnFinish(final SProcessDefinition processDefinition, final SFlowNodeInstance flowNodeInstance) {
-    }
+    protected void afterConnectors(SProcessDefinition processDefinition, SFlowNodeInstance flowNodeInstance) throws SActivityStateExecutionException {
+        stateBehaviors.updateDisplayDescriptionAfterCompletion(processDefinition, flowNodeInstance);
 
+    }
 }

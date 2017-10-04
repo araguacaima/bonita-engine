@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,7 +16,7 @@ package org.bonitasoft.engine.search.profile;
 import java.util.List;
 
 import org.bonitasoft.engine.persistence.QueryOptions;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
 import org.bonitasoft.engine.profile.Profile;
 import org.bonitasoft.engine.profile.ProfileService;
 import org.bonitasoft.engine.profile.model.SProfile;
@@ -38,12 +38,12 @@ public class SearchProfiles extends AbstractSearchEntity<Profile, SProfile> {
     }
 
     @Override
-    public long executeCount(final QueryOptions queryOptions) throws SBonitaSearchException {
+    public long executeCount(final QueryOptions queryOptions) throws SBonitaReadException {
         return profileService.getNumberOfProfiles(queryOptions);
     }
 
     @Override
-    public List<SProfile> executeSearch(final QueryOptions queryOptions) throws SBonitaSearchException {
+    public List<SProfile> executeSearch(final QueryOptions queryOptions) throws SBonitaReadException {
         return profileService.searchProfiles(queryOptions);
     }
 

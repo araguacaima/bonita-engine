@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,9 +16,7 @@ package org.bonitasoft.engine.data.instance.api;
 import java.util.List;
 
 import org.bonitasoft.engine.data.instance.exception.SDataInstanceException;
-import org.bonitasoft.engine.data.instance.exception.SDeleteDataInstanceException;
 import org.bonitasoft.engine.data.instance.model.SDataInstance;
-import org.bonitasoft.engine.data.instance.model.SDataInstanceVisibilityMapping;
 import org.bonitasoft.engine.data.instance.model.archive.SADataInstance;
 import org.bonitasoft.engine.recorder.model.EntityUpdateDescriptor;
 
@@ -30,8 +28,6 @@ import org.bonitasoft.engine.recorder.model.EntityUpdateDescriptor;
  * @since 6.0
  */
 public interface DataInstanceService {
-
-    String DATA_VISIBILITY_MAPPING = "DATA_VISIBILITY_MAPPING";
 
     // just insert dataInstance to DB
     /**
@@ -85,7 +81,8 @@ public interface DataInstanceService {
      * @return a SDataInstance object
      * @throws SDataInstanceException
      */
-    SDataInstance getDataInstance(final String dataName, final long containerId, final String containerType) throws SDataInstanceException;
+    SDataInstance getDataInstance(final String dataName, final long containerId, final String containerType,
+            final ParentContainerResolver parentContainerResolver) throws SDataInstanceException;
 
     /**
      * Get dataInstances visible in the specific container for given names
@@ -99,7 +96,8 @@ public interface DataInstanceService {
      * @return a list of SDataInstance objects
      * @throws SDataInstanceException
      */
-    List<SDataInstance> getDataInstances(final List<String> dataNames, final long containerId, final String containerType) throws SDataInstanceException;
+    List<SDataInstance> getDataInstances(final List<String> dataNames, final long containerId, final String containerType,
+            final ParentContainerResolver parentContainerResolver) throws SDataInstanceException;
 
     /**
      * Get all dataInstances visible in the specific container
@@ -111,23 +109,8 @@ public interface DataInstanceService {
      * @return
      * @throws SDataInstanceException
      */
-    List<SDataInstance> getDataInstances(final long containerId, final String containerType, final int fromIndex, final int numberOfResults)
-            throws SDataInstanceException;
-
-    /**
-     * Add the dataInstances visible in parent container to current container
-     * 
-     * @param parentContainerId
-     *            Identifier of parent container
-     * @param parentContainerType
-     *            Type of parent container, e.g process instance, activity instance and so on.
-     * @param containerId
-     *            Identifier of current container
-     * @param containerType
-     *            Type of current container, e.g process instance, activity instance and so on.
-     * @throws SDataInstanceException
-     */
-    void addChildContainer(final long parentContainerId, final String parentContainerType, final long containerId, final String containerType)
+    List<SDataInstance> getDataInstances(final long containerId, final String containerType,
+            final ParentContainerResolver parentContainerResolver, final int fromIndex, final int numberOfResults)
             throws SDataInstanceException;
 
     /**
@@ -153,21 +136,8 @@ public interface DataInstanceService {
      *            Type of container, e.g process instance, activity instance and so on.
      * @return a list of SDataInstance objects
      * @throws SDataInstanceException
-     * @see {@link #getLocalDataInstances(long, String)}
      */
     List<SDataInstance> getLocalDataInstances(long containerId, String containerType, int fromIndex, int numberOfResults) throws SDataInstanceException;
-
-    /**
-     * Create relationship mapping between the container and dataInstances in it.
-     * 
-     * @param containerId
-     *            Identifier of container
-     * @param containerType
-     *            Type of container, e.g process instance, activity instance and so on.
-     * @return a list of SDataInstanceVisibilityMapping objects
-     * @throws SDataInstanceException
-     */
-    List<SDataInstanceVisibilityMapping> createDataContainer(long containerId, String containerType) throws SDataInstanceException;
 
     /**
      * Get SADataInstance object for specific dataInstance at the specific time
@@ -195,7 +165,8 @@ public interface DataInstanceService {
      * @return an SADataInstance object
      * @throws SDataInstanceException
      */
-    SADataInstance getSADataInstance(long containerId, String containerType, String dataName, long time) throws SDataInstanceException;
+    SADataInstance getSADataInstance(long containerId, String containerType,
+            final ParentContainerResolver parentContainerResolver, String dataName, long time) throws SDataInstanceException;
 
     /**
      * Get all SADataInstance objects archived after specific time for specific dataInstance in a container
@@ -211,7 +182,8 @@ public interface DataInstanceService {
      * @return a list of SADataInstance objects
      * @throws SDataInstanceException
      */
-    List<SADataInstance> getSADataInstances(long containerId, String containerType, List<String> dataNames, long time) throws SDataInstanceException;
+    List<SADataInstance> getSADataInstances(long containerId, String containerType,
+            final ParentContainerResolver parentContainerResolver, List<String> dataNames, long time) throws SDataInstanceException;
 
     /**
      * Get number of dataInstance for specified container
@@ -223,34 +195,38 @@ public interface DataInstanceService {
      * @return the number of dataInstances
      * @throws SDataInstanceException
      */
-    long getNumberOfDataInstances(long containerId, DataInstanceContainer containerType) throws SDataInstanceException;
+    long getNumberOfDataInstances(long containerId, String containerType,
+            final ParentContainerResolver parentContainerResolver) throws SDataInstanceException;
+
 
     /**
-     * Get all SADataInstance objects for the specific dataInstance
+     * Gets the last archived SADataInstance object for the named data in the container.
      * 
-     * @param dataInstanceId
-     *            Identifier of dataInstance
-     * @return a list of SADataInstance objects
-     * @throws SDataInstanceException
-     */
-    List<SADataInstance> getSADataInstances(long dataInstanceId) throws SDataInstanceException;
-
-    /**
-     * Get the last SADataInstance object for the specific dataInstance
-     * 
-     * @param dataInstanceId
-     *            Identifier of dataInstance
-     * @return a SADataInstance object
-     * @throws SDataInstanceException
-     */
-    SADataInstance getLastSADataInstance(long dataInstanceId) throws SDataInstanceException;
-
-    /**
+     * @param dataName
+     *            the name of the data
      * @param containerId
+     *            the identifier of the container
      * @param containerType
+     *            the type of the container
+     * @return the last archived SADataInstance
      * @throws SDataInstanceException
      */
-    void removeContainer(long containerId, String containerType) throws SDataInstanceException;
+    SADataInstance getLastSADataInstance(String dataName, long containerId, String containerType,
+            final ParentContainerResolver parentContainerResolver) throws SDataInstanceException;
+
+    /**
+     * Gets the last archived SADataInstance objects of the container.
+     * 
+     * @param containerId
+     *            the identifier of the container
+     * @param containerType
+     *            the type of the container
+     * @param startIndex
+     * @param maxResults
+     * @return the last archived SADataInstance
+     * @throws SDataInstanceException
+     */
+    List<SADataInstance> getLastLocalSADataInstances(long containerId, String containerType, int startIndex, int maxResults) throws SDataInstanceException;
 
     /**
      * Get the local SADataInstances for this element
@@ -263,12 +239,6 @@ public interface DataInstanceService {
      * @throws SDataInstanceException
      */
     List<SADataInstance> getLocalSADataInstances(long containerId, String containerType, int fromIndex, int maxResults) throws SDataInstanceException;
-
-    /**
-     * @param sDataInstance
-     * @throws SDeleteDataInstanceException
-     */
-    void deleteSADataInstance(SADataInstance sDataInstance) throws SDeleteDataInstanceException;
 
     /**
      * Delete all local archived data instances for a specified container

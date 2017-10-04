@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -50,6 +50,31 @@ public class OrderByOption implements Serializable {
     @Override
     public String toString() {
         return "OrderByOption [clazz=" + clazz + ", fieldName=" + fieldName + ", orderByType=" + orderByType + "]";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (!(o instanceof OrderByOption))
+            return false;
+
+        OrderByOption that = (OrderByOption) o;
+
+        if (clazz != null ? !clazz.equals(that.clazz) : that.clazz != null)
+            return false;
+        if (fieldName != null ? !fieldName.equals(that.fieldName) : that.fieldName != null)
+            return false;
+        return orderByType == that.orderByType;
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = clazz != null ? clazz.hashCode() : 0;
+        result = 31 * result + (fieldName != null ? fieldName.hashCode() : 0);
+        result = 31 * result + (orderByType != null ? orderByType.hashCode() : 0);
+        return result;
     }
 
 }

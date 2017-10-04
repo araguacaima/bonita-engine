@@ -1,17 +1,16 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2.0 of the License, or
- * (at your option) any later version.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
+ * This library is free software; you can redistribute it and/or modify it under the terms
+ * of the GNU Lesser General Public License as published by the Free Software Foundation
+ * version 2.1 of the License.
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Lesser General Public License for more details.
+ * You should have received a copy of the GNU Lesser General Public License along with this
+ * program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+ * Floor, Boston, MA 02110-1301, USA.
+ **/
 package org.bonitasoft.engine.api.internal.servlet;
 
 import java.io.BufferedReader;
@@ -75,9 +74,9 @@ public abstract class ServletCall {
      * Default constructor.
      * 
      * @param request
-     *            The request made to access this servletCall.
+     *        The request made to access this servletCall.
      * @param response
-     *            The response to return.
+     *        The response to return.
      * @throws IOException
      * @throws FileUploadException
      */
@@ -95,15 +94,15 @@ public abstract class ServletCall {
                 try {
                     final FileItemStream item = iter.next();
                     final InputStream stream = item.openStream();
-                    if (item.getFieldName().startsWith(BINARY_PARAMETER)) {
+                    String fieldName = item.getFieldName();
+                    if (fieldName.startsWith(BINARY_PARAMETER)) {
                         binaryParameters.add(IOUtil.getAllContentFrom(stream));
                     } else {
-                        final String value = new String(IOUtil.getAllContentFrom(stream));
-                        parameters.put(item.getFieldName(), value);
+                        String read = IOUtil.read(stream);
+                        parameters.put(fieldName, read);
                     }
                     stream.close();
-                } catch (final Throwable t) {
-                    t.printStackTrace();
+                } catch (final Exception t) {
                     throw new IOException(t);
                 }
             }
@@ -206,7 +205,7 @@ public abstract class ServletCall {
      * Get a parameter values by its name
      * 
      * @param name
-     *            The name of the parameter (case sensitive)
+     *        The name of the parameter (case sensitive)
      * @return This method returns the values of a parameter as a list of String or null if the parameter isn't defined
      */
     public final List<String> getParameterAsList(final String name) {
@@ -217,9 +216,9 @@ public abstract class ServletCall {
      * Get a parameter values by its name
      * 
      * @param name
-     *            The name of the parameter (case sensitive)
+     *        The name of the parameter (case sensitive)
      * @param defaultValue
-     *            The value to return if the parameter isn't define
+     *        The value to return if the parameter isn't define
      * @return This method returns the values of a parameter as a list of String
      */
     public final List<String> getParameterAsList(final String name, final String defaultValue) {
@@ -238,7 +237,7 @@ public abstract class ServletCall {
      * Get a parameter first value by its name
      * 
      * @param name
-     *            The name of the parameter (case sensitive)
+     *        The name of the parameter (case sensitive)
      * @return This method returns the first value of a parameter as a String or null if the parameter isn't define
      */
     public final String getParameter(final String name) {
@@ -249,9 +248,9 @@ public abstract class ServletCall {
      * Get a parameter first value by its name
      * 
      * @param name
-     *            The name of the parameter (case sensitive)
+     *        The name of the parameter (case sensitive)
      * @param defaultValue
-     *            The value to return if the parameter isn't define
+     *        The value to return if the parameter isn't define
      * @return This method returns the first value of a parameter as a String
      */
     public final String getParameter(final String name, final String defaultValue) {
@@ -269,9 +268,9 @@ public abstract class ServletCall {
      * Write into the output header.
      * 
      * @param name
-     *            The name of the header to write.
+     *        The name of the header to write.
      * @param value
-     *            The value of the header to write.
+     *        The value of the header to write.
      */
     protected final void head(final String name, final String value) {
         response.addHeader(name, value);
@@ -281,7 +280,7 @@ public abstract class ServletCall {
      * Output a file
      * 
      * @param file
-     *            The file to output
+     *        The file to output
      */
     protected final void output(final File file) {
         try {
@@ -295,9 +294,9 @@ public abstract class ServletCall {
      * Output a stream as a file
      * 
      * @param stream
-     *            The stream to output
+     *        The stream to output
      * @param filename
-     *            The name of the file to retrieve with the stream.
+     *        The name of the file to retrieve with the stream.
      */
     protected void output(final InputStream stream, final String filename) {
         response.addHeader("Content-Disposition", "attachment; filename=" + filename + ";");
@@ -308,7 +307,7 @@ public abstract class ServletCall {
      * Output a stream as a file
      * 
      * @param stream
-     *            The stream to output
+     *        The stream to output
      */
     protected void output(final InputStream stream) {
         response.setContentType("application/octet-stream");
@@ -328,19 +327,20 @@ public abstract class ServletCall {
      * Write into the output
      * 
      * @param string
-     *            The string to output
+     *        The string to output
      */
     protected final void output(final String string) {
         final PrintWriter outputWriter = getOutputWriter();
         outputWriter.print(string);
         outputWriter.flush();
+        outputWriter.close();
     }
 
     /**
      * Write into the output
      * 
      * @param object
-     *            An object that will be transform into JSon
+     *        An object that will be transform into JSon
      */
     protected final void output(final Object object) {
         final PrintWriter outputWriter = getOutputWriter();
@@ -348,6 +348,7 @@ public abstract class ServletCall {
 
         outputWriter.print(object.toString());
         outputWriter.flush();
+        outputWriter.close();
     }
 
     /**

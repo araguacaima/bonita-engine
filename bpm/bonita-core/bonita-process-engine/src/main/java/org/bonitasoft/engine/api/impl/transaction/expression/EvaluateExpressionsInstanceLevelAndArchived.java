@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
- * BonitaSoft, 31 rue Gustave Eiffel - 38000 Grenoble
+ * Copyright (C) 2015 BonitaSoft S.A.
+ * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
  * version 2.1 of the License.
@@ -18,20 +18,21 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.bonitasoft.engine.business.data.BusinessDataRepository;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.commons.transaction.TransactionContentWithResult;
 import org.bonitasoft.engine.core.expression.control.api.ExpressionResolverService;
 import org.bonitasoft.engine.core.expression.control.model.SExpressionContext;
-import org.bonitasoft.engine.core.process.definition.model.builder.ServerModelConvertor;
 import org.bonitasoft.engine.expression.Expression;
 import org.bonitasoft.engine.expression.model.SExpression;
-import org.bonitasoft.engine.expression.model.builder.SExpressionBuilders;
+import org.bonitasoft.engine.service.ModelConvertor;
 
 /**
  * @author Zhao Na
+ * @author Matthieu Chaffotte
  */
 public class EvaluateExpressionsInstanceLevelAndArchived extends AbstractEvaluateExpressionsInstance implements
-        TransactionContentWithResult<Map<String, Serializable>> {
+TransactionContentWithResult<Map<String, Serializable>> {
 
     private final Map<Expression, Map<String, Serializable>> expressions;
 
@@ -45,17 +46,15 @@ public class EvaluateExpressionsInstanceLevelAndArchived extends AbstractEvaluat
 
     private final ExpressionResolverService expressionResolver;
 
-    private final SExpressionBuilders expBuilder;
-
     private final Map<String, Serializable> results = new HashMap<String, Serializable>(0);
 
     public EvaluateExpressionsInstanceLevelAndArchived(final Map<Expression, Map<String, Serializable>> expressions, final long containerId,
             final String containerType, final long processDefinitionId, final long time, final ExpressionResolverService expressionService,
-            final SExpressionBuilders expBuilder) {
+            final BusinessDataRepository bdrService) {
+        super(bdrService);
         this.expressions = expressions;
         this.containerId = containerId;
         expressionResolver = expressionService;
-        this.expBuilder = expBuilder;
         this.processDefinitionId = processDefinitionId;
         this.containerType = containerType;
         this.time = time;
@@ -73,15 +72,14 @@ public class EvaluateExpressionsInstanceLevelAndArchived extends AbstractEvaluat
             context.setTime(time);
 
             final Set<Expression> exps = expressions.keySet();
-            for (Expression exp : exps) {
-                final Map<String, Serializable> partialContext = expressions.get(exp);
+            for (final Expression exp : exps) {
+                final Map<String, Serializable> partialContext = getPartialContext(expressions, exp);
                 context.setSerializableInputValues(partialContext);
-                final SExpression sexp = ServerModelConvertor.convertExpression(expBuilder, exp);
+                final SExpression sexp = ModelConvertor.constructSExpression(exp);
                 final Serializable res = (Serializable) expressionResolver.evaluate(sexp, context);
                 results.put(buildName(exp), res);// MAYBE instead of exp.getNAME
             }
         }
-
     }
 
     @Override

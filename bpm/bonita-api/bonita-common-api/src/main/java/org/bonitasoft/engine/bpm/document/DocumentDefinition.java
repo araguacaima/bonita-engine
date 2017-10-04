@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,34 +14,46 @@
 package org.bonitasoft.engine.bpm.document;
 
 import org.bonitasoft.engine.bpm.NamedElement;
+import org.bonitasoft.engine.bpm.process.Visitable;
+import org.bonitasoft.engine.expression.Expression;
 
 /**
+ * The definition of a document attached to a process definition
+ * 
  * @author Baptiste Mesta
  * @author Matthieu Chaffotte
+ * @author Celine Souchet
  */
-public interface DocumentDefinition extends NamedElement {
+public interface DocumentDefinition extends NamedElement, Visitable {
 
     /**
-     * URL for an external document
-     * 
-     * @return
+     * @return The URL for an external document
      */
     String getUrl();
 
     /**
-     * File reference in the process resources
-     * 
-     * @return
+     * @return The file reference in the process resources
      */
     String getFile();
 
     /**
-     * mime type of the document's content.
+     * @return The mime type of the document's content.
      */
     String getContentMimeType();
 
+    /**
+     * @return The description of the document
+     */
     String getDescription();
 
+    /**
+     * @return The name of the file of the document
+     */
     String getFileName();
+
+    /**
+     * @return the initial value expression
+     */
+    Expression getInitialValue();
 
 }

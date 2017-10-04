@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,6 +13,7 @@
  **/
 package org.bonitasoft.engine.api;
 
+
 /**
  * The Interface IdentityAPI.
  * 
@@ -22,6 +23,7 @@ package org.bonitasoft.engine.api;
  * @author Bole Zhang
  * @author Yanyan Liu
  */
-public interface IdentityAPI extends UserAPI, RoleAPI, GroupAPI, MembershipAPI, OrganizationAPI {
+public interface IdentityAPI extends UserAPI, RoleAPI, GroupAPI, MembershipAPI, OrganizationAPI, CustomUserInfoAPI {
+
 
 }

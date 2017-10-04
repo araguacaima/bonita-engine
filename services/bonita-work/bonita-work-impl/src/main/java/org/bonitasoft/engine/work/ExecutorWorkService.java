@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,158 +13,182 @@
  **/
 package org.bonitasoft.engine.work;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.bonitasoft.engine.log.technical.TechnicalLogSeverity;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
-import org.bonitasoft.engine.session.SessionService;
+import org.bonitasoft.engine.sessionaccessor.STenantIdNotSetException;
 import org.bonitasoft.engine.sessionaccessor.SessionAccessor;
 import org.bonitasoft.engine.transaction.STransactionNotFoundException;
-import org.bonitasoft.engine.transaction.TransactionService;
+import org.bonitasoft.engine.transaction.UserTransactionService;
 
 /**
  * Execute works using an ExecutorService
- * 
+ *
  * @author Charles Souillard
  * @author Baptiste Mesta
+ * @author Celine Souchet
  */
-public class ExecutorWorkService implements WorkService, RunnableListener {
+public class ExecutorWorkService implements WorkService {
 
-    private static final int TIMEOUT = Integer.valueOf(System.getProperty("bonita.work.ttermination.timeout", "15"));
+    private final Object getSynchroLock = new Object();
 
-    private final TransactionService transactionService;
+    private final UserTransactionService transactionService;
 
-    private ExecutorService threadPoolExecutor;
-
-    private final WorkSynchronizationFactory workSynchronizationFactory;
-
-    private final ThreadLocal<AbstractWorkSynchronization> synchronizations = new ThreadLocal<AbstractWorkSynchronization>();
+    private final ThreadLocal<WorkSynchronization> synchronizations = new ThreadLocal<>();
 
     private final TechnicalLoggerService loggerService;
 
     private final SessionAccessor sessionAccessor;
 
-    private final SessionService sessionService;
-
-    private final Map<Long, Queue<NotifyingRunnable>> runnables = new HashMap<Long, Queue<NotifyingRunnable>>();
-
-    private final Set<Long> deactivated = new HashSet<Long>();
-
     private final BonitaExecutorServiceFactory bonitaExecutorServiceFactory;
 
-    public ExecutorWorkService(final TransactionService transactionService, final WorkSynchronizationFactory workSynchronizationFactory,
-            final TechnicalLoggerService loggerService, final SessionAccessor sessionAccessor, final SessionService sessionService,
-            final BonitaExecutorServiceFactory bonitaExecutorServiceFactory) {
+    private BonitaExecutorService executor;
+
+    private final int workTerminationTimeout;
+
+    /**
+     * @param transactionService
+     * @param loggerService
+     * @param sessionAccessor
+     * @param bonitaExecutorServiceFactory
+     * @param workTerminationTimeout time in secondes to wait for works to finish
+     */
+    public ExecutorWorkService(final UserTransactionService transactionService,
+            final TechnicalLoggerService loggerService, final SessionAccessor sessionAccessor,
+            final BonitaExecutorServiceFactory bonitaExecutorServiceFactory,
+            final int workTerminationTimeout) {
         this.transactionService = transactionService;
-        this.workSynchronizationFactory = workSynchronizationFactory;
         this.loggerService = loggerService;
         this.sessionAccessor = sessionAccessor;
-        this.sessionService = sessionService;
         this.bonitaExecutorServiceFactory = bonitaExecutorServiceFactory;
+        this.workTerminationTimeout = workTerminationTimeout;
     }
 
     @Override
-    public void registerWork(final AbstractBonitaWork work) throws WorkRegisterException {
-        final AbstractWorkSynchronization synchro = getContinuationSynchronization(work);
+    public void registerWork(final BonitaWork work) throws SWorkRegisterException {
+        if (isStopped()) {
+            logExecutorStateWarn(work);
+            return;
+        }
+        final WorkSynchronization synchro = getContinuationSynchronization();
         if (synchro != null) {
+            loggerService.log(getClass(), TechnicalLogSeverity.DEBUG, "Registered work " + work.getDescription());
             synchro.addWork(work);
         }
     }
 
-    private synchronized AbstractWorkSynchronization getContinuationSynchronization(AbstractBonitaWork work) throws WorkRegisterException {
-        if (threadPoolExecutor == null || threadPoolExecutor.isShutdown()) {
-            loggerService.log(getClass(), TechnicalLogSeverity.WARNING, "Tried to register work " + work.getDescription()
-                    + " but the work service is shutdown. work will be restarted with the node");
-            return null;
+    private void logExecutorStateWarn(final BonitaWork work) {
+        loggerService.log(getClass(), TechnicalLogSeverity.WARNING, "Tried to register work " + work.getDescription()
+                + ", but the work service is stopped.");
+    }
+
+    @Override
+    public void executeWork(final BonitaWork work) throws SWorkRegisterException {
+        if (isStopped()) {
+            logExecutorStateWarn(work);
+            return;
         }
-        AbstractWorkSynchronization synchro = synchronizations.get();
-        if (synchro == null || synchro.isExecuted()) {
-            synchro = workSynchronizationFactory.getWorkSynchronization(threadPoolExecutor, loggerService, sessionAccessor, sessionService, transactionService,
-                    this);
-            try {
-                transactionService.registerBonitaSynchronization(synchro);
-            } catch (final STransactionNotFoundException e) {
-                throw new WorkRegisterException(e.getMessage(), e);
-            }
-            synchronizations.set(synchro);
+        try {
+            work.setTenantId(sessionAccessor.getTenantId());
+        } catch (final STenantIdNotSetException e) {
+            throw new SWorkRegisterException("Unable to read tenant id from session.", e);
         }
-        return synchro;
+        executor.submit(work);
     }
 
-    @Override
-    public void runnableRegistered(final NotifyingRunnable runnable) {
-        final long tenantId = runnable.getTenantId();
-        Queue<NotifyingRunnable> queue = runnables.get(tenantId);
-        if (queue == null) {
-            queue = createQueue(tenantId);
-        }
-        queue.add(runnable);
-    }
-
-    private synchronized Queue<NotifyingRunnable> createQueue(final long tenantId) {
-        Queue<NotifyingRunnable> queue = runnables.get(tenantId);
-        if (queue == null) {
-            queue = new ConcurrentLinkedQueue<NotifyingRunnable>();
-            runnables.put(tenantId, queue);
-        }
-        return queue;
-    }
-
-    @Override
-    public void runnableStarted(final NotifyingRunnable runnable) {
-    }
-
-    @Override
-    public void runnableDone(final NotifyingRunnable runnable) {
-        runnables.get(runnable.getTenantId()).remove(runnable);
-    }
-
-    @Override
-    public void stop(final Long tenantId) {
-        deactivated.add(tenantId);
-        final Queue<NotifyingRunnable> queue = runnables.get(tenantId);
-        if (queue != null) {
-            for (final NotifyingRunnable notifyingRunnable : queue) {
-                notifyingRunnable.cancel();
-            }
-        }
-    }
-
-    @Override
-    public void start(final Long tenantId) {
-        deactivated.remove(tenantId);
-    }
-
-    public boolean isStopped(final long tenantId) {
-        return deactivated.contains(tenantId);
-    }
-
-    @Override
-    public void shutdown() {
-        if (threadPoolExecutor != null && !threadPoolExecutor.isShutdown()) {
-            threadPoolExecutor.shutdown();
-            try {
-                if (!threadPoolExecutor.awaitTermination(TIMEOUT, TimeUnit.SECONDS)) {
-                    loggerService.log(getClass(), TechnicalLogSeverity.INFO, "Waited termination of all work " + TIMEOUT + "s but all task were not finished");
+    private WorkSynchronization getContinuationSynchronization() throws SWorkRegisterException {
+        synchronized (getSynchroLock) {
+            WorkSynchronization synchro = synchronizations.get();
+            if (synchro == null) {
+                synchro = new WorkSynchronization(executor, sessionAccessor, this);
+                try {
+                    transactionService.registerBonitaSynchronization(synchro);
+                } catch (final STransactionNotFoundException e) {
+                    throw new SWorkRegisterException(e.getMessage(), e);
                 }
-            } catch (InterruptedException e) {
-                loggerService.log(getClass(), TechnicalLogSeverity.ERROR, "error while waiting termination of all work ", e);
+                synchronizations.set(synchro);
+            }
+            return synchro;
+        }
+    }
+
+    @Override
+    public boolean isStopped() {
+        // the executor must handle elements when it's shutting down
+        return executor == null;
+    }
+
+    @Override
+    public synchronized void stop() {
+        // we don't throw exception just stop it and log if something happens
+        try {
+            if (isStopped()) {
+                return;
+            }
+            shutdownExecutor();
+            awaitTermination();
+        } catch (final SWorkException e) {
+            if (e.getCause() != null) {
+                loggerService.log(getClass(), TechnicalLogSeverity.WARNING, e.getMessage(), e.getCause());
+            } else {
+                loggerService.log(getClass(), TechnicalLogSeverity.WARNING, e.getMessage());
             }
         }
     }
 
     @Override
-    public void startup() {
-        if (threadPoolExecutor == null || threadPoolExecutor.isShutdown()) {
-            threadPoolExecutor = bonitaExecutorServiceFactory.createExecutorService();
+    public synchronized void start() {
+        if (isStopped()) {
+            executor = bonitaExecutorServiceFactory.createExecutorService();
         }
     }
 
+    @Override
+    public synchronized void pause() throws SWorkException {
+        if (isStopped()) {
+            return;
+        }
+        shutdownExecutor();
+        // completely clear the queue because it's a global pause
+        executor.clearAllQueues();
+        awaitTermination();
+    }
+
+    @Override
+    public synchronized void resume() {
+        start();
+    }
+
+    private void awaitTermination() throws SWorkException {
+        try {
+            if (!executor.awaitTermination(workTerminationTimeout, TimeUnit.SECONDS)) {
+                throw new SWorkException("Waited termination of all work " + workTerminationTimeout
+                        + "s but all tasks were not finished");
+            }
+        } catch (final InterruptedException e) {
+            throw new SWorkException("Interrupted while stopping the work service", e);
+        }
+        executor = null;
+    }
+
+    private void shutdownExecutor() {
+        executor.shutdownAndEmptyQueue();
+        loggerService.log(getClass(), TechnicalLogSeverity.INFO, "Stopped executor service");
+    }
+
+    @Override
+    public void notifyNodeStopped(final String nodeName) {
+        if (!isStopped()) {
+            executor.notifyNodeStopped(nodeName);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void removeSynchronization() {
+        synchronizations.remove();
+    }
 }

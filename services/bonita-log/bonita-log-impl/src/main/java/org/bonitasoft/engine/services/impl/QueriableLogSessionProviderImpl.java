@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -54,9 +54,12 @@ public class QueriableLogSessionProviderImpl implements QueriableLogSessionProvi
                 localSession.set(session);
             }
         } catch (final SessionIdNotSetException e) {
-            technicalLoggerService.log(this.getClass(), TechnicalLogSeverity.ERROR, e);
+            // system: no session
+            return null;
         } catch (final SSessionNotFoundException e) {
-            technicalLoggerService.log(this.getClass(), TechnicalLogSeverity.ERROR, e);
+            if (technicalLoggerService.isLoggable(this.getClass(), TechnicalLogSeverity.WARNING)) {
+                technicalLoggerService.log(this.getClass(), TechnicalLogSeverity.WARNING, e);
+            }
         }
         return session;
     }
@@ -67,7 +70,7 @@ public class QueriableLogSessionProviderImpl implements QueriableLogSessionProvi
         if (session != null) {
             return session.getUserName();
         }
-        return null;
+        return SessionService.SYSTEM;
     }
 
     @Override
@@ -76,16 +79,7 @@ public class QueriableLogSessionProviderImpl implements QueriableLogSessionProvi
         if (session != null) {
             return session.getClusterNode();
         }
-        return null;
-    }
-
-    @Override
-    public String getProductVersion() {
-        final SSession session = getSession();
-        if (session != null) {
-            return session.getProductVersion();
-        }
-        return null;
+        return "";
     }
 
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -20,6 +20,8 @@ import org.bonitasoft.engine.core.filter.exception.SUserFilterExecutionException
 import org.bonitasoft.engine.core.filter.exception.SUserFilterLoadingException;
 import org.bonitasoft.engine.core.process.definition.model.SUserFilterDefinition;
 import org.bonitasoft.engine.expression.model.SExpression;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
+import org.bonitasoft.engine.recorder.SRecorderException;
 
 /**
  * @author Baptiste Mesta
@@ -27,15 +29,13 @@ import org.bonitasoft.engine.expression.model.SExpression;
  */
 public interface UserFilterService {
 
-    String DEFINITION_EXT = ".def";
-
     String IMPLEMENTATION_EXT = ".impl";
-
-    String USER_FILTER_FOLDER = "userFilters";
 
     FilterResult executeFilter(long processDefinitionId, SUserFilterDefinition sUserFilterDefinition, Map<String, SExpression> inputs, ClassLoader classLoader,
             SExpressionContext expressionContext, final String actorName) throws SUserFilterExecutionException;
 
-    boolean loadUserFilters(long processDefinitionId, long tenantId) throws SUserFilterLoadingException;
+    void removeUserFilters(long processDefinitionId) throws SBonitaReadException, SRecorderException;
+
+    boolean loadUserFilters(long processDefinitionId) throws SUserFilterLoadingException;
 
 }

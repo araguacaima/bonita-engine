@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,177 +13,79 @@
  **/
 package org.bonitasoft.engine.persistence;
 
-import org.bonitasoft.engine.persistence.PlatformHibernatePersistenceService;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.*;
+
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.Set;
+
+import javax.sql.DataSource;
+
+import org.bonitasoft.engine.log.technical.TechnicalLogSeverity;
+import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
+import org.bonitasoft.engine.sequence.SequenceManager;
+import org.hibernate.Filter;
+import org.hibernate.Query;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.mapping.PersistentClass;
+import org.hibernate.mapping.RootClass;
+import org.hibernate.stat.Statistics;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.runners.MockitoJUnitRunner;
 
 /**
  * @author Celine Souchet
- * 
+ * @version 6.4.0
+ * @since 6.4.0
  */
+@RunWith(MockitoJUnitRunner.class)
 public class PlatformHibernatePersistenceServiceTest {
+
+    @Mock
+    private DataSource datasource;
+
+    private final boolean enableWordSearch = true;
+
+    @Mock
+    private HibernateConfigurationProvider hbmConfigurationProvider;
+
+    private final char likeEscapeCharacter = ' ';
+
+    @Mock
+    private TechnicalLoggerService logger;
+
+    private final String name = "PlatformHibernatePersistenceService";
+
+    @Mock
+    private SequenceManager sequenceManager;
+
+    @Mock
+    private Session session;
+
+    private Set<String> wordSearchExclusionMappings;
 
     private PlatformHibernatePersistenceService platformHibernatePersistenceService;
 
     @Before
-    public void setUp() throws Exception {
-    }
+    public void before() throws ConfigurationException {
+        doReturn(mock(Filter.class)).when(session).enableFilter("tenantFilter");
 
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.PlatformHibernatePersistenceService#flushStatements()}.
-     */
-    @Test
-    public final void flushStatements() {
-        // TODO : Not yet implemented
-    }
+        final SessionFactory sessionFactory = mock(SessionFactory.class);
+        doReturn(mock(Statistics.class)).when(sessionFactory).getStatistics();
+        doReturn(session).when(sessionFactory).getCurrentSession();
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#doExecuteSQL(java.lang.String, java.lang.String, java.util.Map, boolean)}.
-     */
-    @Test
-    public final void doExecuteSQL() {
-        // TODO : Not yet implemented
-    }
+        final Iterator<PersistentClass> classMappingsIterator = Arrays.asList((PersistentClass) new RootClass()).iterator();
 
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#logStats()}.
-     */
-    @Test
-    public final void logStats() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#getSession(boolean)}.
-     */
-    @Test
-    public final void getSession() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#flushStatements(boolean)}.
-     */
-    @Test
-    public final void flushStatementsBoolean() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#delete(org.bonitasoft.engine.persistence.PersistentObject)}.
-     */
-    @Test
-    public final void deletePersistentObject() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#delete(long, java.lang.Class)}.
-     */
-    @Test
-    public final void deleteLongClassOfQextendsPersistentObject() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#deleteAll(java.lang.Class)}.
-     */
-    @Test
-    public final void deleteAll() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#delete(java.util.List, java.lang.Class)}.
-     */
-    @Test
-    public final void deleteListOfLongClassOfQextendsPersistentObject() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#insert(org.bonitasoft.engine.persistence.PersistentObject)}.
-     */
-    @Test
-    public final void insert() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#insertInBatch(java.util.List)}.
-     */
-    @Test
-    public final void insertInBatch() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#purge(java.lang.String)}.
-     */
-    @Test
-    public final void purge() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#update(org.bonitasoft.engine.services.UpdateDescriptor)}.
-     */
-    @Test
-    public final void update() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#selectOne(org.bonitasoft.engine.persistence.SelectOneDescriptor)}.
-     */
-    @Test
-    public final void selectOne() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#getMappedClass(java.lang.Class)}.
-     */
-    @Test
-    public final void getMappedClass() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#checkClassMapping(java.lang.Class)}.
-     */
-    @Test
-    public final void checkClassMapping() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#selectById(org.bonitasoft.engine.persistence.SelectByIdDescriptor)}.
-     */
-    @Test
-    public final void selectByIdSelectByIdDescriptorOfT() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#selectById(org.hibernate.Session, org.bonitasoft.engine.persistence.SelectByIdDescriptor)}
-     * .
-     */
-    @Test
-    public final void selectByIdSessionSelectByIdDescriptorOfT() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#setQueryCache(org.hibernate.Query, java.lang.String)}.
-     */
-    @Test
-    public final void setQueryCache() {
-        // TODO : Not yet implemented
+        final Configuration configuration = mock(Configuration.class);
+        doReturn(sessionFactory).when(configuration).buildSessionFactory();
+        doReturn(classMappingsIterator).when(configuration).getClassMappings();
+        doReturn(configuration).when(hbmConfigurationProvider).getConfiguration();
     }
 
     /**
@@ -191,170 +93,120 @@ public class PlatformHibernatePersistenceServiceTest {
      * {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#selectList(org.bonitasoft.engine.persistence.SelectListDescriptor)}.
      */
     @Test
-    public final void selectList() {
-        // TODO : Not yet implemented
-    }
+    public final void selectList_should_do_nothing_when_no_ORDER_BY_clause_in_query_and_checking_mode_is_empty() throws Exception {
+        // Given
+        buildQueryWithoutOrderByClause();
+        System.setProperty("sysprop.bonita.orderby.checking.mode", "");
 
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#getName()}.
-     */
-    @Test
-    public final void getName() {
-        // TODO : Not yet implemented
-    }
+        platformHibernatePersistenceService = spy(new PlatformHibernatePersistenceService(name, hbmConfigurationProvider, null,
+                likeEscapeCharacter, logger, sequenceManager, datasource, enableWordSearch, wordSearchExclusionMappings));
+        final SelectListDescriptor<Object> selectDescriptor = mock(SelectListDescriptor.class);
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#initTablesFiles(org.bonitasoft.engine.persistence.DBConfigurationsProvider, java.lang.String)}
-     * .
-     */
-    @Test
-    public final void initTablesFiles() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#createStructure()}.
-     */
-    @Test
-    public final void createStructure() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#postCreateStructure()}.
-     */
-    @Test
-    public final void postCreateStructure() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#preDropStructure()}.
-     */
-    @Test
-    public final void preDropStructure() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#cleanStructure()}.
-     */
-    @Test
-    public final void cleanStructure() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#deleteStructure()}.
-     */
-    @Test
-    public final void deleteStructure() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#initializeStructure()}.
-     */
-    @Test
-    public final void initializeStructure() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#initializeStructure(java.util.Map)}.
-     */
-    @Test
-    public final void initializeStructureMapOfStringString() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#deleteTenant(long)}.
-     */
-    @Test
-    public final void deleteTenant() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#getSqlTransformer(java.lang.String)}.
-     */
-    @Test
-    public final void getSqlTransformer() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#getSqlTransformers()}.
-     */
-    @Test
-    public final void getSqlTransformers() {
-        // TODO : Not yet implemented
+        // When
+        platformHibernatePersistenceService.selectList(selectDescriptor);
     }
 
     /**
      * Test method for
-     * {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#getNumberOfEntities(java.lang.Class, org.bonitasoft.engine.persistence.QueryOptions, java.util.Map)}
-     * .
+     * {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#selectList(org.bonitasoft.engine.persistence.SelectListDescriptor)}.
      */
-    @Test
-    public final void getNumberOfEntitiesClassOfTQueryOptionsMapOfStringObject() {
-        // TODO : Not yet implemented
+    @Test(expected = IllegalArgumentException.class)
+    public final void selectList_should_throw_exception_when_no_ORDER_BY_clause_in_query_and_checking_mode_is_STRICT() throws Exception {
+        // Given
+        buildQueryWithoutOrderByClause();
+        System.setProperty("sysprop.bonita.orderby.checking.mode", OrderByCheckingMode.STRICT.name());
+
+        platformHibernatePersistenceService = spy(new PlatformHibernatePersistenceService(name, hbmConfigurationProvider, null,
+                likeEscapeCharacter, logger, sequenceManager, datasource, enableWordSearch, wordSearchExclusionMappings));
+        final SelectListDescriptor<Object> selectDescriptor = mock(SelectListDescriptor.class);
+
+        // When
+        platformHibernatePersistenceService.selectList(selectDescriptor);
     }
 
     /**
      * Test method for
-     * {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#getNumberOfEntities(java.lang.Class, java.lang.String, org.bonitasoft.engine.persistence.QueryOptions, java.util.Map)}
-     * .
+     * {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#selectList(org.bonitasoft.engine.persistence.SelectListDescriptor)}.
      */
     @Test
-    public final void getNumberOfEntitiesClassOfTStringQueryOptionsMapOfStringObject() {
-        // TODO : Not yet implemented
+    public final void selectList_should_do_nothing_when_no_ORDER_BY_clause_in_query_and_no_checking_mode() throws Exception {
+        // Given
+        buildQueryWithoutOrderByClause();
+        System.clearProperty("sysprop.bonita.orderby.checking.mode");
+
+        platformHibernatePersistenceService = spy(new PlatformHibernatePersistenceService(name, hbmConfigurationProvider, null,
+                likeEscapeCharacter, logger, sequenceManager, datasource, enableWordSearch, wordSearchExclusionMappings));
+        final SelectListDescriptor<Object> selectDescriptor = mock(SelectListDescriptor.class);
+
+        // When
+        platformHibernatePersistenceService.selectList(selectDescriptor);
     }
 
     /**
      * Test method for
-     * {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#searchEntity(java.lang.Class, org.bonitasoft.engine.persistence.QueryOptions, java.util.Map)}
-     * .
+     * {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#selectList(org.bonitasoft.engine.persistence.SelectListDescriptor)}.
      */
     @Test
-    public final void searchEntityClassOfTQueryOptionsMapOfStringObject() {
-        // TODO : Not yet implemented
+    public final void selectList_should_do_nothing_when_no_ORDER_BY_clause_in_query_and_checking_mode_is_NONE() throws Exception {
+        // Given
+        buildQueryWithoutOrderByClause();
+        System.setProperty("sysprop.bonita.orderby.checking.mode", OrderByCheckingMode.NONE.name());
+
+        platformHibernatePersistenceService = spy(new PlatformHibernatePersistenceService(name, hbmConfigurationProvider, null,
+                likeEscapeCharacter, logger, sequenceManager, datasource, enableWordSearch, wordSearchExclusionMappings));
+        final SelectListDescriptor<Object> selectDescriptor = mock(SelectListDescriptor.class);
+
+        // When
+        platformHibernatePersistenceService.selectList(selectDescriptor);
     }
 
     /**
      * Test method for
-     * {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#searchEntity(java.lang.Class, java.lang.String, org.bonitasoft.engine.persistence.QueryOptions, java.util.Map)}
-     * .
+     * {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#selectList(org.bonitasoft.engine.persistence.SelectListDescriptor)}.
      */
     @Test
-    public final void searchEntityClassOfTStringQueryOptionsMapOfStringObject() {
-        // TODO : Not yet implemented
+    public final void selectList_should_log_when_no_ORDER_BY_clause_in_query_and_checking_mode_is_WARNING() throws Exception {
+        // Given
+        buildQueryWithoutOrderByClause();
+        System.setProperty("sysprop.bonita.orderby.checking.mode", OrderByCheckingMode.WARNING.name());
+
+        platformHibernatePersistenceService = spy(new PlatformHibernatePersistenceService(name, hbmConfigurationProvider, null,
+                likeEscapeCharacter, logger, sequenceManager, datasource, enableWordSearch, wordSearchExclusionMappings));
+        final SelectListDescriptor<Object> selectDescriptor = mock(SelectListDescriptor.class);
+
+        // When
+        platformHibernatePersistenceService.selectList(selectDescriptor);
+
+        // Then
+        verify(logger).log(AbstractHibernatePersistenceService.class,
+                TechnicalLogSeverity.WARNING,
+                "Query '' does not contain 'ORDER BY' clause. It's better to modify your query to order the result, especially if you use the pagination.");
     }
 
     /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#getSequenceManager()}.
+     * Test method for
+     * {@link org.bonitasoft.engine.persistence.AbstractHibernatePersistenceService#selectList(org.bonitasoft.engine.persistence.SelectListDescriptor)}.
      */
     @Test
-    public final void getSequenceManager() {
-        // TODO : Not yet implemented
+    public final void selectList_should_do_nothing_when_ORDER_BY_clause_in_query_and_checking_mode_is_STRICT() throws Exception {
+        // Given
+        final Query query = mock(Query.class);
+        doReturn("Order by").when(query).getQueryString();
+        doReturn(query).when(session).getNamedQuery(anyString());
+        System.setProperty("sysprop.bonita.orderby.checking.mode", OrderByCheckingMode.STRICT.name());
+
+        platformHibernatePersistenceService = spy(new PlatformHibernatePersistenceService(name, hbmConfigurationProvider, null,
+                likeEscapeCharacter, logger, sequenceManager, datasource, enableWordSearch, wordSearchExclusionMappings));
+        final SelectListDescriptor<Object> selectDescriptor = mock(SelectListDescriptor.class);
+
+        // When
+        platformHibernatePersistenceService.selectList(selectDescriptor);
     }
 
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#setId(org.bonitasoft.engine.persistence.PersistentObject)}.
-     */
-    @Test
-    public final void setId() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.persistence.AbstractDBPersistenceService#getLikeEscapeClause(java.lang.String)}.
-     */
-    @Test
-    public final void getLikeEscapeClause() {
-        // TODO : Not yet implemented
+    private void buildQueryWithoutOrderByClause() {
+        final Query query = mock(Query.class);
+        doReturn("").when(query).getQueryString();
+        doReturn(query).when(session).getNamedQuery(anyString());
     }
 
 }

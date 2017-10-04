@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -18,9 +18,10 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.command.CommandSearchDescriptor;
 import org.bonitasoft.engine.command.model.SCommand;
-import org.bonitasoft.engine.command.model.SCommandBuilder;
+import org.bonitasoft.engine.command.model.SCommandBuilderFactory;
 import org.bonitasoft.engine.persistence.PersistentObject;
 
 /**
@@ -33,19 +34,20 @@ public class SearchCommandDescriptor extends SearchEntityDescriptor {
 
     private final Map<Class<? extends PersistentObject>, Set<String>> commandAllFields;
 
-    SearchCommandDescriptor(final SCommandBuilder commandBuilder) {
+    SearchCommandDescriptor() {
+        final SCommandBuilderFactory fact = BuilderFactory.get(SCommandBuilderFactory.class);
         commandKeys = new HashMap<String, FieldDescriptor>(5);
-        commandKeys.put(CommandSearchDescriptor.ID, new FieldDescriptor(SCommand.class, commandBuilder.getIdKey()));
-        commandKeys.put(CommandSearchDescriptor.NAME, new FieldDescriptor(SCommand.class, commandBuilder.getNameKey()));
-        commandKeys.put(CommandSearchDescriptor.DESCRIPTION, new FieldDescriptor(SCommand.class, commandBuilder.getDescriptionKey()));
-        commandKeys.put(CommandSearchDescriptor.IMPLEMENTATION, new FieldDescriptor(SCommand.class, commandBuilder.getImplementationClassKey()));
-        commandKeys.put(CommandSearchDescriptor.SYSTEM, new FieldDescriptor(SCommand.class, commandBuilder.getSystemKey()));
+        commandKeys.put(CommandSearchDescriptor.ID, new FieldDescriptor(SCommand.class, fact.getIdKey()));
+        commandKeys.put(CommandSearchDescriptor.NAME, new FieldDescriptor(SCommand.class, fact.getNameKey()));
+        commandKeys.put(CommandSearchDescriptor.DESCRIPTION, new FieldDescriptor(SCommand.class, fact.getDescriptionKey()));
+        commandKeys.put(CommandSearchDescriptor.IMPLEMENTATION, new FieldDescriptor(SCommand.class, fact.getImplementationClassKey()));
+        commandKeys.put(CommandSearchDescriptor.SYSTEM, new FieldDescriptor(SCommand.class, fact.getSystemKey()));
 
         commandAllFields = new HashMap<Class<? extends PersistentObject>, Set<String>>(1);
         final Set<String> commandFields = new HashSet<String>(5);
-        commandFields.add(commandBuilder.getNameKey());
-        commandFields.add(commandBuilder.getDescriptionKey());
-        commandFields.add(commandBuilder.getImplementationClassKey());
+        commandFields.add(fact.getNameKey());
+        commandFields.add(fact.getDescriptionKey());
+        commandFields.add(fact.getImplementationClassKey());
         commandAllFields.put(SCommand.class, commandFields);
     }
 

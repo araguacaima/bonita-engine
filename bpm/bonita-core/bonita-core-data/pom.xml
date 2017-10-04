@@ -5,7 +5,7 @@
 	<parent>
 		<artifactId>bonita-core</artifactId>
 		<groupId>org.bonitasoft.engine.core</groupId>
-		<version>6.1.0-SNAPSHOT</version>
+		<version>7.5.3-SNAPSHOT</version>
 	</parent>
 
 	<groupId>org.bonitasoft.engine.core.data</groupId>
@@ -13,6 +13,6 @@
 	<packaging>pom</packaging>
 
 	<modules>
-		<module>bonita-data-instance-transient-data-source</module>
+		<module>bonita-data-instance-transient</module>
 	</modules>
 </project>

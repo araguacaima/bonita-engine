@@ -5,7 +5,7 @@
 	<parent>
 		<artifactId>bonita-process-definition</artifactId>
 		<groupId>org.bonitasoft.engine.core.process.definition</groupId>
-		<version>6.1.0-SNAPSHOT</version>
+		<version>7.5.3-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>bonita-process-definition-api</artifactId>
@@ -14,24 +14,59 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.bonitasoft.engine.core.process.definition</groupId>
-			<artifactId>bonita-process-definition-model</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-		<dependency>
 			<groupId>org.bonitasoft.engine</groupId>
 			<artifactId>bonita-commons</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.bonitasoft.engine.recorder</groupId>
-			<artifactId>bonita-recorder-model</artifactId>
+			<artifactId>bonita-recorder-api</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.expression</groupId>
+			<artifactId>bonita-expression-api</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.bonitasoft.engine.identity</groupId>
-			<artifactId>bonita-identity-model</artifactId>
+			<artifactId>bonita-identity-api</artifactId>
 			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.data.definition</groupId>
+			<artifactId>bonita-data-definition-model</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.api</groupId>
+			<artifactId>bonita-common-api</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.persistence</groupId>
+			<artifactId>bonita-persistence-read</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.core.operation</groupId>
+			<artifactId>bonita-operation-model</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.log</groupId>
+			<artifactId>bonita-log-api</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+		    <groupId>junit</groupId>
+		    <artifactId>junit</artifactId>
+            <scope>test</scope>
+		</dependency>
+		<dependency>
+		    <groupId>org.assertj</groupId>
+		    <artifactId>assertj-core</artifactId>
+		    <scope>test</scope>
 		</dependency>
 	</dependencies>
 </project>

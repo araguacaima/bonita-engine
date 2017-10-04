@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,12 +19,11 @@ import java.util.Map;
 import java.util.Set;
 
 import org.bonitasoft.engine.bpm.process.ProcessDeploymentInfoSearchDescriptor;
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.core.category.model.SProcessCategoryMapping;
-import org.bonitasoft.engine.core.category.model.builder.SCategoryBuilderAccessor;
-import org.bonitasoft.engine.core.category.model.builder.SProcessCategoryMappingBuilder;
+import org.bonitasoft.engine.core.category.model.builder.SProcessCategoryMappingBuilderFactory;
 import org.bonitasoft.engine.core.process.definition.model.SProcessDefinitionDeployInfo;
-import org.bonitasoft.engine.core.process.definition.model.builder.BPMDefinitionBuilders;
-import org.bonitasoft.engine.core.process.definition.model.builder.ProcessDefinitionDeployInfoBuilder;
+import org.bonitasoft.engine.core.process.definition.model.builder.SProcessDefinitionDeployInfoBuilderFactory;
 import org.bonitasoft.engine.persistence.PersistentObject;
 
 /**
@@ -38,8 +37,8 @@ public class SearchProcessDefinitionsDescriptor extends SearchEntityDescriptor {
 
     private final Map<Class<? extends PersistentObject>, Set<String>> processDefDeployInfos;
 
-    public SearchProcessDefinitionsDescriptor(final BPMDefinitionBuilders defBuilders, final SCategoryBuilderAccessor categoryBuilderAccessor) {
-        final ProcessDefinitionDeployInfoBuilder definitionDeployInfo = defBuilders.getProcessDefinitionDeployInfoBuilder();
+    public SearchProcessDefinitionsDescriptor() {
+        final SProcessDefinitionDeployInfoBuilderFactory definitionDeployInfo = BuilderFactory.get(SProcessDefinitionDeployInfoBuilderFactory.class);
         searchEntityKeys = new HashMap<String, FieldDescriptor>(12);
         searchEntityKeys.put(ProcessDeploymentInfoSearchDescriptor.ACTIVATION_STATE, new FieldDescriptor(SProcessDefinitionDeployInfo.class,
                 definitionDeployInfo.getActivationStateKey()));
@@ -59,9 +58,6 @@ public class SearchProcessDefinitionsDescriptor extends SearchEntityDescriptor {
         searchEntityKeys.put(ProcessDeploymentInfoSearchDescriptor.DEPLOYED_BY,
                 new FieldDescriptor(SProcessDefinitionDeployInfo.class, definitionDeployInfo.getDeployedByKey()));
 
-        searchEntityKeys.put(ProcessDeploymentInfoSearchDescriptor.ACTIVATION_STATE, new FieldDescriptor(SProcessDefinitionDeployInfo.class,
-                definitionDeployInfo.getActivationStateKey()));
-
         searchEntityKeys.put(ProcessDeploymentInfoSearchDescriptor.LABEL, new FieldDescriptor(SProcessDefinitionDeployInfo.class,
                 definitionDeployInfo.getLabelStateKey()));
 
@@ -74,9 +70,9 @@ public class SearchProcessDefinitionsDescriptor extends SearchEntityDescriptor {
         searchEntityKeys.put(ProcessDeploymentInfoSearchDescriptor.LAST_UPDATE_DATE, new FieldDescriptor(SProcessDefinitionDeployInfo.class,
                 definitionDeployInfo.getLastUpdateDateKey()));
 
-        final SProcessCategoryMappingBuilder processCategoryMappingBuilder = categoryBuilderAccessor.getSProcessCategoryMappingBuilder();
+        final SProcessCategoryMappingBuilderFactory processCategoryMappingBuilderFactory = BuilderFactory.get(SProcessCategoryMappingBuilderFactory.class);
         searchEntityKeys.put(ProcessDeploymentInfoSearchDescriptor.CATEGORY_ID, new FieldDescriptor(SProcessCategoryMapping.class,
-                processCategoryMappingBuilder.getCategoryIdKey()));
+                processCategoryMappingBuilderFactory.getCategoryIdKey()));
 
         processDefDeployInfos = new HashMap<Class<? extends PersistentObject>, Set<String>>(1);
         final Set<String> processFields = new HashSet<String>(3);

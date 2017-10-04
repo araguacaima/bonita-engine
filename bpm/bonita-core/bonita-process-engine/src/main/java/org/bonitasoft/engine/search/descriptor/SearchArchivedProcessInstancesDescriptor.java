@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,15 +19,14 @@ import java.util.Map;
 import java.util.Set;
 
 import org.bonitasoft.engine.bpm.process.ArchivedProcessInstancesSearchDescriptor;
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.core.process.instance.model.SUserTaskInstance;
 import org.bonitasoft.engine.core.process.instance.model.archive.SAProcessInstance;
-import org.bonitasoft.engine.core.process.instance.model.archive.builder.SAProcessInstanceBuilder;
-import org.bonitasoft.engine.core.process.instance.model.builder.BPMInstanceBuilders;
-import org.bonitasoft.engine.core.process.instance.model.builder.SUserTaskInstanceBuilder;
+import org.bonitasoft.engine.core.process.instance.model.archive.builder.SAProcessInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.builder.SUserTaskInstanceBuilderFactory;
 import org.bonitasoft.engine.persistence.PersistentObject;
 import org.bonitasoft.engine.supervisor.mapping.model.SProcessSupervisor;
-import org.bonitasoft.engine.supervisor.mapping.model.SProcessSupervisorBuilder;
-import org.bonitasoft.engine.supervisor.mapping.model.SProcessSupervisorBuilders;
+import org.bonitasoft.engine.supervisor.mapping.model.SProcessSupervisorBuilderFactory;
 
 /**
  * @author Yanyan Liu
@@ -42,10 +41,10 @@ public class SearchArchivedProcessInstancesDescriptor extends SearchEntityDescri
 
     protected final Set<String> processInstanceFields;
 
-    public SearchArchivedProcessInstancesDescriptor(final BPMInstanceBuilders instanceBuilders, final SProcessSupervisorBuilders sSupervisorBuilders) {
-        final SAProcessInstanceBuilder instanceBuilder = instanceBuilders.getSAProcessInstanceBuilder();
-        final SUserTaskInstanceBuilder sUserTaskInstanceBuilder = instanceBuilders.getSUserTaskInstanceBuilder();
-        final SProcessSupervisorBuilder sSupervisorBuilder = sSupervisorBuilders.getSSupervisorBuilder();
+    public SearchArchivedProcessInstancesDescriptor() {
+        final SAProcessInstanceBuilderFactory instanceBuilder = BuilderFactory.get(SAProcessInstanceBuilderFactory.class);
+        final SUserTaskInstanceBuilderFactory sUserTaskInstanceBuilder = BuilderFactory.get(SUserTaskInstanceBuilderFactory.class);
+
         searchEntityKeys = new HashMap<String, FieldDescriptor>(14);
         searchEntityKeys.put(ArchivedProcessInstancesSearchDescriptor.NAME, new FieldDescriptor(SAProcessInstance.class, instanceBuilder.getNameKey()));
         searchEntityKeys.put(ArchivedProcessInstancesSearchDescriptor.PROCESS_DEFINITION_ID,
@@ -53,8 +52,8 @@ public class SearchArchivedProcessInstancesDescriptor extends SearchEntityDescri
         searchEntityKeys.put(ArchivedProcessInstancesSearchDescriptor.ID, new FieldDescriptor(SAProcessInstance.class, instanceBuilder.getIdKey()));
         searchEntityKeys.put(ArchivedProcessInstancesSearchDescriptor.STARTED_BY,
                 new FieldDescriptor(SAProcessInstance.class, instanceBuilder.getStartedByKey()));
-        searchEntityKeys.put(ArchivedProcessInstancesSearchDescriptor.STARTED_BY_DELEGATE,
-                new FieldDescriptor(SAProcessInstance.class, instanceBuilder.getStartedByDelegateKey()));
+        searchEntityKeys.put(ArchivedProcessInstancesSearchDescriptor.STARTED_BY_SUBSTITUTE,
+                new FieldDescriptor(SAProcessInstance.class, instanceBuilder.getStartedBySubstituteKey()));
         searchEntityKeys.put(ArchivedProcessInstancesSearchDescriptor.START_DATE,
                 new FieldDescriptor(SAProcessInstance.class, instanceBuilder.getStartDateKey()));
         searchEntityKeys.put(ArchivedProcessInstancesSearchDescriptor.END_DATE, new FieldDescriptor(SAProcessInstance.class, instanceBuilder.getEndDateKey()));
@@ -68,11 +67,11 @@ public class SearchArchivedProcessInstancesDescriptor extends SearchEntityDescri
         searchEntityKeys.put(ArchivedProcessInstancesSearchDescriptor.CALLER_ID,
                 new FieldDescriptor(SAProcessInstance.class, instanceBuilder.getCallerIdKey()));
         searchEntityKeys
-                .put(ArchivedProcessInstancesSearchDescriptor.USER_ID, new FieldDescriptor(SProcessSupervisor.class, sSupervisorBuilder.getUserIdKey()));
+                .put(ArchivedProcessInstancesSearchDescriptor.USER_ID, new FieldDescriptor(SProcessSupervisor.class, BuilderFactory.get(SProcessSupervisorBuilderFactory.class).getUserIdKey()));
         searchEntityKeys.put(ArchivedProcessInstancesSearchDescriptor.GROUP_ID,
-                new FieldDescriptor(SProcessSupervisor.class, sSupervisorBuilder.getGroupIdKey()));
+                new FieldDescriptor(SProcessSupervisor.class, BuilderFactory.get(SProcessSupervisorBuilderFactory.class).getGroupIdKey()));
         searchEntityKeys
-                .put(ArchivedProcessInstancesSearchDescriptor.ROLE_ID, new FieldDescriptor(SProcessSupervisor.class, sSupervisorBuilder.getRoleIdKey()));
+                .put(ArchivedProcessInstancesSearchDescriptor.ROLE_ID, new FieldDescriptor(SProcessSupervisor.class, BuilderFactory.get(SProcessSupervisorBuilderFactory.class).getRoleIdKey()));
         searchEntityKeys.put(ArchivedProcessInstancesSearchDescriptor.ASSIGNEE_ID,
                 new FieldDescriptor(SUserTaskInstance.class, sUserTaskInstanceBuilder.getAssigneeIdKey()));
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,7 +13,6 @@
  **/
 package org.bonitasoft.engine.transaction;
 
-import javax.transaction.Status;
 import javax.transaction.Synchronization;
 
 public class JTATransactionWrapper implements Synchronization {
@@ -31,17 +30,7 @@ public class JTATransactionWrapper implements Synchronization {
 
     @Override
     public void afterCompletion(final int status) {
-        bonitaTx.afterCompletion(convert(status));
-    }
-
-    private TransactionState convert(final int status) {
-        switch (status) {
-            case Status.STATUS_COMMITTED:
-                return TransactionState.COMMITTED;
-            case Status.STATUS_ROLLEDBACK:
-                return TransactionState.ROLLEDBACK;
-        }
-        return null;
+        bonitaTx.afterCompletion(JTATransactionServiceImpl.convert(status));
     }
 
 }

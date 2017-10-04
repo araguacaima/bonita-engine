@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -10,10 +10,9 @@
  * You should have received a copy of the GNU Lesser General Public License along with this
  * program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
  * Floor, Boston, MA 02110-1301, USA.
- **/
+ */
 package org.bonitasoft.engine.service;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,9 +22,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.bonitasoft.engine.actor.mapping.model.SActor;
 import org.bonitasoft.engine.actor.mapping.model.SActorMember;
+import org.bonitasoft.engine.api.impl.SessionInfos;
 import org.bonitasoft.engine.bpm.actor.ActorInstance;
 import org.bonitasoft.engine.bpm.actor.ActorMember;
 import org.bonitasoft.engine.bpm.actor.impl.ActorInstanceImpl;
@@ -40,12 +41,22 @@ import org.bonitasoft.engine.bpm.connector.ArchivedConnectorInstance;
 import org.bonitasoft.engine.bpm.connector.ConnectorDefinition;
 import org.bonitasoft.engine.bpm.connector.ConnectorImplementationDescriptor;
 import org.bonitasoft.engine.bpm.connector.ConnectorInstance;
+import org.bonitasoft.engine.bpm.connector.ConnectorInstanceWithFailureInfo;
 import org.bonitasoft.engine.bpm.connector.ConnectorState;
 import org.bonitasoft.engine.bpm.connector.impl.ArchivedConnectorInstanceImpl;
 import org.bonitasoft.engine.bpm.connector.impl.ConnectorDefinitionImpl;
 import org.bonitasoft.engine.bpm.connector.impl.ConnectorInstanceImpl;
+import org.bonitasoft.engine.bpm.connector.impl.ConnectorInstanceWithFailureInfoImpl;
+import org.bonitasoft.engine.bpm.contract.ContractDefinition;
+import org.bonitasoft.engine.bpm.contract.InputDefinition;
+import org.bonitasoft.engine.bpm.contract.Type;
+import org.bonitasoft.engine.bpm.contract.impl.ConstraintDefinitionImpl;
+import org.bonitasoft.engine.bpm.contract.impl.ContractDefinitionImpl;
+import org.bonitasoft.engine.bpm.contract.impl.InputDefinitionImpl;
+import org.bonitasoft.engine.bpm.data.ArchivedDataInstance;
 import org.bonitasoft.engine.bpm.data.DataDefinition;
 import org.bonitasoft.engine.bpm.data.DataInstance;
+import org.bonitasoft.engine.bpm.data.impl.ArchivedDataInstanceImpl;
 import org.bonitasoft.engine.bpm.data.impl.BlobDataInstanceImpl;
 import org.bonitasoft.engine.bpm.data.impl.BooleanDataInstanceImpl;
 import org.bonitasoft.engine.bpm.data.impl.DataDefinitionImpl;
@@ -65,7 +76,6 @@ import org.bonitasoft.engine.bpm.flownode.ActivityStates;
 import org.bonitasoft.engine.bpm.flownode.ArchivedActivityInstance;
 import org.bonitasoft.engine.bpm.flownode.ArchivedAutomaticTaskInstance;
 import org.bonitasoft.engine.bpm.flownode.ArchivedCallActivityInstance;
-import org.bonitasoft.engine.bpm.flownode.ArchivedFlowElementInstance;
 import org.bonitasoft.engine.bpm.flownode.ArchivedFlowNodeInstance;
 import org.bonitasoft.engine.bpm.flownode.ArchivedGatewayInstance;
 import org.bonitasoft.engine.bpm.flownode.ArchivedHumanTaskInstance;
@@ -77,49 +87,51 @@ import org.bonitasoft.engine.bpm.flownode.ArchivedSubProcessActivityInstance;
 import org.bonitasoft.engine.bpm.flownode.ArchivedUserTaskInstance;
 import org.bonitasoft.engine.bpm.flownode.BPMEventType;
 import org.bonitasoft.engine.bpm.flownode.EventInstance;
+import org.bonitasoft.engine.bpm.flownode.EventTriggerInstance;
 import org.bonitasoft.engine.bpm.flownode.FlowNodeInstance;
 import org.bonitasoft.engine.bpm.flownode.GatewayInstance;
 import org.bonitasoft.engine.bpm.flownode.HumanTaskInstance;
 import org.bonitasoft.engine.bpm.flownode.ManualTaskInstance;
 import org.bonitasoft.engine.bpm.flownode.StateCategory;
 import org.bonitasoft.engine.bpm.flownode.TaskPriority;
+import org.bonitasoft.engine.bpm.flownode.TimerEventTriggerInstance;
 import org.bonitasoft.engine.bpm.flownode.UserTaskInstance;
 import org.bonitasoft.engine.bpm.flownode.WaitingEvent;
-import org.bonitasoft.engine.bpm.flownode.impl.ActivityInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedActivityInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedAutomaticTaskInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedCallActivityInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedFlowNodeInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedGatewayInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedHumanTaskInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedLoopActivityInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedManualTaskInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedMultiInstanceActivityInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedReceiveTaskInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedSendTaskInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedSubProcessActivityInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ArchivedUserTaskInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.AutomaticTaskInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.BoundaryEventInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.CallActivityInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.EndEventInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.EventInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.FlowNodeInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.GatewayInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.HumanTaskInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.IntermediateCatchEventInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.IntermediateThrowEventInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.LoopActivityInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ManualTaskInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.MultiInstanceActivityInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.ReceiveTaskInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.SendTaskInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.StartEventInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.SubProcessActivityInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.UserTaskInstanceImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.WaitingErrorEventImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.WaitingMessageEventImpl;
-import org.bonitasoft.engine.bpm.flownode.impl.WaitingSignalEventImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ActivityInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ArchivedAutomaticTaskInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ArchivedCallActivityInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ArchivedFlowNodeInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ArchivedGatewayInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ArchivedHumanTaskInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ArchivedLoopActivityInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ArchivedManualTaskInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ArchivedMultiInstanceActivityInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ArchivedReceiveTaskInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ArchivedSendTaskInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ArchivedSubProcessActivityInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ArchivedUserTaskInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.AutomaticTaskInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.BoundaryEventInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.CallActivityInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.EndEventInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.EventInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.FlowNodeInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.GatewayInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.HumanTaskInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.IntermediateCatchEventInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.IntermediateThrowEventInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.LoopActivityInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ManualTaskInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.MultiInstanceActivityInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.ReceiveTaskInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.SendTaskInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.StartEventInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.SubProcessActivityInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.TimerEventTriggerInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.UserTaskInstanceImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.WaitingErrorEventImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.WaitingMessageEventImpl;
+import org.bonitasoft.engine.bpm.flownode.impl.internal.WaitingSignalEventImpl;
 import org.bonitasoft.engine.bpm.process.ActivationState;
 import org.bonitasoft.engine.bpm.process.ArchivedProcessInstance;
 import org.bonitasoft.engine.bpm.process.ConfigurationState;
@@ -127,35 +139,47 @@ import org.bonitasoft.engine.bpm.process.ProcessDefinition;
 import org.bonitasoft.engine.bpm.process.ProcessDeploymentInfo;
 import org.bonitasoft.engine.bpm.process.ProcessInstance;
 import org.bonitasoft.engine.bpm.process.ProcessInstanceState;
-import org.bonitasoft.engine.bpm.process.impl.ArchivedProcessInstanceImpl;
-import org.bonitasoft.engine.bpm.process.impl.ProcessDefinitionImpl;
-import org.bonitasoft.engine.bpm.process.impl.ProcessDeploymentInfoImpl;
 import org.bonitasoft.engine.bpm.process.impl.ProcessInstanceBuilder;
+import org.bonitasoft.engine.bpm.process.impl.internal.ArchivedProcessInstanceImpl;
+import org.bonitasoft.engine.bpm.process.impl.internal.ProcessDefinitionImpl;
+import org.bonitasoft.engine.bpm.process.impl.internal.ProcessDeploymentInfoImpl;
 import org.bonitasoft.engine.bpm.supervisor.ProcessSupervisor;
-import org.bonitasoft.engine.bpm.supervisor.ProcessSupervisorBuilder;
+import org.bonitasoft.engine.bpm.supervisor.impl.ProcessSupervisorImpl;
+import org.bonitasoft.engine.builder.BuilderFactory;
+import org.bonitasoft.engine.business.data.BusinessDataReference;
+import org.bonitasoft.engine.business.data.impl.MultipleBusinessDataReferenceImpl;
+import org.bonitasoft.engine.business.data.impl.SimpleBusinessDataReferenceImpl;
 import org.bonitasoft.engine.command.CommandDescriptor;
 import org.bonitasoft.engine.command.CommandDescriptorImpl;
 import org.bonitasoft.engine.command.model.SCommand;
+import org.bonitasoft.engine.commons.exceptions.SBonitaRuntimeException;
 import org.bonitasoft.engine.core.category.model.SCategory;
 import org.bonitasoft.engine.core.connector.parser.SConnectorImplementationDescriptor;
+import org.bonitasoft.engine.core.document.api.DocumentService;
+import org.bonitasoft.engine.core.document.model.SMappedDocument;
+import org.bonitasoft.engine.core.document.model.archive.SAMappedDocument;
+import org.bonitasoft.engine.core.form.SFormMapping;
 import org.bonitasoft.engine.core.operation.model.SLeftOperand;
 import org.bonitasoft.engine.core.operation.model.SOperation;
 import org.bonitasoft.engine.core.operation.model.SOperatorType;
-import org.bonitasoft.engine.core.operation.model.builder.SOperationBuilders;
+import org.bonitasoft.engine.core.operation.model.builder.SLeftOperandBuilderFactory;
+import org.bonitasoft.engine.core.operation.model.builder.SOperationBuilderFactory;
 import org.bonitasoft.engine.core.process.comment.model.SComment;
 import org.bonitasoft.engine.core.process.comment.model.archive.SAComment;
 import org.bonitasoft.engine.core.process.definition.ProcessDefinitionService;
-import org.bonitasoft.engine.core.process.definition.SProcessDefinitionNotFoundException;
-import org.bonitasoft.engine.core.process.definition.exception.SProcessDefinitionReadException;
+import org.bonitasoft.engine.core.process.definition.exception.SProcessDefinitionNotFoundException;
 import org.bonitasoft.engine.core.process.definition.model.SConnectorDefinition;
+import org.bonitasoft.engine.core.process.definition.model.SConstraintDefinition;
+import org.bonitasoft.engine.core.process.definition.model.SContractDefinition;
+import org.bonitasoft.engine.core.process.definition.model.SInputDefinition;
 import org.bonitasoft.engine.core.process.definition.model.SProcessDefinition;
 import org.bonitasoft.engine.core.process.definition.model.SProcessDefinitionDeployInfo;
-import org.bonitasoft.engine.core.process.document.model.SAProcessDocument;
-import org.bonitasoft.engine.core.process.document.model.SProcessDocument;
+import org.bonitasoft.engine.core.process.definition.model.SType;
 import org.bonitasoft.engine.core.process.instance.model.SActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.SAutomaticTaskInstance;
 import org.bonitasoft.engine.core.process.instance.model.SCallActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.SConnectorInstance;
+import org.bonitasoft.engine.core.process.instance.model.SConnectorInstanceWithFailureInfo;
 import org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance;
 import org.bonitasoft.engine.core.process.instance.model.SGatewayInstance;
 import org.bonitasoft.engine.core.process.instance.model.SHumanTaskInstance;
@@ -171,7 +195,6 @@ import org.bonitasoft.engine.core.process.instance.model.archive.SAActivityInsta
 import org.bonitasoft.engine.core.process.instance.model.archive.SAAutomaticTaskInstance;
 import org.bonitasoft.engine.core.process.instance.model.archive.SACallActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.archive.SAConnectorInstance;
-import org.bonitasoft.engine.core.process.instance.model.archive.SAFlowElementInstance;
 import org.bonitasoft.engine.core.process.instance.model.archive.SAFlowNodeInstance;
 import org.bonitasoft.engine.core.process.instance.model.archive.SAGatewayInstance;
 import org.bonitasoft.engine.core.process.instance.model.archive.SAHumanTaskInstance;
@@ -183,16 +206,20 @@ import org.bonitasoft.engine.core.process.instance.model.archive.SAReceiveTaskIn
 import org.bonitasoft.engine.core.process.instance.model.archive.SASendTaskInstance;
 import org.bonitasoft.engine.core.process.instance.model.archive.SASubProcessActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.archive.SAUserTaskInstance;
+import org.bonitasoft.engine.core.process.instance.model.business.data.SMultiRefBusinessDataInstance;
+import org.bonitasoft.engine.core.process.instance.model.business.data.SRefBusinessDataInstance;
+import org.bonitasoft.engine.core.process.instance.model.business.data.SSimpleRefBusinessDataInstance;
 import org.bonitasoft.engine.core.process.instance.model.event.SBoundaryEventInstance;
 import org.bonitasoft.engine.core.process.instance.model.event.SEventInstance;
 import org.bonitasoft.engine.core.process.instance.model.event.handling.SWaitingErrorEvent;
 import org.bonitasoft.engine.core.process.instance.model.event.handling.SWaitingEvent;
 import org.bonitasoft.engine.core.process.instance.model.event.handling.SWaitingMessageEvent;
 import org.bonitasoft.engine.core.process.instance.model.event.handling.SWaitingSignalEvent;
+import org.bonitasoft.engine.core.process.instance.model.event.trigger.SEventTriggerInstance;
+import org.bonitasoft.engine.core.process.instance.model.event.trigger.STimerEventTriggerInstance;
 import org.bonitasoft.engine.data.definition.model.SDataDefinition;
 import org.bonitasoft.engine.data.instance.model.SDataInstance;
-import org.bonitasoft.engine.exception.BonitaHomeConfigurationException;
-import org.bonitasoft.engine.exception.BonitaHomeNotSetException;
+import org.bonitasoft.engine.data.instance.model.archive.SADataInstance;
 import org.bonitasoft.engine.exception.UnknownElementType;
 import org.bonitasoft.engine.execution.state.FlowNodeStateManager;
 import org.bonitasoft.engine.expression.Expression;
@@ -200,14 +227,16 @@ import org.bonitasoft.engine.expression.exception.SInvalidExpressionException;
 import org.bonitasoft.engine.expression.impl.ExpressionImpl;
 import org.bonitasoft.engine.expression.model.SExpression;
 import org.bonitasoft.engine.expression.model.builder.SExpressionBuilder;
-import org.bonitasoft.engine.expression.model.builder.SExpressionBuilders;
+import org.bonitasoft.engine.expression.model.builder.SExpressionBuilderFactory;
+import org.bonitasoft.engine.form.FormMapping;
+import org.bonitasoft.engine.form.FormMappingTarget;
+import org.bonitasoft.engine.form.FormMappingType;
 import org.bonitasoft.engine.identity.ContactData;
 import org.bonitasoft.engine.identity.ContactDataCreator.ContactDataField;
-import org.bonitasoft.engine.identity.ExportedUser;
-import org.bonitasoft.engine.identity.ExportedUserBuilder;
 import org.bonitasoft.engine.identity.Group;
 import org.bonitasoft.engine.identity.GroupCreator;
 import org.bonitasoft.engine.identity.GroupCreator.GroupField;
+import org.bonitasoft.engine.identity.Icon;
 import org.bonitasoft.engine.identity.Role;
 import org.bonitasoft.engine.identity.RoleCreator;
 import org.bonitasoft.engine.identity.RoleCreator.RoleField;
@@ -216,25 +245,45 @@ import org.bonitasoft.engine.identity.UserCreator;
 import org.bonitasoft.engine.identity.UserCreator.UserField;
 import org.bonitasoft.engine.identity.UserMembership;
 import org.bonitasoft.engine.identity.impl.ContactDataImpl;
+import org.bonitasoft.engine.identity.impl.CustomUserInfoDefinitionImpl;
+import org.bonitasoft.engine.identity.impl.CustomUserInfoValueImpl;
 import org.bonitasoft.engine.identity.impl.GroupImpl;
+import org.bonitasoft.engine.identity.impl.IconImpl;
 import org.bonitasoft.engine.identity.impl.RoleImpl;
 import org.bonitasoft.engine.identity.impl.UserImpl;
 import org.bonitasoft.engine.identity.impl.UserMembershipImpl;
 import org.bonitasoft.engine.identity.model.SContactInfo;
+import org.bonitasoft.engine.identity.model.SCustomUserInfoDefinition;
+import org.bonitasoft.engine.identity.model.SCustomUserInfoValue;
 import org.bonitasoft.engine.identity.model.SGroup;
+import org.bonitasoft.engine.identity.model.SIcon;
 import org.bonitasoft.engine.identity.model.SRole;
 import org.bonitasoft.engine.identity.model.SUser;
+import org.bonitasoft.engine.identity.model.SUserLogin;
 import org.bonitasoft.engine.identity.model.SUserMembership;
-import org.bonitasoft.engine.identity.model.builder.GroupBuilder;
-import org.bonitasoft.engine.identity.model.builder.IdentityModelBuilder;
-import org.bonitasoft.engine.identity.model.builder.RoleBuilder;
 import org.bonitasoft.engine.identity.model.builder.SContactInfoBuilder;
+import org.bonitasoft.engine.identity.model.builder.SContactInfoBuilderFactory;
+import org.bonitasoft.engine.identity.model.builder.SGroupBuilder;
+import org.bonitasoft.engine.identity.model.builder.SGroupBuilderFactory;
+import org.bonitasoft.engine.identity.model.builder.SRoleBuilder;
+import org.bonitasoft.engine.identity.model.builder.SRoleBuilderFactory;
 import org.bonitasoft.engine.identity.model.builder.SUserBuilder;
-import org.bonitasoft.engine.operation.LeftOperand;
+import org.bonitasoft.engine.identity.model.builder.SUserBuilderFactory;
+import org.bonitasoft.engine.identity.xml.ExportedCustomUserInfoDefinition;
+import org.bonitasoft.engine.identity.xml.ExportedGroup;
+import org.bonitasoft.engine.identity.xml.ExportedRole;
+import org.bonitasoft.engine.identity.xml.ExportedUser;
+import org.bonitasoft.engine.identity.xml.ExportedUserMembership;
+import org.bonitasoft.engine.job.FailedJob;
+import org.bonitasoft.engine.job.impl.FailedJobImpl;
 import org.bonitasoft.engine.operation.Operation;
 import org.bonitasoft.engine.operation.OperatorType;
 import org.bonitasoft.engine.operation.impl.LeftOperandImpl;
 import org.bonitasoft.engine.operation.impl.OperationImpl;
+import org.bonitasoft.engine.page.PageURL;
+import org.bonitasoft.engine.page.SPageMapping;
+import org.bonitasoft.engine.page.SPageURL;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
 import org.bonitasoft.engine.platform.Platform;
 import org.bonitasoft.engine.platform.command.model.SPlatformCommand;
 import org.bonitasoft.engine.platform.impl.PlatformImpl;
@@ -245,20 +294,22 @@ import org.bonitasoft.engine.profile.ProfileMember;
 import org.bonitasoft.engine.profile.ProfileMemberCreator;
 import org.bonitasoft.engine.profile.ProfileMemberCreator.ProfileMemberField;
 import org.bonitasoft.engine.profile.builder.SProfileMemberBuilder;
+import org.bonitasoft.engine.profile.builder.SProfileMemberBuilderFactory;
 import org.bonitasoft.engine.profile.impl.ProfileEntryImpl;
 import org.bonitasoft.engine.profile.impl.ProfileImpl;
 import org.bonitasoft.engine.profile.impl.ProfileMemberImpl;
 import org.bonitasoft.engine.profile.model.SProfile;
 import org.bonitasoft.engine.profile.model.SProfileEntry;
 import org.bonitasoft.engine.profile.model.SProfileMember;
-import org.bonitasoft.engine.service.impl.ServiceAccessorFactory;
+import org.bonitasoft.engine.scheduler.model.SFailedJob;
 import org.bonitasoft.engine.session.APISession;
-import org.bonitasoft.engine.session.SSessionNotFoundException;
 import org.bonitasoft.engine.session.impl.APISessionImpl;
 import org.bonitasoft.engine.session.model.SSession;
-import org.bonitasoft.engine.sessionaccessor.SessionAccessor;
-import org.bonitasoft.engine.sessionaccessor.SessionIdNotSetException;
 import org.bonitasoft.engine.supervisor.mapping.model.SProcessSupervisor;
+import org.bonitasoft.engine.theme.Theme;
+import org.bonitasoft.engine.theme.ThemeType;
+import org.bonitasoft.engine.theme.impl.ThemeImpl;
+import org.bonitasoft.engine.theme.model.STheme;
 
 /**
  * @author Matthieu Chaffotte
@@ -286,7 +337,7 @@ public class ModelConvertor {
     }
 
     public static List<ActivityInstance> toActivityInstances(final List<SActivityInstance> sActivities, final FlowNodeStateManager flowNodeStateManager) {
-        final List<ActivityInstance> activityInstances = new ArrayList<ActivityInstance>();
+        final List<ActivityInstance> activityInstances = new ArrayList<>();
         for (final SActivityInstance sActivity : sActivities) {
             final ActivityInstance activityInstance = toActivityInstance(sActivity, flowNodeStateManager);
             activityInstances.add(activityInstance);
@@ -295,7 +346,7 @@ public class ModelConvertor {
     }
 
     public static List<FlowNodeInstance> toFlowNodeInstances(final List<SFlowNodeInstance> sFlowNodes, final FlowNodeStateManager flowNodeStateManager) {
-        final List<FlowNodeInstance> flowNodeInstances = new ArrayList<FlowNodeInstance>();
+        final List<FlowNodeInstance> flowNodeInstances = new ArrayList<>();
         for (final SFlowNodeInstance sFlowNode : sFlowNodes) {
             final FlowNodeInstance flowNodeInstance = toFlowNodeInstance(sFlowNode, flowNodeStateManager);
             flowNodeInstances.add(flowNodeInstance);
@@ -314,8 +365,10 @@ public class ModelConvertor {
         flowNode.setDisplayDescription(sflowNode.getDisplayDescription());
         flowNode.setDescription(sflowNode.getDescription());
         flowNode.setExecutedBy(sflowNode.getExecutedBy());
-        flowNode.setExecutedByDelegate(sflowNode.getExecutedByDelegate());
+        flowNode.setExecutedBySubstitute(sflowNode.getExecutedBySubstitute());
         flowNode.setStateCategory(StateCategory.valueOf(sflowNode.getStateCategory().name()));
+        flowNode.setReachedSateDate(new Date(sflowNode.getReachedStateDate()));
+        flowNode.setLastUpdateDate(new Date(sflowNode.getLastUpdateDate()));
     }
 
     public static ActivityInstance toActivityInstance(final SActivityInstance sActivity, final FlowNodeStateManager flowNodeStateManager) {
@@ -415,11 +468,11 @@ public class ModelConvertor {
         return gatewayInstance;
     }
 
-    public static ArchivedGatewayInstance toArchivedGatewayInstance(final SAGatewayInstance saGatewayInstance, final FlowNodeStateManager flowNodeStateManager) {
+    public static ArchivedGatewayInstance toArchivedGatewayInstance(final SAGatewayInstance saGatewayInstance,
+            final FlowNodeStateManager flowNodeStateManager) {
         final String name = saGatewayInstance.getName();
         final ArchivedGatewayInstanceImpl aGatewayInstance = new ArchivedGatewayInstanceImpl(name);
-        final String state = flowNodeStateManager.getState(saGatewayInstance.getStateId()).getName();
-        updateArchivedFlowNodeInstance(aGatewayInstance, saGatewayInstance, state);
+        updateArchivedFlowNodeInstance(aGatewayInstance, saGatewayInstance, flowNodeStateManager.getState(saGatewayInstance.getStateId()).getName());
         return aGatewayInstance;
     }
 
@@ -427,12 +480,10 @@ public class ModelConvertor {
             final ActivityInstanceImpl activity) {
         final String state = flowNodeStateManager.getState(sActivity.getStateId()).getName();
         updateFlowNode(activity, sActivity, state);
-        activity.setReachedSateDate(new Date(sActivity.getReachedStateDate()));
-        activity.setLastUpdateDate(new Date(sActivity.getLastUpdateDate()));
     }
 
     public static List<UserTaskInstance> toUserTaskInstances(final List<SUserTaskInstance> sUserTasks, final FlowNodeStateManager flowNodeStateManager) {
-        final List<UserTaskInstance> userTaskInstances = new ArrayList<UserTaskInstance>();
+        final List<UserTaskInstance> userTaskInstances = new ArrayList<>();
         for (final SUserTaskInstance sUserTask : sUserTasks) {
             final UserTaskInstance userTask = toUserTaskInstance(sUserTask, flowNodeStateManager);
             userTaskInstances.add(userTask);
@@ -441,7 +492,8 @@ public class ModelConvertor {
     }
 
     public static UserTaskInstance toUserTaskInstance(final SUserTaskInstance sUserTask, final FlowNodeStateManager flowNodeStateManager) {
-        final UserTaskInstanceImpl userTaskInstance = new UserTaskInstanceImpl(sUserTask.getName(), sUserTask.getFlowNodeDefinitionId(), sUserTask.getActorId());
+        final UserTaskInstanceImpl userTaskInstance = new UserTaskInstanceImpl(sUserTask.getName(), sUserTask.getFlowNodeDefinitionId(),
+                sUserTask.getActorId());
         updateHumanTaskInstance(sUserTask, flowNodeStateManager, userTaskInstance);
         return userTaskInstance;
     }
@@ -467,15 +519,15 @@ public class ModelConvertor {
             humanTaskInstance.setClaimedDate(new Date(claimedDate));
         }
         humanTaskInstance.setPriority(TaskPriority.valueOf(sHumanTask.getPriority().name()));
-        final long expectedEndDate = sHumanTask.getExpectedEndDate();
-        if (expectedEndDate > 0) {
+        final Long expectedEndDate = sHumanTask.getExpectedEndDate();
+        if (expectedEndDate != null) {
             humanTaskInstance.setExpectedEndDate(new Date(expectedEndDate));
         }
     }
 
     public static List<HumanTaskInstance> toHumanTaskInstances(final List<? extends SHumanTaskInstance> sHumanTasks,
             final FlowNodeStateManager flowNodeStateManager) {
-        final List<HumanTaskInstance> humanTaskInstances = new ArrayList<HumanTaskInstance>(sHumanTasks.size());
+        final List<HumanTaskInstance> humanTaskInstances = new ArrayList<>(sHumanTasks.size());
         for (final SHumanTaskInstance sUserTask : sHumanTasks) {
             final HumanTaskInstance userTask = toHumanTaskInstance(sUserTask, flowNodeStateManager);
             humanTaskInstances.add(userTask);
@@ -510,29 +562,35 @@ public class ModelConvertor {
 
     public static List<ProcessInstance> toProcessInstances(final List<SProcessInstance> sProcessInstances,
             final ProcessDefinitionService processDefinitionService) {
-        final List<ProcessInstance> clientProcessInstances = new ArrayList<ProcessInstance>();
-        final HashMap<Long, SProcessDefinition> processDefinitions = new HashMap<Long, SProcessDefinition>();
+        final List<ProcessInstance> clientProcessInstances = new ArrayList<>();
         if (sProcessInstances != null) {
+            final Map<Long, SProcessDefinition> processDefinitions = new HashMap<>();
+
             for (final SProcessInstance sProcessInstance : sProcessInstances) {
-                SProcessDefinition sProcessDefinition = processDefinitions.get(sProcessInstance.getProcessDefinitionId());
-                if (sProcessDefinition == null) {
-                    try {
-                        sProcessDefinition = processDefinitionService.getProcessDefinition(sProcessInstance.getProcessDefinitionId());
-                        processDefinitions.put(sProcessDefinition.getId(), sProcessDefinition);
-                    } catch (final SProcessDefinitionNotFoundException e) {
-                        // ignore...
-                    } catch (final SProcessDefinitionReadException e) {
-                        // ignore...
-                    }
-                }
+                final SProcessDefinition sProcessDefinition = getProcessDefinition(processDefinitionService, processDefinitions,
+                        sProcessInstance.getProcessDefinitionId());
                 clientProcessInstances.add(toProcessInstance(sProcessDefinition, sProcessInstance));
             }
         }
         return Collections.unmodifiableList(clientProcessInstances);
     }
 
+    private static SProcessDefinition getProcessDefinition(final ProcessDefinitionService processDefinitionService,
+            final Map<Long, SProcessDefinition> processDefinitions, final long processDefinitionId) {
+        SProcessDefinition sProcessDefinition = processDefinitions.get(processDefinitionId);
+        if (sProcessDefinition == null) {
+            try {
+                sProcessDefinition = processDefinitionService.getProcessDefinition(processDefinitionId);
+                processDefinitions.put(sProcessDefinition.getId(), sProcessDefinition);
+            } catch (final SProcessDefinitionNotFoundException | SBonitaReadException e) {
+                throw new SBonitaRuntimeException(e);
+            }
+        }
+        return sProcessDefinition;
+    }
+
     public static ProcessInstance toProcessInstance(final SProcessDefinition definition, final SProcessInstance sInstance) {
-        final ProcessInstanceBuilder clientProcessInstanceBuilder = new ProcessInstanceBuilder().createNewInstance(sInstance.getName());
+        final ProcessInstanceBuilder clientProcessInstanceBuilder = ProcessInstanceBuilder.getInstance().createNewInstance(sInstance.getName());
         clientProcessInstanceBuilder.setId(sInstance.getId());
 
         clientProcessInstanceBuilder.setState(ProcessInstanceState.getFromId(sInstance.getStateId()).name().toLowerCase());
@@ -540,7 +598,7 @@ public class ModelConvertor {
             clientProcessInstanceBuilder.setStartDate(sInstance.getStartDate());
         }
         clientProcessInstanceBuilder.setStartedBy(sInstance.getStartedBy());
-        clientProcessInstanceBuilder.setStartedByDelegate(sInstance.getStartedByDelegate());
+        clientProcessInstanceBuilder.setStartedBySubstitute(sInstance.getStartedBySubstitute());
         if (sInstance.getEndDate() > 0) {
             clientProcessInstanceBuilder.setEndDate(sInstance.getEndDate());
         }
@@ -564,7 +622,7 @@ public class ModelConvertor {
     }
 
     public static List<ProcessDeploymentInfo> toProcessDeploymentInfo(final List<SProcessDefinitionDeployInfo> processDefinitionDIs) {
-        final List<ProcessDeploymentInfo> deploymentInfos = new ArrayList<ProcessDeploymentInfo>();
+        final List<ProcessDeploymentInfo> deploymentInfos = new ArrayList<>();
         for (final SProcessDefinitionDeployInfo processDefinitionDI : processDefinitionDIs) {
             final ProcessDeploymentInfo deploymentInfo = toProcessDeploymentInfo(processDefinitionDI);
             deploymentInfos.add(deploymentInfo);
@@ -577,73 +635,55 @@ public class ModelConvertor {
                 processDefinitionDI.getVersion(), processDefinitionDI.getDescription(), new Date(processDefinitionDI.getDeploymentDate()),
                 processDefinitionDI.getDeployedBy(), ActivationState.valueOf(processDefinitionDI.getActivationState()),
                 ConfigurationState.valueOf(processDefinitionDI.getConfigurationState()), processDefinitionDI.getDisplayName(), new Date(
-                        processDefinitionDI.getLastUpdateDate()), processDefinitionDI.getIconPath(), processDefinitionDI.getDisplayDescription());
+                        processDefinitionDI.getLastUpdateDate()),
+                processDefinitionDI.getIconPath(), processDefinitionDI.getDisplayDescription());
+    }
+
+    public static Map<Long, ProcessDeploymentInfo> toProcessDeploymentInfos(final Map<Long, SProcessDefinitionDeployInfo> sProcessDeploymentInfos) {
+        if (sProcessDeploymentInfos != null && !sProcessDeploymentInfos.isEmpty()) {
+            final Map<Long, ProcessDeploymentInfo> processDeploymentInfos = new HashMap<>();
+            final Set<Entry<Long, SProcessDefinitionDeployInfo>> entries = sProcessDeploymentInfos.entrySet();
+            for (final Entry<Long, SProcessDefinitionDeployInfo> entry : entries) {
+                processDeploymentInfos.put(entry.getKey(), toProcessDeploymentInfo(entry.getValue()));
+            }
+            return processDeploymentInfos;
+        }
+        return Collections.emptyMap();
     }
 
     public static ArchivedUserTaskInstance toArchivedUserTaskInstance(final SAUserTaskInstance sInstance, final FlowNodeStateManager flowNodeStateManager) {
         final ArchivedUserTaskInstanceImpl archivedUserTaskInstanceImpl = new ArchivedUserTaskInstanceImpl(sInstance.getName());
-        updateArchivedHumanTaskInstance(archivedUserTaskInstanceImpl, flowNodeStateManager, sInstance);
+        updateArchivedFlowNodeInstance(archivedUserTaskInstanceImpl, sInstance, flowNodeStateManager.getState(sInstance.getStateId()).getName());
+        updateArchivedHumanTaskInstance(archivedUserTaskInstanceImpl, sInstance);
         return archivedUserTaskInstanceImpl;
     }
 
     public static ArchivedReceiveTaskInstance toArchivedReceiveTaskInstance(final SAReceiveTaskInstance sInstance,
             final FlowNodeStateManager flowNodeStateManager) {
         final ArchivedReceiveTaskInstanceImpl archivedReceiveTaskInstanceImpl = new ArchivedReceiveTaskInstanceImpl(sInstance.getName());
-        updateArchivedReceiveTaskInstance(archivedReceiveTaskInstanceImpl, flowNodeStateManager, sInstance);
+        updateArchivedFlowNodeInstance(archivedReceiveTaskInstanceImpl, sInstance, flowNodeStateManager.getState(sInstance.getStateId()).getName());
         return archivedReceiveTaskInstanceImpl;
     }
 
     public static ArchivedSendTaskInstance toArchivedSendTaskInstance(final SASendTaskInstance sInstance, final FlowNodeStateManager flowNodeStateManager) {
         final ArchivedSendTaskInstanceImpl archivedSendTaskInstanceImpl = new ArchivedSendTaskInstanceImpl(sInstance.getName());
-        updateArchivedSendTaskInstance(archivedSendTaskInstanceImpl, flowNodeStateManager, sInstance);
+        updateArchivedFlowNodeInstance(archivedSendTaskInstanceImpl, sInstance, flowNodeStateManager.getState(sInstance.getStateId()).getName());
         return archivedSendTaskInstanceImpl;
     }
 
     /**
      * Update the fields of ArchivedHumanTaskInstance from a SAHumanTaskInstance
      */
-    private static void updateArchivedHumanTaskInstance(final ArchivedHumanTaskInstanceImpl activity, final FlowNodeStateManager flowNodeStateManager,
-            final SAHumanTaskInstance saHumanTask) {
-        updateArchivedActivityInstance(activity, flowNodeStateManager, saHumanTask);
+    private static void updateArchivedHumanTaskInstance(final ArchivedHumanTaskInstanceImpl activity, final SAHumanTaskInstance saHumanTask) {
         activity.setAssigneeId(saHumanTask.getAssigneeId());
         activity.setPriority(TaskPriority.valueOf(saHumanTask.getPriority().name()));
         activity.setActorId(saHumanTask.getActorId());
-        if (saHumanTask.getExpectedEndDate() > 0) {
+        if (saHumanTask.getExpectedEndDate() != null) {
             activity.setExpectedEndDate(new Date(saHumanTask.getExpectedEndDate()));
         }
-    }
-
-    /**
-     * Update the fields of ArchivednTaskInstance from a SAActivityInstance
-     */
-    private static void updateArchivedReceiveTaskInstance(final ArchivedHumanTaskInstanceImpl activity, final FlowNodeStateManager flowNodeStateManager,
-            final SAReceiveTaskInstance sActivity) {
-        final String state = flowNodeStateManager.getState(sActivity.getStateId()).getName();
-        updateArchivedFlowNodeInstance(activity, sActivity, state);
-        activity.setReachedStateDate(new Date(sActivity.getReachedStateDate()));
-        activity.setLastUpdateDate(new Date(sActivity.getLastUpdateDate()));
-    }
-
-    /**
-     * Update the fields of ArchivednTaskInstance from a SAActivityInstance
-     */
-    private static void updateArchivedSendTaskInstance(final ArchivedHumanTaskInstanceImpl activity, final FlowNodeStateManager flowNodeStateManager,
-            final SASendTaskInstance sActivity) {
-        final String state = flowNodeStateManager.getState(sActivity.getStateId()).getName();
-        updateArchivedFlowNodeInstance(activity, sActivity, state);
-        activity.setReachedStateDate(new Date(sActivity.getReachedStateDate()));
-        activity.setLastUpdateDate(new Date(sActivity.getLastUpdateDate()));
-    }
-
-    /**
-     * Update the fields of ArchivedActivityInstance from a SAActivityInstance
-     */
-    private static void updateArchivedActivityInstance(final ArchivedActivityInstanceImpl activity, final FlowNodeStateManager flowNodeStateManager,
-            final SAActivityInstance sActivity) {
-        final String state = flowNodeStateManager.getState(sActivity.getStateId()).getName();
-        updateArchivedFlowNodeInstance(activity, sActivity, state);
-        activity.setReachedStateDate(new Date(sActivity.getReachedStateDate()));
-        activity.setLastUpdateDate(new Date(sActivity.getLastUpdateDate()));
+        if (saHumanTask.getClaimedDate() > 0) {
+            activity.setClaimedDate(new Date(saHumanTask.getClaimedDate()));
+        }
     }
 
     private static void updateArchivedFlowNodeInstance(final ArchivedFlowNodeInstanceImpl aFlowNode, final SAFlowNodeInstance saFlowNode, final String state) {
@@ -652,8 +692,9 @@ public class ModelConvertor {
         aFlowNode.setParentContainerId(saFlowNode.getParentContainerId());
         aFlowNode.setRootContainerId(saFlowNode.getRootContainerId());
         aFlowNode.setSourceObjectId(saFlowNode.getSourceObjectId());
-        aFlowNode.setProcessDefinitionId(saFlowNode.getLogicalGroup(0));
-        aFlowNode.setProcessInstanceId(saFlowNode.getLogicalGroup(1));
+        aFlowNode.setProcessDefinitionId(saFlowNode.getProcessDefinitionId());
+        aFlowNode.setProcessInstanceId(saFlowNode.getParentProcessInstanceId());
+        aFlowNode.setParentActivityInstanceId(saFlowNode.getParentActivityInstanceId());
         aFlowNode.setDescription(saFlowNode.getDescription());
         aFlowNode.setDisplayName(saFlowNode.getDisplayName());
         aFlowNode.setDisplayDescription(saFlowNode.getDisplayDescription());
@@ -661,14 +702,16 @@ public class ModelConvertor {
             aFlowNode.setArchiveDate(new Date(saFlowNode.getArchiveDate()));
         }
         aFlowNode.setExecutedBy(saFlowNode.getExecutedBy());
-        aFlowNode.setExecutedByDelegate(saFlowNode.getExecutedByDelegate());
+        aFlowNode.setExecutedBySubstitute(saFlowNode.getExecutedBySubstitute());
         aFlowNode.setFlownodeDefinitionId(saFlowNode.getFlowNodeDefinitionId());
         aFlowNode.setTerminal(saFlowNode.isTerminal());
+        aFlowNode.setReachedStateDate(new Date(saFlowNode.getReachedStateDate()));
+        aFlowNode.setLastUpdateDate(new Date(saFlowNode.getLastUpdateDate()));
     }
 
     public static List<ArchivedUserTaskInstance> toArchivedUserTaskInstances(final List<SAUserTaskInstance> sInstances,
             final FlowNodeStateManager flowNodeStateManager) {
-        final List<ArchivedUserTaskInstance> archivedUserTaskInstances = new ArrayList<ArchivedUserTaskInstance>();
+        final List<ArchivedUserTaskInstance> archivedUserTaskInstances = new ArrayList<>();
         for (final SAUserTaskInstance sAUserTaskInstance : sInstances) {
             final ArchivedUserTaskInstance archivedUserTaskInstance = toArchivedUserTaskInstance(sAUserTaskInstance, flowNodeStateManager);
             archivedUserTaskInstances.add(archivedUserTaskInstance);
@@ -678,7 +721,7 @@ public class ModelConvertor {
 
     public static List<ArchivedReceiveTaskInstance> toArchivedReceiveTaskInstances(final List<SAReceiveTaskInstance> sInstances,
             final FlowNodeStateManager flowNodeStateManager) {
-        final List<ArchivedReceiveTaskInstance> archivedReceiveTaskInstances = new ArrayList<ArchivedReceiveTaskInstance>();
+        final List<ArchivedReceiveTaskInstance> archivedReceiveTaskInstances = new ArrayList<>();
         for (final SAReceiveTaskInstance sAReceiveTaskInstance : sInstances) {
             final ArchivedReceiveTaskInstance archivedReceiveTaskInstance = toArchivedReceiveTaskInstance(sAReceiveTaskInstance, flowNodeStateManager);
             archivedReceiveTaskInstances.add(archivedReceiveTaskInstance);
@@ -688,7 +731,7 @@ public class ModelConvertor {
 
     public static List<ArchivedHumanTaskInstance> toArchivedHumanTaskInstances(final List<? extends SAHumanTaskInstance> sInstances,
             final FlowNodeStateManager flowNodeStateManager) {
-        final List<ArchivedHumanTaskInstance> archivedUserTaskInstances = new ArrayList<ArchivedHumanTaskInstance>();
+        final List<ArchivedHumanTaskInstance> archivedUserTaskInstances = new ArrayList<>();
         for (final SAHumanTaskInstance sInstance : sInstances) {
             final ArchivedHumanTaskInstance archivedUserTaskInstance = toArchivedHumanTaskInstance(sInstance, flowNodeStateManager);
             archivedUserTaskInstances.add(archivedUserTaskInstance);
@@ -742,9 +785,9 @@ public class ModelConvertor {
     private static ArchivedLoopActivityInstance toArchivedLoopActivityInstance(final SALoopActivityInstance sInstance,
             final FlowNodeStateManager flowNodeStateManager) {
         final ArchivedLoopActivityInstanceImpl archivedloopActivityInstanceImpl = new ArchivedLoopActivityInstanceImpl(sInstance.getName());
+        updateArchivedFlowNodeInstance(archivedloopActivityInstanceImpl, sInstance, flowNodeStateManager.getState(sInstance.getStateId()).getName());
         archivedloopActivityInstanceImpl.setLoopCounter(sInstance.getLoopCounter());
         archivedloopActivityInstanceImpl.setLoopMax(sInstance.getLoopMax());
-        updateArchivedActivityInstance(archivedloopActivityInstanceImpl, flowNodeStateManager, sInstance);
         return archivedloopActivityInstanceImpl;
     }
 
@@ -754,20 +797,22 @@ public class ModelConvertor {
                 sInstance.getName(), sInstance.getFlowNodeDefinitionId(), sInstance.isSequential(), sInstance.getLoopDataInputRef(),
                 sInstance.getLoopDataOutputRef(), sInstance.getDataInputItemRef(), sInstance.getDataOutputItemRef(), sInstance.getNumberOfActiveInstances(),
                 sInstance.getNumberOfCompletedInstances(), sInstance.getNumberOfTerminatedInstances(), sInstance.getLoopCardinality());
-        updateArchivedActivityInstance(archivedMultiInstanceActivityInstanceImpl, flowNodeStateManager, sInstance);
+        updateArchivedFlowNodeInstance(archivedMultiInstanceActivityInstanceImpl, sInstance, flowNodeStateManager.getState(sInstance.getStateId()).getName());
         return archivedMultiInstanceActivityInstanceImpl;
     }
 
-    public static ArchivedManualTaskInstance toArchivedManualTaskInstance(final SAManualTaskInstance sInstance, final FlowNodeStateManager flowNodeStateManager) {
-        final ArchivedManualTaskInstanceImpl archivedUserTaskInstanceImpl = new ArchivedManualTaskInstanceImpl(sInstance.getName());
-        updateArchivedHumanTaskInstance(archivedUserTaskInstanceImpl, flowNodeStateManager, sInstance);
-        return archivedUserTaskInstanceImpl;
+    public static ArchivedManualTaskInstance toArchivedManualTaskInstance(final SAManualTaskInstance sInstance,
+            final FlowNodeStateManager flowNodeStateManager) {
+        final ArchivedManualTaskInstanceImpl archivedManualTaskInstance = new ArchivedManualTaskInstanceImpl(sInstance.getName());
+        updateArchivedFlowNodeInstance(archivedManualTaskInstance, sInstance, flowNodeStateManager.getState(sInstance.getStateId()).getName());
+        updateArchivedHumanTaskInstance(archivedManualTaskInstance, sInstance);
+        return archivedManualTaskInstance;
     }
 
     public static ArchivedCallActivityInstance toArchivedCallActivityInstance(final SACallActivityInstance sInstance,
             final FlowNodeStateManager flowNodeStateManager) {
         final ArchivedCallActivityInstanceImpl archivedCallActivityInstanceImpl = new ArchivedCallActivityInstanceImpl(sInstance.getName());
-        updateArchivedActivityInstance(archivedCallActivityInstanceImpl, flowNodeStateManager, sInstance);
+        updateArchivedFlowNodeInstance(archivedCallActivityInstanceImpl, sInstance, flowNodeStateManager.getState(sInstance.getStateId()).getName());
         return archivedCallActivityInstanceImpl;
     }
 
@@ -775,20 +820,27 @@ public class ModelConvertor {
             final FlowNodeStateManager flowNodeStateManager) {
         final ArchivedSubProcessActivityInstanceImpl archivedSubProcActivityInstanceImpl = new ArchivedSubProcessActivityInstanceImpl(sInstance.getName(),
                 sInstance.isTriggeredByEvent());
-        updateArchivedActivityInstance(archivedSubProcActivityInstanceImpl, flowNodeStateManager, sInstance);
+        updateArchivedFlowNodeInstance(archivedSubProcActivityInstanceImpl, sInstance, flowNodeStateManager.getState(sInstance.getStateId()).getName());
         return archivedSubProcActivityInstanceImpl;
     }
 
     public static ArchivedAutomaticTaskInstance toArchivedAutomaticTaskInstance(final SAActivityInstance sInstance,
             final FlowNodeStateManager flowNodeStateManager) {
         final ArchivedAutomaticTaskInstanceImpl archivedUserTaskInstanceImpl = new ArchivedAutomaticTaskInstanceImpl(sInstance.getName());
-        updateArchivedActivityInstance(archivedUserTaskInstanceImpl, flowNodeStateManager, sInstance);
+        updateArchivedFlowNodeInstance(archivedUserTaskInstanceImpl, sInstance, flowNodeStateManager.getState(sInstance.getStateId()).getName());
         return archivedUserTaskInstanceImpl;
+    }
+
+    public static ArchivedGatewayInstance toArchivedGatewayInstance(final SAActivityInstance sInstance,
+            final FlowNodeStateManager flowNodeStateManager) {
+        final ArchivedGatewayInstanceImpl archGatewayInstanceImpl = new ArchivedGatewayInstanceImpl(sInstance.getName());
+        updateArchivedFlowNodeInstance(archGatewayInstanceImpl, sInstance, flowNodeStateManager.getState(sInstance.getStateId()).getName());
+        return archGatewayInstanceImpl;
     }
 
     public static List<ArchivedActivityInstance> toArchivedActivityInstances(final List<SAActivityInstance> saActivityInstances,
             final FlowNodeStateManager flowNodeStateManager) {
-        final List<ArchivedActivityInstance> archivedActivityInstances = new ArrayList<ArchivedActivityInstance>();
+        final List<ArchivedActivityInstance> archivedActivityInstances = new ArrayList<>();
         for (final SAActivityInstance saActivityInstance : saActivityInstances) {
             final ArchivedActivityInstance archivedActivityInstance = toArchivedActivityInstance(saActivityInstance, flowNodeStateManager);
             archivedActivityInstances.add(archivedActivityInstance);
@@ -796,15 +848,32 @@ public class ModelConvertor {
         return archivedActivityInstances;
     }
 
-    public static List<ArchivedProcessInstance> toArchivedProcessInstances(final List<SAProcessInstance> sProcessInstances) {
-        final List<ArchivedProcessInstance> clientProcessInstances = new ArrayList<ArchivedProcessInstance>(sProcessInstances.size());
+    public static List<ArchivedProcessInstance> toArchivedProcessInstances(final List<SAProcessInstance> saProcessInstances,
+            final ProcessDefinitionService processDefinitionService) {
+        if (saProcessInstances != null) {
+            final List<ArchivedProcessInstance> clientProcessInstances = new ArrayList<>(saProcessInstances.size());
+            final Map<Long, SProcessDefinition> processDefinitions = new HashMap<>(saProcessInstances.size());
+
+            for (final SAProcessInstance saProcessInstance : saProcessInstances) {
+                final SProcessDefinition sProcessDefinition = getProcessDefinition(processDefinitionService, processDefinitions,
+                        saProcessInstance.getProcessDefinitionId());
+                clientProcessInstances.add(toArchivedProcessInstance(saProcessInstance, sProcessDefinition));
+            }
+            return Collections.unmodifiableList(clientProcessInstances);
+        }
+        return Collections.unmodifiableList(new ArrayList<ArchivedProcessInstance>(1));
+    }
+
+    public static List<ArchivedProcessInstance> toArchivedProcessInstances(final List<SAProcessInstance> sProcessInstances,
+            final SProcessDefinition sProcessDefinition) {
+        final List<ArchivedProcessInstance> clientProcessInstances = new ArrayList<>(sProcessInstances.size());
         for (final SAProcessInstance sProcessInstance : sProcessInstances) {
-            clientProcessInstances.add(toArchivedProcessInstance(sProcessInstance));
+            clientProcessInstances.add(toArchivedProcessInstance(sProcessInstance, sProcessDefinition));
         }
         return Collections.unmodifiableList(clientProcessInstances);
     }
 
-    public static ArchivedProcessInstance toArchivedProcessInstance(final SAProcessInstance sInstance) {
+    public static ArchivedProcessInstance toArchivedProcessInstance(final SAProcessInstance sInstance, final SProcessDefinition sProcessDefinition) {
         final ArchivedProcessInstanceImpl archivedInstance = new ArchivedProcessInstanceImpl(sInstance.getName());
         archivedInstance.setId(sInstance.getId());
         final int stateId = sInstance.getStateId();
@@ -814,6 +883,7 @@ public class ModelConvertor {
             archivedInstance.setStartDate(new Date(sInstance.getStartDate()));
         }
         archivedInstance.setStartedBy(sInstance.getStartedBy());
+        archivedInstance.setStartedBySubstitute(sInstance.getStartedBySubstitute());
         if (sInstance.getEndDate() > 0) {
             archivedInstance.setEndDate(new Date(sInstance.getEndDate()));
         }
@@ -828,14 +898,35 @@ public class ModelConvertor {
         archivedInstance.setSourceObjectId(sInstance.getSourceObjectId());
         archivedInstance.setRootProcessInstanceId(sInstance.getRootProcessInstanceId());
         archivedInstance.setCallerId(sInstance.getCallerId());
+
+        if (sProcessDefinition != null) {
+            for (int i = 1; i <= 5; i++) {
+                archivedInstance.setStringIndexLabel(i, sProcessDefinition.getStringIndexLabel(i));
+            }
+        }
+        archivedInstance.setStringIndexValue(1, sInstance.getStringIndex1());
+        archivedInstance.setStringIndexValue(2, sInstance.getStringIndex2());
+        archivedInstance.setStringIndexValue(3, sInstance.getStringIndex3());
+        archivedInstance.setStringIndexValue(4, sInstance.getStringIndex4());
+        archivedInstance.setStringIndexValue(5, sInstance.getStringIndex5());
         return archivedInstance;
     }
 
     public static List<Group> toGroups(final List<SGroup> sGroups) {
-        final List<Group> clientGroups = new ArrayList<Group>();
+        final List<Group> clientGroups = new ArrayList<>();
         if (sGroups != null) {
             for (final SGroup sGroup : sGroups) {
                 clientGroups.add(toGroup(sGroup));
+            }
+        }
+        return Collections.unmodifiableList(clientGroups);
+    }
+
+    public static List<ExportedGroup> toExportedGroups(final List<SGroup> sGroups) {
+        final List<ExportedGroup> clientGroups = new ArrayList<>();
+        if (sGroups != null) {
+            for (final SGroup sGroup : sGroups) {
+                clientGroups.add(toExportedGroup(sGroup));
             }
         }
         return Collections.unmodifiableList(clientGroups);
@@ -848,9 +939,17 @@ public class ModelConvertor {
         group.setCreationDate(new Date(sGroup.getCreationDate()));
         group.setDescription(sGroup.getDescription());
         group.setDisplayName(sGroup.getDisplayName());
-        group.setIconName(sGroup.getIconName());
-        group.setIconPath(sGroup.getIconPath());
+        group.setIconId(sGroup.getIconId());
         group.setLastUpdate(new Date(sGroup.getLastUpdate()));
+        return group;
+    }
+
+    private static ExportedGroup toExportedGroup(final SGroup sGroup) {
+        final ExportedGroup group = new ExportedGroup();
+        group.setName(sGroup.getName());
+        group.setParentPath(sGroup.getParentPath());
+        group.setDescription(sGroup.getDescription());
+        group.setDisplayName(sGroup.getDisplayName());
         return group;
     }
 
@@ -859,15 +958,14 @@ public class ModelConvertor {
     }
 
     public static User toUser(final SUser sUser, final Map<Long, SUser> userIdToUser) {
-        final UserImpl user = new UserImpl(sUser.getId(), sUser.getUserName(), sUser.getPassword());
+        final UserImpl user = new UserImpl(sUser.getId(), sUser.getUserName(), "");
         user.setFirstName(sUser.getFirstName());
         user.setLastName(sUser.getLastName());
         user.setTitle(sUser.getTitle());
         user.setJobTitle(sUser.getJobTitle());
         user.setCreatedBy(sUser.getCreatedBy());
         user.setCreationDate(new Date(sUser.getCreationDate()));
-        user.setIconName(sUser.getIconName());
-        user.setIconPath(sUser.getIconPath());
+        user.setIconId(sUser.getIconId());
         user.setLastUpdate(new Date(sUser.getLastUpdate()));
         user.setEnabled(sUser.isEnabled());
         final long managerUserId = sUser.getManagerUserId();
@@ -875,8 +973,9 @@ public class ModelConvertor {
         if (managerUserId > 0 && userIdToUser != null) {
             user.setManagerUserName(userIdToUser.get(managerUserId).getUserName());
         }
-        if (sUser.getLastConnection() != null) {
-            user.setLastConnection(new Date(sUser.getLastConnection()));
+        final SUserLogin sUserLogin = sUser.getSUserLogin();
+        if (sUserLogin != null && sUserLogin.getLastConnection() != null) {
+            user.setLastConnection(new Date(sUserLogin.getLastConnection()));
         }
         return user;
     }
@@ -900,7 +999,7 @@ public class ModelConvertor {
     }
 
     public static List<User> toUsers(final List<SUser> sUsers, final Map<Long, SUser> userIdToUser) {
-        final List<User> users = new ArrayList<User>();
+        final List<User> users = new ArrayList<>();
         if (sUsers != null) {
             for (final SUser sUser : sUsers) {
                 final User user = ModelConvertor.toUser(sUser, userIdToUser);
@@ -918,19 +1017,36 @@ public class ModelConvertor {
         final RoleImpl role = new RoleImpl(sRole.getId(), sRole.getName());
         role.setDisplayName(sRole.getDisplayName());
         role.setDescription(sRole.getDescription());
-        role.setIconName(sRole.getIconName());
-        role.setIconPath(sRole.getIconPath());
+        role.setIconId(sRole.getIconId());
         role.setCreatedBy(sRole.getCreatedBy());
         role.setCreationDate(new Date(sRole.getCreationDate()));
         role.setLastUpdate(new Date(sRole.getLastUpdate()));
         return role;
     }
 
+    private static ExportedRole toExportedRole(final SRole sRole) {
+        final ExportedRole role = new ExportedRole(sRole.getName());
+        role.setDisplayName(sRole.getDisplayName());
+        role.setDescription(sRole.getDescription());
+        return role;
+    }
+
     public static List<Role> toRoles(final List<SRole> sRoles) {
-        final List<Role> lightRoles = new ArrayList<Role>();
+        final List<Role> lightRoles = new ArrayList<>();
         if (sRoles != null) {
             for (final SRole sRole : sRoles) {
                 final Role role = toRole(sRole);
+                lightRoles.add(role);
+            }
+        }
+        return Collections.unmodifiableList(lightRoles);
+    }
+
+    public static List<ExportedRole> toExportedRoles(final List<SRole> sRoles) {
+        final List<ExportedRole> lightRoles = new ArrayList<>();
+        if (sRoles != null) {
+            for (final SRole sRole : sRoles) {
+                final ExportedRole role = toExportedRole(sRole);
                 lightRoles.add(role);
             }
         }
@@ -945,11 +1061,12 @@ public class ModelConvertor {
         userMembership.setGroupName(sUserMembership.getGroupName());
         userMembership.setRoleName(sUserMembership.getRoleName());
         userMembership.setUsername(sUserMembership.getUsername());
+        userMembership.setGroupParentPath(sUserMembership.getGroupParentPath());
         return userMembership;
     }
 
     public static List<UserMembership> toUserMembership(final List<SUserMembership> sUserMemberships) {
-        final List<UserMembership> userMemberships = new ArrayList<UserMembership>();
+        final List<UserMembership> userMemberships = new ArrayList<>();
         if (sUserMemberships != null) {
             for (final SUserMembership sMembership : sUserMemberships) {
                 final UserMembership userMembership = toUserMembership(sMembership);
@@ -961,10 +1078,22 @@ public class ModelConvertor {
 
     public static List<UserMembership> toUserMembership(final List<SUserMembership> sUserMemberships, final Map<Long, String> userNames,
             final Map<Long, String> groupIdToGroup) {
-        final List<UserMembership> userMemberships = new ArrayList<UserMembership>();
+        final List<UserMembership> userMemberships = new ArrayList<>();
         if (sUserMemberships != null) {
             for (final SUserMembership sMembership : sUserMemberships) {
                 final UserMembership userMembership = toUserMembership(sMembership, userNames, groupIdToGroup);
+                userMemberships.add(userMembership);
+            }
+        }
+        return Collections.unmodifiableList(userMemberships);
+    }
+
+    public static List<ExportedUserMembership> toExportedUserMembership(final List<SUserMembership> sUserMemberships, final Map<Long, String> userNames,
+            final Map<Long, String> groupIdToGroup) {
+        final List<ExportedUserMembership> userMemberships = new ArrayList<>();
+        if (sUserMemberships != null) {
+            for (final SUserMembership sMembership : sUserMemberships) {
+                final ExportedUserMembership userMembership = toExportedUserMembership(sMembership, userNames, groupIdToGroup);
                 userMemberships.add(userMembership);
             }
         }
@@ -985,6 +1114,19 @@ public class ModelConvertor {
             userMembership.setAssignedByName(userNames.get(assignedBy));
         }
         userMembership.setAssignedDate(new Date(sUserMembership.getAssignedDate()));
+        return userMembership;
+    }
+
+    private static ExportedUserMembership toExportedUserMembership(final SUserMembership sUserMembership, final Map<Long, String> userNames,
+            final Map<Long, String> groupIdToGroup) {
+        final ExportedUserMembership userMembership = new ExportedUserMembership();
+        userMembership.setGroupName(sUserMembership.getGroupName());
+        userMembership.setGroupParentPath(groupIdToGroup.get(sUserMembership.getGroupId()));
+        userMembership.setRoleName(sUserMembership.getRoleName());
+        userMembership.setUserName(sUserMembership.getUsername());
+        final long assignedBy = sUserMembership.getAssignedBy();
+        userMembership.setAssignedBy(userNames.get(assignedBy));
+        userMembership.setAssignedDate(sUserMembership.getAssignedDate());
         return userMembership;
     }
 
@@ -1013,7 +1155,7 @@ public class ModelConvertor {
 
     public static List<CommandDescriptor> toCommandDescriptors(final List<SCommand> sCommands) {
         if (sCommands != null) {
-            final List<CommandDescriptor> commandList = new ArrayList<CommandDescriptor>();
+            final List<CommandDescriptor> commandList = new ArrayList<>();
             for (final SCommand sCommand : sCommands) {
                 commandList.add(toCommandDescriptor(sCommand));
             }
@@ -1024,7 +1166,7 @@ public class ModelConvertor {
 
     public static List<CommandDescriptor> toPlatformCommandDescriptors(final List<SPlatformCommand> sPlatformCommands) {
         if (sPlatformCommands != null) {
-            final List<CommandDescriptor> platformCommandList = new ArrayList<CommandDescriptor>();
+            final List<CommandDescriptor> platformCommandList = new ArrayList<>();
             for (final SPlatformCommand sCommand : sPlatformCommands) {
                 platformCommandList.add(toCommandDescriptor(sCommand));
             }
@@ -1035,7 +1177,7 @@ public class ModelConvertor {
 
     public static List<Category> toCategories(final List<SCategory> sCategories) {
         if (sCategories != null) {
-            final List<Category> categoryList = new ArrayList<Category>();
+            final List<Category> categoryList = new ArrayList<>();
             for (final SCategory sCategory : sCategories) {
                 categoryList.add(toCategory(sCategory));
             }
@@ -1045,7 +1187,7 @@ public class ModelConvertor {
     }
 
     public static List<EventInstance> toEventInstances(final Collection<SEventInstance> sEvents, final FlowNodeStateManager flowNodeStateManager) {
-        final List<EventInstance> eventInstances = new ArrayList<EventInstance>();
+        final List<EventInstance> eventInstances = new ArrayList<>();
         for (final SEventInstance sEvent : sEvents) {
             final EventInstance eventInstance = toEventInstance(sEvent, flowNodeStateManager);
             eventInstances.add(eventInstance);
@@ -1057,6 +1199,58 @@ public class ModelConvertor {
         final EventInstanceImpl eventInstance = getEventInstance(sEvent);
         updateFlowNode(eventInstance, sEvent, flowNodeStateManager.getState(sEvent.getStateId()).getName());
         return eventInstance;
+    }
+
+    public static List<EventTriggerInstance> toEventTriggerInstances(final List<SEventTriggerInstance> sEventTriggerInstances) {
+        final List<EventTriggerInstance> eventTriggerInstances = new ArrayList<>();
+        for (final SEventTriggerInstance sEventTriggerInstance : sEventTriggerInstances) {
+            final EventTriggerInstance eventTriggerInstance = toEventTriggerInstance(sEventTriggerInstance);
+            if (eventTriggerInstance != null) {
+                eventTriggerInstances.add(eventTriggerInstance);
+            }
+        }
+        return eventTriggerInstances;
+    }
+
+    public static List<TimerEventTriggerInstance> toTimerEventTriggerInstances(final List<STimerEventTriggerInstance> sEventTriggerInstances) {
+        final List<TimerEventTriggerInstance> eventTriggerInstances = new ArrayList<>();
+        for (final STimerEventTriggerInstance sEventTriggerInstance : sEventTriggerInstances) {
+            final TimerEventTriggerInstance eventTriggerInstance = toTimerEventTriggerInstance(sEventTriggerInstance);
+            if (eventTriggerInstance != null) {
+                eventTriggerInstances.add(eventTriggerInstance);
+            }
+        }
+        return eventTriggerInstances;
+    }
+
+    public static EventTriggerInstance toEventTriggerInstance(final SEventTriggerInstance sEventTriggerInstance) {
+        EventTriggerInstance eventTriggerInstance = null;
+        switch (sEventTriggerInstance.getEventTriggerType()) {
+            case ERROR:
+                // Not support for now
+                break;
+            case TIMER:
+                eventTriggerInstance = toTimerEventTriggerInstance((STimerEventTriggerInstance) sEventTriggerInstance);
+                break;
+            case SIGNAL:
+                // Not support for now
+                break;
+            case MESSAGE:
+                // Not support for now
+                break;
+            case TERMINATE:
+                // Not support for now
+                break;
+            default:
+                throw new UnknownElementType(sEventTriggerInstance.getClass().getName());
+
+        }
+        return eventTriggerInstance;
+    }
+
+    public static TimerEventTriggerInstance toTimerEventTriggerInstance(final STimerEventTriggerInstance sTimerEventTriggerInstance) {
+        return new TimerEventTriggerInstanceImpl(sTimerEventTriggerInstance.getId(), sTimerEventTriggerInstance.getEventInstanceId(),
+                sTimerEventTriggerInstance.getEventInstanceName(), new Date(sTimerEventTriggerInstance.getExecutionDate()));
     }
 
     public static WaitingEvent toWaitingEvent(final SWaitingEvent sWaitingEvent) {
@@ -1088,7 +1282,7 @@ public class ModelConvertor {
     }
 
     public static List<WaitingEvent> toWaitingEvents(final List<SWaitingEvent> sWaitingEvents) {
-        final List<WaitingEvent> waitingEvents = new ArrayList<WaitingEvent>(sWaitingEvents.size());
+        final List<WaitingEvent> waitingEvents = new ArrayList<>(sWaitingEvents.size());
         for (final SWaitingEvent sWaitingEvent : sWaitingEvents) {
             waitingEvents.add(toWaitingEvent(sWaitingEvent));
         }
@@ -1115,7 +1309,7 @@ public class ModelConvertor {
 
     public static List<DataInstance> toDataInstances(final List<SDataInstance> sDataInstances) {
         if (sDataInstances != null) {
-            final List<DataInstance> dataInstanceList = new ArrayList<DataInstance>();
+            final List<DataInstance> dataInstanceList = new ArrayList<>();
             for (final SDataInstance sDataInstance : sDataInstances) {
                 dataInstanceList.add(toDataInstance(sDataInstance));
             }
@@ -1126,7 +1320,7 @@ public class ModelConvertor {
 
     public static List<DataDefinition> toDataDefinitions(final List<SDataDefinition> sDataDefinitions) {
         if (sDataDefinitions != null) {
-            final List<DataDefinition> dataDefinitionList = new ArrayList<DataDefinition>();
+            final List<DataDefinition> dataDefinitionList = new ArrayList<>();
             for (final SDataDefinition sDataDefinition : sDataDefinitions) {
                 dataDefinitionList.add(toDataDefinition(sDataDefinition));
             }
@@ -1148,14 +1342,13 @@ public class ModelConvertor {
 
     public static List<Expression> toExpressions(final List<SExpression> sExpressions) {
         if (sExpressions != null && !sExpressions.isEmpty()) {
-            final List<Expression> expList = new ArrayList<Expression>(sExpressions.size());
+            final List<Expression> expList = new ArrayList<>(sExpressions.size());
             for (final SExpression sexp : sExpressions) {
                 expList.add(toExpression(sexp));
             }
             return expList;
-        } else {
-            return Collections.emptyList();
         }
+        return Collections.emptyList();
     }
 
     public static Expression toExpression(final SExpression sexp) {
@@ -1190,7 +1383,7 @@ public class ModelConvertor {
         } else {
             dataInstance = new BlobDataInstanceImpl();
         }
-
+        dataInstance.setTransientData(sDataInstance.isTransientData());
         dataInstance.setClassName(sDataInstance.getClassName());
         dataInstance.setContainerId(sDataInstance.getContainerId());
         dataInstance.setContainerType(sDataInstance.getContainerType());
@@ -1202,12 +1395,36 @@ public class ModelConvertor {
         return dataInstance;
     }
 
+    public static List<ArchivedDataInstance> toArchivedDataInstances(final List<SADataInstance> sADataInstances) {
+        final List<ArchivedDataInstance> dataInstances = new ArrayList<>();
+        for (final SADataInstance sADataInstance : sADataInstances) {
+            final ArchivedDataInstance dataInstance = toArchivedDataInstance(sADataInstance);
+            dataInstances.add(dataInstance);
+        }
+        return dataInstances;
+    }
+
+    public static ArchivedDataInstance toArchivedDataInstance(final SADataInstance sDataInstance) {
+        final ArchivedDataInstanceImpl dataInstance = new ArchivedDataInstanceImpl();
+        dataInstance.setClassName(sDataInstance.getClassName());
+        dataInstance.setContainerId(sDataInstance.getContainerId());
+        dataInstance.setContainerType(sDataInstance.getContainerType());
+        dataInstance.setDataTypeClassName(sDataInstance.getClassName());
+        dataInstance.setDescription(sDataInstance.getDescription());
+        dataInstance.setId(sDataInstance.getId());
+        dataInstance.setName(sDataInstance.getName());
+        dataInstance.setValue(sDataInstance.getValue());
+        dataInstance.setArchiveDate(new Date(sDataInstance.getArchiveDate()));
+        dataInstance.setSourceObjectId(sDataInstance.getSourceObjectId());
+        return dataInstance;
+    }
+
     public static ActorMember toActorMember(final SActorMember sActorMember) {
         return new ActorMemberImpl(sActorMember.getId(), sActorMember.getUserId(), sActorMember.getGroupId(), sActorMember.getRoleId());
     }
 
     public static List<ActorMember> toActorMembers(final List<SActorMember> sActorMembers) {
-        final List<ActorMember> actorMembers = new ArrayList<ActorMember>();
+        final List<ActorMember> actorMembers = new ArrayList<>();
         for (final SActorMember sActorMember : sActorMembers) {
             final ActorMember actorMember = toActorMember(sActorMember);
             actorMembers.add(actorMember);
@@ -1226,9 +1443,9 @@ public class ModelConvertor {
         return actorInstance;
     }
 
-    public static SUser constructSUser(final UserCreator creator, final IdentityModelBuilder identityModelBuilder) {
+    public static SUser constructSUser(final UserCreator creator) {
         final long now = System.currentTimeMillis();
-        final SUserBuilder userBuilder = identityModelBuilder.getUserBuilder().createNewInstance();
+        final SUserBuilder userBuilder = BuilderFactory.get(SUserBuilderFactory.class).createNewInstance();
         final Map<UserField, Serializable> fields = creator.getFields();
         userBuilder.setUserName((String) fields.get(UserField.NAME));
         userBuilder.setPassword((String) fields.get(UserField.PASSWORD));
@@ -1240,14 +1457,6 @@ public class ModelConvertor {
         if (lastName != null) {
             userBuilder.setLastName(lastName);
         }
-        final String iconName = (String) fields.get(UserField.ICON_NAME);
-        if (iconName != null) {
-            userBuilder.setIconName(iconName);
-        }
-        final String iconPath = (String) fields.get(UserField.ICON_PATH);
-        if (iconPath != null) {
-            userBuilder.setIconPath(iconPath);
-        }
         final String jobTitle = (String) fields.get(UserField.JOB_TITLE);
         if (jobTitle != null) {
             userBuilder.setJobTitle(jobTitle);
@@ -1256,7 +1465,7 @@ public class ModelConvertor {
         if (title != null) {
             userBuilder.setTitle(title);
         }
-        userBuilder.setCreatedBy(getCurrentUserId());
+        userBuilder.setCreatedBy(SessionInfos.getUserIdFromSession());
 
         final Long managerUserId = (Long) fields.get(UserField.MANAGER_ID);
         if (managerUserId != null) {
@@ -1267,16 +1476,14 @@ public class ModelConvertor {
         if (enabled != null) {
             userBuilder.setEnabled(enabled);
         } else {
-            userBuilder.setEnabled(Boolean.FALSE);
+            userBuilder.setEnabled(Boolean.TRUE);
         }
         userBuilder.setCreationDate(now);
         userBuilder.setLastUpdate(now);
-        userBuilder.setLastConnection(null);
         return userBuilder.done();
     }
 
-    public static SContactInfo constructSUserContactInfo(final UserCreator creator, final long userId, final boolean personal,
-            final IdentityModelBuilder identityModelBuilder) {
+    public static SContactInfo constructSUserContactInfo(final UserCreator creator, final long userId, final boolean personal) {
         Map<ContactDataField, Serializable> fields;
         if (personal) {
             fields = creator.getPersoFields();
@@ -1284,7 +1491,7 @@ public class ModelConvertor {
             fields = creator.getProFields();
         }
         if (fields != null && !fields.isEmpty()) {
-            final SContactInfoBuilder contactInfoBuilder = identityModelBuilder.getUserContactInfoBuilder().createNewInstance(userId, personal);
+            final SContactInfoBuilder contactInfoBuilder = BuilderFactory.get(SContactInfoBuilderFactory.class).createNewInstance(userId, personal);
             final String address = (String) fields.get(ContactDataField.ADDRESS);
             if (address != null) {
                 contactInfoBuilder.setAddress(address);
@@ -1334,35 +1541,12 @@ public class ModelConvertor {
                 contactInfoBuilder.setZipCode(zipCode);
             }
             return contactInfoBuilder.done();
-        } else {
-            return null;
         }
+        return null;
     }
 
-    public static SUser constructSUser(final ExportedUser newUser, final IdentityModelBuilder identityModelBuilder) {
-        final SUserBuilder userBuilder = identityModelBuilder.getUserBuilder().createNewInstance();
-        final long now = System.currentTimeMillis();
-        userBuilder.setCreationDate(now);
-        userBuilder.setLastUpdate(now);
-        userBuilder.setLastConnection(null);
-
-        userBuilder.setUserName(newUser.getUserName());
-        userBuilder.setPassword(newUser.getPassword());
-        userBuilder.setFirstName(newUser.getFirstName());
-        userBuilder.setLastName(newUser.getLastName());
-        userBuilder.setIconName(newUser.getIconName());
-        userBuilder.setIconPath(newUser.getIconPath());
-        userBuilder.setJobTitle(newUser.getJobTitle());
-        userBuilder.setTitle(newUser.getTitle());
-        userBuilder.setCreatedBy(newUser.getCreatedBy() == 0 ? getCurrentUserId() : newUser.getCreatedBy());
-        userBuilder.setManagerUserId(newUser.getManagerUserId());
-        userBuilder.setEnabled(newUser.isEnabled());
-        return userBuilder.done();
-    }
-
-    public static SContactInfo constructSUserContactInfo(final ExportedUser user, final boolean isPersonal, final IdentityModelBuilder identityModelBuilder,
-            final long userId) {
-        final SContactInfoBuilder contactInfoBuilder = identityModelBuilder.getUserContactInfoBuilder().createNewInstance(userId, isPersonal);
+    public static SContactInfo constructSUserContactInfo(final ExportedUser user, final boolean isPersonal, final long userId) {
+        final SContactInfoBuilder contactInfoBuilder = BuilderFactory.get(SContactInfoBuilderFactory.class).createNewInstance(userId, isPersonal);
         if (isPersonal) {
             contactInfoBuilder.setAddress(user.getPersonalAddress());
             contactInfoBuilder.setBuilding(user.getPersonalBuilding());
@@ -1393,36 +1577,10 @@ public class ModelConvertor {
         return contactInfoBuilder.done();
     }
 
-    public static ExportedUser toExportedUser(final SUser sUser, final SContactInfo persoInfo, final SContactInfo proInfo, final String managerUserName) {
-        final ExportedUserBuilder clientUserbuilder = new ExportedUserBuilder().createNewInstance(sUser.getUserName(), sUser.getPassword());
-        // Do not export dates and id
-        clientUserbuilder.setPasswordEncrypted(true);
-        clientUserbuilder.setFirstName(sUser.getFirstName());
-        clientUserbuilder.setLastName(sUser.getLastName());
-        clientUserbuilder.setTitle(sUser.getTitle());
-        clientUserbuilder.setJobTitle(sUser.getJobTitle());
-        clientUserbuilder.setCreatedBy(sUser.getCreatedBy());
-        clientUserbuilder.setIconName(sUser.getIconName());
-        clientUserbuilder.setIconPath(sUser.getIconPath());
-        clientUserbuilder.setEnabled(sUser.isEnabled());
-
-        final long managerUserId = sUser.getManagerUserId();
-        clientUserbuilder.setManagerUserId(managerUserId);
-        clientUserbuilder.setManagerUserName(managerUserName);
-        if (persoInfo != null) {
-            clientUserbuilder.setPersonalData(toUserContactData(persoInfo));
-        }
-        if (proInfo != null) {
-            clientUserbuilder.setProfessionalData(toUserContactData(proInfo));
-        }
-        return clientUserbuilder.done();
-    }
-
-    public static SRole constructSRole(final RoleCreator creator, final IdentityModelBuilder identityModelBuilder) {
+    public static SRole constructSRole(final RoleCreator creator) {
         final long now = System.currentTimeMillis();
-        final RoleBuilder roleBuilder = identityModelBuilder.getRoleBuilder();
-        roleBuilder.createNewInstance();
-        roleBuilder.setCreatedBy(getCurrentUserId());
+        final SRoleBuilder roleBuilder = BuilderFactory.get(SRoleBuilderFactory.class).createNewInstance();
+        roleBuilder.setCreatedBy(SessionInfos.getUserIdFromSession());
         roleBuilder.setCreationDate(now).setLastUpdate(now);
         final Map<RoleField, Serializable> fields = creator.getFields();
         roleBuilder.setName((String) fields.get(RoleField.NAME));
@@ -1434,27 +1592,29 @@ public class ModelConvertor {
         if (description != null) {
             roleBuilder.setDescription(description);
         }
-        final String iconName = (String) fields.get(RoleField.ICON_NAME);
-        if (iconName != null) {
-            roleBuilder.setIconName(iconName);
-        }
-        final String iconPath = (String) fields.get(RoleField.ICON_PATH);
-        if (iconPath != null) {
-            roleBuilder.setIconPath(iconPath);
-        }
         return roleBuilder.done();
     }
 
-    public static SGroup constructSGroup(final GroupCreator creator, final IdentityModelBuilder identityModelBuilder) {
+    public static SRole constructSRole(final ExportedRole exportedRole) {
         final long now = System.currentTimeMillis();
-        final GroupBuilder groupBuilder = identityModelBuilder.getGroupBuilder();
-        groupBuilder.createNewInstance();
-        groupBuilder.setCreatedBy(getCurrentUserId());
+        final SRoleBuilder roleBuilder = BuilderFactory.get(SRoleBuilderFactory.class).createNewInstance();
+        roleBuilder.setCreatedBy(SessionInfos.getUserIdFromSession());
+        roleBuilder.setCreationDate(now).setLastUpdate(now);
+        roleBuilder.setName(exportedRole.getName());
+        roleBuilder.setDisplayName(exportedRole.getDisplayName());
+        roleBuilder.setDescription(exportedRole.getDescription());
+        return roleBuilder.done();
+    }
+
+    public static SGroup constructSGroup(final GroupCreator creator) {
+        final long now = System.currentTimeMillis();
+        final SGroupBuilder groupBuilder = BuilderFactory.get(SGroupBuilderFactory.class).createNewInstance();
+        groupBuilder.setCreatedBy(SessionInfos.getUserIdFromSession());
         groupBuilder.setCreationDate(now).setLastUpdate(now);
         final Map<GroupField, Serializable> fields = creator.getFields();
         groupBuilder.setName((String) fields.get(GroupField.NAME));
         final String parentPath = (String) fields.get(GroupField.PARENT_PATH);
-        if (parentPath != null) {
+        if (parentPath != null && !parentPath.isEmpty()) {
             groupBuilder.setParentPath(parentPath);
         }
         final String displayName = (String) fields.get(GroupField.DISPLAY_NAME);
@@ -1465,19 +1625,23 @@ public class ModelConvertor {
         if (description != null) {
             groupBuilder.setDescription(description);
         }
-        final String iconName = (String) fields.get(GroupField.ICON_NAME);
-        if (iconName != null) {
-            groupBuilder.setIconName(iconName);
-        }
-        final String iconPath = (String) fields.get(GroupField.ICON_PATH);
-        if (iconPath != null) {
-            groupBuilder.setIconPath(iconPath);
-        }
+        return groupBuilder.done();
+    }
+
+    public static SGroup constructSGroup(final ExportedGroup exportedGroup) {
+        final long now = System.currentTimeMillis();
+        final SGroupBuilder groupBuilder = BuilderFactory.get(SGroupBuilderFactory.class).createNewInstance();
+        groupBuilder.setCreatedBy(SessionInfos.getUserIdFromSession());
+        groupBuilder.setCreationDate(now).setLastUpdate(now);
+        groupBuilder.setName(exportedGroup.getName());
+        groupBuilder.setParentPath(exportedGroup.getParentPath());
+        groupBuilder.setDisplayName(exportedGroup.getDisplayName());
+        groupBuilder.setDescription(exportedGroup.getDescription());
         return groupBuilder.done();
     }
 
     public static List<ProcessSupervisor> toProcessSupervisors(final List<SProcessSupervisor> sSupervisors) {
-        final List<ProcessSupervisor> processSupervisors = new ArrayList<ProcessSupervisor>();
+        final List<ProcessSupervisor> processSupervisors = new ArrayList<>();
         if (sSupervisors != null) {
             for (final SProcessSupervisor sSupervisor : sSupervisors) {
                 processSupervisors.add(toProcessSupervisor(sSupervisor));
@@ -1487,62 +1651,70 @@ public class ModelConvertor {
     }
 
     public static ProcessSupervisor toProcessSupervisor(final SProcessSupervisor sSupervisor) {
-        final ProcessSupervisorBuilder processSupervisorBuilder = new ProcessSupervisorBuilder();
-        processSupervisorBuilder.setSupervisorId(sSupervisor.getId());
-        processSupervisorBuilder.setProcessDefinitionId(sSupervisor.getProcessDefId());
-        processSupervisorBuilder.setUserId(sSupervisor.getUserId());
-        processSupervisorBuilder.setGroupId(sSupervisor.getGroupId());
-        processSupervisorBuilder.setRoleId(sSupervisor.getRoleId());
-        return processSupervisorBuilder.done();
+        final ProcessSupervisorImpl supervisor = new ProcessSupervisorImpl();
+        supervisor.setId(sSupervisor.getId());
+        supervisor.setProcessDefinitionId(sSupervisor.getProcessDefId());
+        supervisor.setUserId(sSupervisor.getUserId());
+        supervisor.setGroupId(sSupervisor.getGroupId());
+        supervisor.setRoleId(sSupervisor.getRoleId());
+        return supervisor;
     }
 
-    public static List<Document> toDocuments(final Collection<SProcessDocument> attachments) {
-        final List<Document> documents = new ArrayList<Document>();
-        for (final SProcessDocument sProcessDocument : attachments) {
-            final Document document = toDocument(sProcessDocument);
+    public static List<Document> toDocuments(final Collection<SMappedDocument> mappedDocuments, final DocumentService documentService) {
+        final List<Document> documents = new ArrayList<>();
+        for (final SMappedDocument mappedDocument : mappedDocuments) {
+            final Document document = toDocument(mappedDocument, documentService);
             documents.add(document);
         }
         return documents;
     }
 
-    public static Document toDocument(final SProcessDocument attachment) {
-        final DocumentImpl documentImpl = new DocumentImpl();
-        documentImpl.setId(attachment.getId());
-        documentImpl.setProcessInstanceId(attachment.getProcessInstanceId());
-        documentImpl.setName(attachment.getName());
-        documentImpl.setAuthor(attachment.getAuthor());
-        documentImpl.setCreationDate(new Date(attachment.getCreationDate()));
-        documentImpl.setHasContent(attachment.hasContent());
-        documentImpl.setContentMimeType(attachment.getContentMimeType());
-        documentImpl.setFileName(attachment.getContentFileName());
-        documentImpl.setContentStorageId(attachment.getContentStorageId());
-        documentImpl.setUrl(attachment.getURL());
+    public static Document toDocument(final SMappedDocument mappedDocument, final DocumentService documentService) {
 
+        final DocumentImpl documentImpl = new DocumentImpl();
+        if (mappedDocument instanceof SAMappedDocument) {
+            documentImpl.setId(((SAMappedDocument) mappedDocument).getSourceObjectId());
+        } else {
+            documentImpl.setId(mappedDocument.getId());
+        }
+        setDocumentFields(mappedDocument, documentService, documentImpl);
         return documentImpl;
     }
 
-    public static List<ArchivedDocument> toArchivedDocuments(final Collection<SAProcessDocument> attachments) {
-        final List<ArchivedDocument> documents = new ArrayList<ArchivedDocument>();
-        for (final SAProcessDocument sAProcessDocument : attachments) {
-            final ArchivedDocument document = toArchivedDocument(sAProcessDocument);
+    private static void setDocumentFields(final SMappedDocument mappedDocument, final DocumentService documentService, final DocumentImpl documentImpl) {
+        documentImpl.setProcessInstanceId(mappedDocument.getProcessInstanceId());
+        documentImpl.setName(mappedDocument.getName());
+        documentImpl.setDescription(mappedDocument.getDescription());
+        documentImpl.setVersion(mappedDocument.getVersion());
+        documentImpl.setAuthor(mappedDocument.getAuthor());
+        documentImpl.setCreationDate(new Date(mappedDocument.getCreationDate()));
+        documentImpl.setHasContent(mappedDocument.hasContent());
+        documentImpl.setContentMimeType(mappedDocument.getMimeType());
+        documentImpl.setFileName(mappedDocument.getFileName());
+        documentImpl.setContentStorageId(String.valueOf(mappedDocument.getDocumentId()));
+        documentImpl.setIndex(mappedDocument.getIndex());
+        if (mappedDocument.hasContent()) {
+            documentImpl.setUrl(documentService.generateDocumentURL(mappedDocument.getFileName(), String.valueOf(mappedDocument.getDocumentId())));
+        } else {
+            documentImpl.setUrl(mappedDocument.getUrl());
+        }
+    }
+
+    public static List<ArchivedDocument> toArchivedDocuments(final Collection<SAMappedDocument> mappedDocuments, final DocumentService documentService) {
+        final List<ArchivedDocument> documents = new ArrayList<>();
+        for (final SAMappedDocument mappedDocument : mappedDocuments) {
+            final ArchivedDocument document = toArchivedDocument(mappedDocument, documentService);
             documents.add(document);
         }
         return documents;
     }
 
-    public static ArchivedDocument toArchivedDocument(final SAProcessDocument attachment) {
-        final ArchivedDocumentImpl documentImpl = new ArchivedDocumentImpl(attachment.getName());
-        documentImpl.setId(attachment.getId());
-        documentImpl.setProcessInstanceId(attachment.getProcessInstanceId());
-        documentImpl.setArchiveDate(new Date(attachment.getArchiveDate()));
-        documentImpl.setContentStorageId(attachment.getContentStorageId());
-        documentImpl.setDocumentAuthor(attachment.getAuthor());
-        documentImpl.setDocumentContentFileName(attachment.getContentFileName());
-        documentImpl.setDocumentContentMimeType(attachment.getContentMimeType());
-        documentImpl.setDocumentCreationDate(new Date(attachment.getCreationDate()));
-        documentImpl.setDocumentHasContent(attachment.hasContent());
-        documentImpl.setDocumentURL(attachment.getURL());
-        documentImpl.setSourceObjectId(attachment.getSourceObjectId());
+    public static ArchivedDocument toArchivedDocument(final SAMappedDocument mappedDocument, final DocumentService documentService) {
+        final ArchivedDocumentImpl documentImpl = new ArchivedDocumentImpl(mappedDocument.getName());
+        documentImpl.setId(mappedDocument.getId());
+        setDocumentFields(mappedDocument, documentService, documentImpl);
+        documentImpl.setArchiveDate(new Date(mappedDocument.getArchiveDate()));
+        documentImpl.setSourceObjectId(mappedDocument.getSourceObjectId());
         return documentImpl;
     }
 
@@ -1569,25 +1741,26 @@ public class ModelConvertor {
     }
 
     public static ProcessInstanceState getProcessInstanceState(final String state) {
-        ProcessInstanceState pis = null;
-        if (state.equalsIgnoreCase(ProcessInstanceState.ABORTED.toString())) {
-            pis = ProcessInstanceState.ABORTED;
-        } else if (state.equalsIgnoreCase(ProcessInstanceState.CANCELLED.toString())) {
-            pis = ProcessInstanceState.CANCELLED;
-        } else if (state.equalsIgnoreCase(ProcessInstanceState.COMPLETED.toString())) {
-            pis = ProcessInstanceState.COMPLETED;
-        } else if (state.equalsIgnoreCase(ProcessInstanceState.COMPLETING.toString())) {
-            pis = ProcessInstanceState.COMPLETING;
-        } else if (state.equalsIgnoreCase(ProcessInstanceState.ERROR.toString())) {
-            pis = ProcessInstanceState.ERROR;
-        } else if (state.equalsIgnoreCase(ProcessInstanceState.INITIALIZING.toString())) {
-            pis = ProcessInstanceState.INITIALIZING;
-        } else if (state.equalsIgnoreCase(ProcessInstanceState.STARTED.toString())) {
-            pis = ProcessInstanceState.STARTED;
-        } else if (state.equalsIgnoreCase(ProcessInstanceState.SUSPENDED.toString())) {
-            pis = ProcessInstanceState.SUSPENDED;
+        if (state != null) {
+            if (state.equalsIgnoreCase(ProcessInstanceState.ABORTED.toString())) {
+                return ProcessInstanceState.ABORTED;
+            } else if (state.equalsIgnoreCase(ProcessInstanceState.CANCELLED.toString())) {
+                return ProcessInstanceState.CANCELLED;
+            } else if (state.equalsIgnoreCase(ProcessInstanceState.COMPLETED.toString())) {
+                return ProcessInstanceState.COMPLETED;
+            } else if (state.equalsIgnoreCase(ProcessInstanceState.COMPLETING.toString())) {
+                return ProcessInstanceState.COMPLETING;
+            } else if (state.equalsIgnoreCase(ProcessInstanceState.ERROR.toString())) {
+                return ProcessInstanceState.ERROR;
+            } else if (state.equalsIgnoreCase(ProcessInstanceState.INITIALIZING.toString())) {
+                return ProcessInstanceState.INITIALIZING;
+            } else if (state.equalsIgnoreCase(ProcessInstanceState.STARTED.toString())) {
+                return ProcessInstanceState.STARTED;
+            } else if (state.equalsIgnoreCase(ProcessInstanceState.SUSPENDED.toString())) {
+                return ProcessInstanceState.SUSPENDED;
+            }
         }
-        return pis;
+        throw new IllegalArgumentException("Invalid process instance state: " + state);
     }
 
     public static Comment toComment(final SComment sComment) {
@@ -1602,28 +1775,28 @@ public class ModelConvertor {
     }
 
     public static List<Comment> toComments(final List<SComment> sComments) {
-        final List<Comment> comments = new ArrayList<Comment>();
+        final List<Comment> comments = new ArrayList<>();
         for (final SComment sComment : sComments) {
             comments.add(toComment(sComment));
         }
         return comments;
     }
 
-    public static Map<String, SExpression> constructExpressions(final SExpressionBuilders sExpressionBuilders, final Map<String, Expression> inputs) {
+    public static Map<String, SExpression> constructExpressions(final Map<String, Expression> inputs) {
 
-        final Map<String, SExpression> result = new HashMap<String, SExpression>(inputs.size());
+        final Map<String, SExpression> result = new HashMap<>(inputs.size());
         for (final Entry<String, Expression> expression : inputs.entrySet()) {
-            result.put(expression.getKey(), constructSExpression(expression.getValue(), sExpressionBuilders.getExpressionBuilder()));
+            result.put(expression.getKey(), constructSExpression(expression.getValue()));
         }
         return result;
     }
 
-    public static SExpression constructSExpression(final Expression model, final SExpressionBuilder expressionBuilder) {
-        final ArrayList<SExpression> dependencies = new ArrayList<SExpression>();
+    public static SExpression constructSExpression(final Expression model) {
+        final ArrayList<SExpression> dependencies = new ArrayList<>();
         for (final Expression dep : model.getDependencies()) {
-            dependencies.add(constructSExpression(dep, expressionBuilder));
+            dependencies.add(constructSExpression(dep));
         }
-        expressionBuilder.createNewInstance();
+        final SExpressionBuilder expressionBuilder = BuilderFactory.get(SExpressionBuilderFactory.class).createNewInstance();
         expressionBuilder.setName(model.getName());
         expressionBuilder.setContent(model.getContent());
         expressionBuilder.setExpressionType(model.getExpressionType());
@@ -1637,34 +1810,37 @@ public class ModelConvertor {
         }
     }
 
-    public static SOperation constructSOperation(final Operation operation, final TenantServiceAccessor serviceAccessor) {
-        final SOperationBuilders sOperationBuilders = serviceAccessor.getSOperationBuilders();
-        final SExpressionBuilder sExpressionBuilder = serviceAccessor.getSExpressionBuilders().getExpressionBuilder();
-        final SExpression rightOperand = constructSExpression(operation.getRightOperand(), sExpressionBuilder);
-        final SOperatorType operatorType = SOperatorType.valueOf(operation.getType().name());
-        final SLeftOperand sLeftOperand = constructSLeftOperand(operation.getLeftOperand(), sOperationBuilders);
-        return sOperationBuilders.getSOperationBuilder().createNewInstance().setOperator(operation.getOperator()).setRightOperand(rightOperand)
-                .setType(operatorType).setLeftOperand(sLeftOperand).done();
+    public static SOperation convertOperation(final Operation operation) {
+        if (operation == null) {
+            return null;
+        }
+        return BuilderFactory
+                .get(SOperationBuilderFactory.class)
+                .createNewInstance()
+                .setOperator(operation.getOperator())
+                .setType(SOperatorType.valueOf(operation.getType().name()))
+                .setRightOperand(ModelConvertor.constructSExpression(operation.getRightOperand()))
+                .setLeftOperand(
+                        BuilderFactory.get(SLeftOperandBuilderFactory.class).createNewInstance().setName(operation.getLeftOperand().getName())
+                                .setType(operation.getLeftOperand().getType()).done())
+                .done();
     }
 
-    public static SOperation constructSOperation(final Operation operation, final SOperationBuilders operationBuilders,
-            final SExpressionBuilders expressionBuilders) {
-        final SExpressionBuilder sExpressionBuilder = expressionBuilders.getExpressionBuilder();
-        final SExpression rightOperand = constructSExpression(operation.getRightOperand(), sExpressionBuilder);
-        final SOperatorType operatorType = SOperatorType.valueOf(operation.getType().name());
-        final SLeftOperand sLeftOperand = constructSLeftOperand(operation.getLeftOperand(), operationBuilders);
-        return operationBuilders.getSOperationBuilder().createNewInstance().setOperator(operation.getOperator()).setRightOperand(rightOperand)
-                .setType(operatorType).setLeftOperand(sLeftOperand).done();
-    }
-
-    private static SLeftOperand constructSLeftOperand(final LeftOperand variableToSet, final SOperationBuilders sOperationBuilders) {
-        return sOperationBuilders.getSLeftOperandBuilder().createNewInstance().setName(variableToSet.getName()).setExternal(variableToSet.isExternal()).done();
+    public static List<SOperation> convertOperations(final List<Operation> operations) {
+        if (operations == null) {
+            return Collections.emptyList();
+        }
+        final List<SOperation> sOperations = new ArrayList<>(operations.size());
+        for (final Operation operation : operations) {
+            sOperations.add(convertOperation(operation));
+        }
+        return sOperations;
     }
 
     public static List<ConnectorImplementationDescriptor> toConnectorImplementationDescriptors(
             final List<SConnectorImplementationDescriptor> sConnectorImplementationDescriptors) {
         if (sConnectorImplementationDescriptors != null) {
-            final List<ConnectorImplementationDescriptor> connectorImplementationDescriptors = new ArrayList<ConnectorImplementationDescriptor>(
+            final List<ConnectorImplementationDescriptor> connectorImplementationDescriptors = new ArrayList<>(
                     sConnectorImplementationDescriptors.size());
             for (final SConnectorImplementationDescriptor sConnectorImplementationDescriptor : sConnectorImplementationDescriptors) {
                 connectorImplementationDescriptors.add(toConnectorImplementationDescriptor(sConnectorImplementationDescriptor));
@@ -1679,11 +1855,11 @@ public class ModelConvertor {
         return new ConnectorImplementationDescriptor(sConnectorImplementationDescriptor.getImplementationClassName(),
                 sConnectorImplementationDescriptor.getId(), sConnectorImplementationDescriptor.getVersion(),
                 sConnectorImplementationDescriptor.getDefinitionId(), sConnectorImplementationDescriptor.getDefinitionVersion(),
-                sConnectorImplementationDescriptor.getJarDependencies().getDependencies());
+                sConnectorImplementationDescriptor.getJarDependencies());
     }
 
     public static List<ArchivedComment> toArchivedComments(final List<SAComment> serverObjects) {
-        final List<ArchivedComment> commments = new ArrayList<ArchivedComment>();
+        final List<ArchivedComment> commments = new ArrayList<>();
         for (final SAComment saComment : serverObjects) {
             final ArchivedComment comment = toArchivedComment(saComment);
             commments.add(comment);
@@ -1708,11 +1884,11 @@ public class ModelConvertor {
         operationImpl.setRightOperand(toExpression(operation.getRightOperand()));
         operationImpl.setOperator(operation.getOperator());
         operationImpl.setType(toOperatorType(operation.getType()));
-        final LeftOperandImpl variableToSet = new LeftOperandImpl();
-        final SLeftOperand variableToSet2 = operation.getLeftOperand();
-        variableToSet.setName(variableToSet2.getName());
-        variableToSet.setExternal(variableToSet2.isExternal());
-        operationImpl.setLeftOperand(variableToSet);
+        final LeftOperandImpl leftOperand = new LeftOperandImpl();
+        final SLeftOperand sLeftOperand = operation.getLeftOperand();
+        leftOperand.setName(sLeftOperand.getName());
+        leftOperand.setType(sLeftOperand.getType());
+        operationImpl.setLeftOperand(leftOperand);
         return operationImpl;
     }
 
@@ -1742,7 +1918,7 @@ public class ModelConvertor {
     }
 
     public static List<ActorInstance> toActors(final List<SActor> sActors) {
-        final List<ActorInstance> actors = new ArrayList<ActorInstance>();
+        final List<ActorInstance> actors = new ArrayList<>();
         for (final SActor sActor : sActors) {
             final ActorInstance actor = toActorInstance(sActor);
             actors.add(actor);
@@ -1750,14 +1926,9 @@ public class ModelConvertor {
         return actors;
     }
 
-    public static List<ArchivedFlowElementInstance> toArchivedFlowElementInstances(final List<SAFlowElementInstance> serverObjects) {
-        // TODO Implement me!
-        return null;
-    }
-
     public static List<ArchivedFlowNodeInstance> toArchivedFlowNodeInstances(final List<SAFlowNodeInstance> saFlowNodes,
             final FlowNodeStateManager flowNodeStateManager) {
-        final List<ArchivedFlowNodeInstance> flowNodeInstances = new ArrayList<ArchivedFlowNodeInstance>();
+        final List<ArchivedFlowNodeInstance> flowNodeInstances = new ArrayList<>();
         for (final SAFlowNodeInstance saFlowNode : saFlowNodes) {
             final ArchivedFlowNodeInstance flowNodeInstance = toArchivedFlowNodeInstance(saFlowNode, flowNodeStateManager);
             flowNodeInstances.add(flowNodeInstance);
@@ -1811,33 +1982,8 @@ public class ModelConvertor {
         return archiveFlowNodeInstance;
     }
 
-    public static long getCurrentUserId() {
-        SessionAccessor sessionAccessor;
-        try {
-            sessionAccessor = ServiceAccessorFactory.getInstance().createSessionAccessor();
-            final PlatformServiceAccessor platformServiceAccessor = ServiceAccessorFactory.getInstance().createPlatformServiceAccessor();
-            return platformServiceAccessor.getSessionService().getSession(sessionAccessor.getSessionId()).getUserId();
-        } catch (final BonitaHomeNotSetException e) {
-            throw new RuntimeException(e);
-        } catch (final BonitaHomeConfigurationException e) {
-            throw new RuntimeException(e);
-        } catch (final InstantiationException e) {
-            throw new RuntimeException(e);
-        } catch (final IllegalAccessException e) {
-            throw new RuntimeException(e);
-        } catch (final ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (final IOException e) {
-            throw new RuntimeException(e);
-        } catch (final SessionIdNotSetException e) {
-            throw new RuntimeException(e);
-        } catch (final SSessionNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     public static List<ConnectorInstance> toConnectorInstances(final List<SConnectorInstance> sConnectorInstances) {
-        final ArrayList<ConnectorInstance> connectorInstances = new ArrayList<ConnectorInstance>(sConnectorInstances.size());
+        final ArrayList<ConnectorInstance> connectorInstances = new ArrayList<>(sConnectorInstances.size());
         for (final SConnectorInstance sConnectorInstance : sConnectorInstances) {
             connectorInstances.add(toConnectorInstance(sConnectorInstance));
         }
@@ -1852,6 +1998,18 @@ public class ModelConvertor {
         return connectorInstanceImpl;
     }
 
+    public static ConnectorInstanceWithFailureInfo toConnectorInstanceWithFailureInfo(
+            final SConnectorInstanceWithFailureInfo sConnectorInstanceWithFailureInfo) {
+        final ConnectorInstanceWithFailureInfoImpl connectorInstanceImpl = new ConnectorInstanceWithFailureInfoImpl(
+                sConnectorInstanceWithFailureInfo.getName(), sConnectorInstanceWithFailureInfo.getContainerId(),
+                sConnectorInstanceWithFailureInfo.getContainerType(), sConnectorInstanceWithFailureInfo.getConnectorId(),
+                sConnectorInstanceWithFailureInfo.getVersion(), ConnectorState.valueOf(sConnectorInstanceWithFailureInfo.getState()),
+                sConnectorInstanceWithFailureInfo.getActivationEvent(), sConnectorInstanceWithFailureInfo.getExceptionMessage(),
+                sConnectorInstanceWithFailureInfo.getStackTrace());
+        connectorInstanceImpl.setId(sConnectorInstanceWithFailureInfo.getId());
+        return connectorInstanceImpl;
+    }
+
     public static ArchivedConnectorInstance toArchivedConnectorInstance(final SAConnectorInstance sAConnectorInstance) {
         final ArchivedConnectorInstanceImpl connectorInstanceImpl = new ArchivedConnectorInstanceImpl(sAConnectorInstance.getName(), new Date(
                 sAConnectorInstance.getArchiveDate()), sAConnectorInstance.getContainerId(), sAConnectorInstance.getContainerType(),
@@ -1862,7 +2020,7 @@ public class ModelConvertor {
     }
 
     public static List<ArchivedConnectorInstance> toArchivedConnectorInstances(final List<SAConnectorInstance> serverObjects) {
-        final List<ArchivedConnectorInstance> commments = new ArrayList<ArchivedConnectorInstance>();
+        final List<ArchivedConnectorInstance> commments = new ArrayList<>();
         for (final SAConnectorInstance saConnectorInstance : serverObjects) {
             final ArchivedConnectorInstance archivedConnectorInstance = toArchivedConnectorInstance(saConnectorInstance);
             commments.add(archivedConnectorInstance);
@@ -1871,7 +2029,7 @@ public class ModelConvertor {
     }
 
     public static List<Profile> toProfiles(final List<SProfile> sProfiles) {
-        final List<Profile> profiles = new ArrayList<Profile>(sProfiles.size());
+        final List<Profile> profiles = new ArrayList<>(sProfiles.size());
         for (final SProfile sProfile : sProfiles) {
             final Profile profile = toProfile(sProfile);
             profiles.add(profile);
@@ -1884,7 +2042,6 @@ public class ModelConvertor {
         profileImpl.setId(sProfile.getId());
         profileImpl.setDefault(sProfile.isDefault());
         profileImpl.setDescription(sProfile.getDescription());
-        profileImpl.setIconPath(sProfile.getIconPath());
         profileImpl.setCreationDate(new Date(sProfile.getCreationDate()));
         profileImpl.setCreatedBy(sProfile.getCreatedBy());
         profileImpl.setLastUpdateDate(new Date(sProfile.getLastUpdateDate()));
@@ -1893,7 +2050,7 @@ public class ModelConvertor {
     }
 
     public static List<ProfileEntry> toProfileEntries(final List<SProfileEntry> sProfileEntries) {
-        final List<ProfileEntry> profiles = new ArrayList<ProfileEntry>(sProfileEntries.size());
+        final List<ProfileEntry> profiles = new ArrayList<>(sProfileEntries.size());
         for (final SProfileEntry sProfileEntry : sProfileEntries) {
             final ProfileEntry profile = toProfileEntry(sProfileEntry);
             profiles.add(profile);
@@ -1909,11 +2066,12 @@ public class ModelConvertor {
         profileEntryImpl.setPage(sProfileEntry.getPage());
         profileEntryImpl.setParentId(sProfileEntry.getParentId());
         profileEntryImpl.setType(sProfileEntry.getType());
+        profileEntryImpl.setCustom(sProfileEntry.isCustom());
         return profileEntryImpl;
     }
 
     public static List<ProfileMember> toProfileMembers(final List<SProfileMember> sProfileMembers) {
-        final List<ProfileMember> profiles = new ArrayList<ProfileMember>(sProfileMembers.size());
+        final List<ProfileMember> profiles = new ArrayList<>(sProfileMembers.size());
         for (final SProfileMember sProfileMember : sProfileMembers) {
             final ProfileMember profile = toProfileMember(sProfileMember);
             profiles.add(profile);
@@ -1934,9 +2092,10 @@ public class ModelConvertor {
         return profileMemberImpl;
     }
 
-    public static SProfileMember constructSProfileMember(final ProfileMemberCreator creator, final SProfileMemberBuilder sProfileMemberBuilder) {
+    public static SProfileMember constructSProfileMember(final ProfileMemberCreator creator) {
         final Map<ProfileMemberField, Serializable> fields = creator.getFields();
-        final SProfileMemberBuilder newSProfileMemberBuilder = sProfileMemberBuilder.createNewInstance((Long) fields.get(ProfileMemberField.PROFILE_ID));
+        final SProfileMemberBuilder newSProfileMemberBuilder = BuilderFactory.get(SProfileMemberBuilderFactory.class).createNewInstance(
+                (Long) fields.get(ProfileMemberField.PROFILE_ID));
         final Long groupeId = (Long) fields.get(ProfileMemberField.GROUP_ID);
         if (groupeId != null) {
             newSProfileMemberBuilder.setGroupId(groupeId);
@@ -1950,6 +2109,152 @@ public class ModelConvertor {
             newSProfileMemberBuilder.setUserId(userId);
         }
         return newSProfileMemberBuilder.done();
+    }
+
+    public static List<FailedJob> toFailedJobs(final List<SFailedJob> sFailedJobs) {
+        final List<FailedJob> failedJobs = new ArrayList<>(sFailedJobs.size());
+        for (final SFailedJob sFailedJob : sFailedJobs) {
+            failedJobs.add(toFailedJob(sFailedJob));
+        }
+        return failedJobs;
+    }
+
+    public static FailedJob toFailedJob(final SFailedJob sFailedJob) {
+        final FailedJobImpl failedJob = new FailedJobImpl(sFailedJob.getJobDescriptorId(), sFailedJob.getJobName());
+        failedJob.setDescription(sFailedJob.getDescription());
+        failedJob.setLastMessage(sFailedJob.getLastMessage());
+        failedJob.setRetryNumber(sFailedJob.getRetryNumber());
+        failedJob.setLastUpdateDate(new Date(sFailedJob.getLastUpdateDate()));
+        return failedJob;
+    }
+
+    public static List<Theme> toThemes(final List<STheme> sThemes) {
+        final List<Theme> themes = new ArrayList<>(sThemes.size());
+        for (final STheme sTheme : sThemes) {
+            final Theme theme = toTheme(sTheme);
+            themes.add(theme);
+        }
+        return themes;
+    }
+
+    public static Theme toTheme(final STheme sTheme) {
+        final ThemeType type = ThemeType.valueOf(sTheme.getType().name());
+        final Date lastUpdateDate = new Date(sTheme.getLastUpdateDate());
+        return new ThemeImpl(sTheme.getContent(), sTheme.getCssContent(), sTheme.isDefault(), type, lastUpdateDate);
+    }
+
+    public static CustomUserInfoDefinitionImpl convert(final SCustomUserInfoDefinition sDefinition) {
+        final CustomUserInfoDefinitionImpl definition = new CustomUserInfoDefinitionImpl();
+        definition.setId(sDefinition.getId());
+        definition.setName(sDefinition.getName());
+        definition.setDescription(sDefinition.getDescription());
+        return definition;
+    }
+
+    public static CustomUserInfoValueImpl convert(final SCustomUserInfoValue sValue) {
+        if (sValue == null) {
+            return null;
+        }
+        final CustomUserInfoValueImpl value = new CustomUserInfoValueImpl();
+        value.setDefinitionId(sValue.getDefinitionId());
+        value.setUserId(sValue.getUserId());
+        value.setValue(sValue.getValue());
+        return value;
+    }
+
+    public static FormMapping toFormMapping(final SFormMapping sFormMapping, final FormRequiredAnalyzer formRequiredAnalyzer) {
+        if (sFormMapping == null) {
+            return null;
+        }
+        final FormMapping formMapping = new FormMapping();
+        formMapping.setId(sFormMapping.getId());
+        formMapping.setTask(sFormMapping.getTask());
+        final SPageMapping pageMapping = sFormMapping.getPageMapping();
+        if (pageMapping != null) {
+            formMapping.setPageMappingKey(pageMapping.getKey());
+            formMapping.setPageId(pageMapping.getPageId());
+            formMapping.setPageURL(pageMapping.getUrl());
+        }
+        formMapping.setType(FormMappingType.getTypeFromId(sFormMapping.getType()));
+        formMapping.setTarget(sFormMapping.getTarget() == null ? null : FormMappingTarget.valueOf(sFormMapping.getTarget()));
+        formMapping.setProcessDefinitionId(sFormMapping.getProcessDefinitionId());
+        final long lastUpdateDate = sFormMapping.getLastUpdateDate();
+        formMapping.setLastUpdateDate(lastUpdateDate > 0 ? new Date(lastUpdateDate) : null);
+        formMapping.setLastUpdatedBy(sFormMapping.getLastUpdatedBy());
+
+        formMapping.setFormRequired(formRequiredAnalyzer.isFormRequired(sFormMapping));
+
+        return formMapping;
+    }
+
+    public static List<FormMapping> toFormMappings(final List<SFormMapping> serverObjects, final FormRequiredAnalyzer formRequiredAnalyzer) {
+        final List<FormMapping> clientObjects = new ArrayList<>(serverObjects.size());
+        for (final SFormMapping serverObject : serverObjects) {
+            clientObjects.add(toFormMapping(serverObject, formRequiredAnalyzer));
+        }
+        return clientObjects;
+    }
+
+    public static BusinessDataReference toBusinessDataReference(final SRefBusinessDataInstance sRefBusinessDataInstance) {
+        if (sRefBusinessDataInstance == null) {
+            return null;
+        }
+        if (sRefBusinessDataInstance instanceof SMultiRefBusinessDataInstance) {
+            final SMultiRefBusinessDataInstance multi = (SMultiRefBusinessDataInstance) sRefBusinessDataInstance;
+            return new MultipleBusinessDataReferenceImpl(multi.getName(), multi.getDataClassName(), multi.getDataIds());
+        }
+        final SSimpleRefBusinessDataInstance simple = (SSimpleRefBusinessDataInstance) sRefBusinessDataInstance;
+        return new SimpleBusinessDataReferenceImpl(simple.getName(), simple.getDataClassName(), simple.getDataId());
+
+    }
+
+    public static ContractDefinition toContract(final SContractDefinition sContract) {
+        if (sContract == null) {
+            return null;
+        }
+        final ContractDefinitionImpl contract = new ContractDefinitionImpl();
+        for (final SInputDefinition input : sContract.getInputDefinitions()) {
+            contract.addInput(toInput(input));
+        }
+        for (final SConstraintDefinition sConstraintDefinition : sContract.getConstraints()) {
+            final ConstraintDefinitionImpl constraint = new ConstraintDefinitionImpl(sConstraintDefinition.getName(), sConstraintDefinition.getExpression(),
+                    sConstraintDefinition.getExplanation());
+            for (final String inputName : sConstraintDefinition.getInputNames()) {
+                constraint.addInputName(inputName);
+            }
+            contract.addConstraint(constraint);
+        }
+        return contract;
+    }
+
+    private static InputDefinition toInput(final SInputDefinition input) {
+        final List<InputDefinition> inputDefinitions = new ArrayList<>();
+        for (final SInputDefinition sInputDefinition : input.getInputDefinitions()) {
+            inputDefinitions.add(toInput(sInputDefinition));
+        }
+        final SType type = input.getType();
+        final InputDefinitionImpl inputDefinition = new InputDefinitionImpl(input.getName(), type == null ? null : Type.valueOf(type.toString()),
+                input.getDescription(), input.isMultiple());
+        inputDefinition.getInputs().addAll(inputDefinitions);
+        return inputDefinition;
+
+    }
+
+    public static PageURL toPageURL(final SPageURL sPageURL) {
+        return new PageURL(sPageURL.getUrl(), sPageURL.getPageId());
+    }
+
+    public static List<ExportedCustomUserInfoDefinition> toExportedCustomUserInfoDefinition(List<SCustomUserInfoDefinition> customUserInfoDefinitions) {
+        ArrayList<ExportedCustomUserInfoDefinition> customUserInfoDefinitionCreators = new ArrayList<>(customUserInfoDefinitions.size());
+        for (SCustomUserInfoDefinition customUserInfoDefinition : customUserInfoDefinitions) {
+            customUserInfoDefinitionCreators
+                    .add(new ExportedCustomUserInfoDefinition(customUserInfoDefinition.getName(), customUserInfoDefinition.getDescription()));
+        }
+        return customUserInfoDefinitionCreators;
+    }
+
+    public static Icon toIcon(SIcon icon) {
+        return new IconImpl(icon.getId(), icon.getMimeType(), icon.getContent());
     }
 
 }

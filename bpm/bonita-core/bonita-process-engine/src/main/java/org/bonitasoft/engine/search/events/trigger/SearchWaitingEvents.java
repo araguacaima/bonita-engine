@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,7 +19,7 @@ import org.bonitasoft.engine.bpm.flownode.WaitingEvent;
 import org.bonitasoft.engine.core.process.instance.api.event.EventInstanceService;
 import org.bonitasoft.engine.core.process.instance.model.event.handling.SWaitingEvent;
 import org.bonitasoft.engine.persistence.QueryOptions;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
 import org.bonitasoft.engine.search.AbstractSearchEntity;
 import org.bonitasoft.engine.search.SearchOptions;
 import org.bonitasoft.engine.search.descriptor.SearchEntityDescriptor;
@@ -39,12 +39,12 @@ public class SearchWaitingEvents extends AbstractSearchEntity<WaitingEvent, SWai
     }
 
     @Override
-    public long executeCount(final QueryOptions searchOptions) throws SBonitaSearchException {
+    public long executeCount(final QueryOptions searchOptions) throws SBonitaReadException {
         return eventInstanceService.getNumberOfWaitingEvents(SWaitingEvent.class, searchOptions);
     }
 
     @Override
-    public List<SWaitingEvent> executeSearch(final QueryOptions searchOptions) throws SBonitaSearchException {
+    public List<SWaitingEvent> executeSearch(final QueryOptions searchOptions) throws SBonitaReadException {
         return eventInstanceService.searchWaitingEvents(SWaitingEvent.class, searchOptions);
     }
 

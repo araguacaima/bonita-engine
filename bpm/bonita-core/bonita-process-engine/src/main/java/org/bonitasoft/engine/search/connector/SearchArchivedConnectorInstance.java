@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,7 +19,7 @@ import org.bonitasoft.engine.core.connector.ConnectorInstanceService;
 import org.bonitasoft.engine.core.process.instance.model.archive.SAConnectorInstance;
 import org.bonitasoft.engine.persistence.QueryOptions;
 import org.bonitasoft.engine.persistence.ReadPersistenceService;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
 import org.bonitasoft.engine.search.AbstractArchivedConnectorInstanceSearchEntity;
 import org.bonitasoft.engine.search.SearchOptions;
 import org.bonitasoft.engine.search.descriptor.SearchEntityDescriptor;
@@ -41,12 +41,12 @@ public class SearchArchivedConnectorInstance extends AbstractArchivedConnectorIn
     }
 
     @Override
-    public long executeCount(final QueryOptions searchOptions) throws SBonitaSearchException {
+    public long executeCount(final QueryOptions searchOptions) throws SBonitaReadException {
         return connectorInstanceService.getNumberArchivedConnectorInstance(searchOptions, persistenceService);
     }
 
     @Override
-    public List<SAConnectorInstance> executeSearch(final QueryOptions searchOptions) throws SBonitaSearchException {
+    public List<SAConnectorInstance> executeSearch(final QueryOptions searchOptions) throws SBonitaReadException {
         return connectorInstanceService.searchArchivedConnectorInstance(searchOptions, persistenceService);
     }
 

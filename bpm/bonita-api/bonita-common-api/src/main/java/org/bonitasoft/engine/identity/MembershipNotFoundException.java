@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,12 +16,21 @@ package org.bonitasoft.engine.identity;
 import org.bonitasoft.engine.exception.NotFoundException;
 
 /**
+ * thrown when a {@link UserMembership} is not found
+ *
  * @author Matthieu Chaffotte
+ * @see UserMembership
+ * @since 6.0.0
  */
 public class MembershipNotFoundException extends NotFoundException {
 
     private static final long serialVersionUID = -264860778869560830L;
 
+    /**
+     * creates a new instance of the exception with the given cause
+     * 
+     * @param cause the cause of the exception
+     */
     public MembershipNotFoundException(final Throwable cause) {
         super(cause);
     }

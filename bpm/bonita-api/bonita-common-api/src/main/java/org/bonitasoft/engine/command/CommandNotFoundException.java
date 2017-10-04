@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,7 +16,10 @@ package org.bonitasoft.engine.command;
 import org.bonitasoft.engine.exception.NotFoundException;
 
 /**
+ * Happens when a command is not found
+ * 
  * @author Matthieu Chaffotte
+ * @since 6.0.0
  */
 public class CommandNotFoundException extends NotFoundException {
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -35,7 +35,7 @@ public class OperationsWithContext implements Serializable {
     private final String containerType;
 
     /**
-     * @param context
+     * @param context the list of operations
      * @param operations
      */
     public OperationsWithContext(final SExpressionContext context, final List<SOperation> operations) {
@@ -45,9 +45,9 @@ public class OperationsWithContext implements Serializable {
     }
 
     /**
-     * @param object
-     * @param object2
-     * @param containerType
+     * @param context
+     * @param operations the list of operations
+     * @param containerType the type of container on which to execute the operations
      */
     public OperationsWithContext(final SExpressionContext context, final List<SOperation> operations, final String containerType) {
         this.context = context;

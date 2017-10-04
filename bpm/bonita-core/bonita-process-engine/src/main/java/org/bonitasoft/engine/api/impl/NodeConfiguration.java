@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -15,20 +15,24 @@ package org.bonitasoft.engine.api.impl;
 
 import java.util.List;
 
+import org.bonitasoft.engine.commons.PlatformLifecycleService;
 import org.bonitasoft.engine.commons.RestartHandler;
-import org.bonitasoft.engine.restart.TenantRestartHandler;
-import org.bonitasoft.engine.scheduler.JobRegister;
+import org.bonitasoft.engine.execution.work.TenantRestartHandler;
+import org.bonitasoft.engine.scheduler.AbstractBonitaPlatformJobListener;
 
 /**
- * This class allow to provide a configuration for the platform
- * 
+ * This class allow to provide a configuration for the current node
+ * We should be able to have one different per node
+ *
  * @author Baptiste Mesta
+ * @author Matthieu Chaffotte
+ * @author Celine Souchet
  */
 public interface NodeConfiguration {
 
     /**
      * specify if the scheduler should start on this node
-     * 
+     *
      * @return
      *         true if the scheduler
      */
@@ -36,7 +40,7 @@ public interface NodeConfiguration {
 
     /**
      * specify if we should resume unfinished elements when the node is started
-     * 
+     *
      * @return
      */
     boolean shouldResumeElements();
@@ -47,9 +51,9 @@ public interface NodeConfiguration {
     List<RestartHandler> getRestartHandlers();
 
     /**
-     * @return
+     * @return the platform services with a lifecycle
      */
-    String getEventHandlingJobCron();
+    List<PlatformLifecycleService> getLifecycleServices();
 
     /**
      * @return
@@ -63,21 +67,10 @@ public interface NodeConfiguration {
 
     /**
      * @return
-     */
-    List<JobRegister> getJobsToRegister();
-
-    /**
-     * Specify how often invalid sessions will be cleaned
-     * 
-     * @return a String representing a Unix Cron
-     */
-    String getCleanInvalidSessionsJobCron();
-
-    /**
-     * 
-     * @return
      *         true if the sessions should be cleaned when the node is stopped
      */
     boolean shouldClearSessions();
+
+    List<AbstractBonitaPlatformJobListener> getJobListeners();
 
 }

@@ -1,27 +1,37 @@
-/*******************************************************************************
- * Copyright (C) 2011, 2013 BonitaSoft S.A.
- * BonitaSoft is a trademark of BonitaSoft SA.
- * This software file is BONITASOFT CONFIDENTIAL. Not For Distribution.
- * For commercial licensing information, contact:
- * BonitaSoft, 32 rue Gustave Eiffel – 38000 Grenoble
- * or BonitaSoft US, 51 Federal Street, Suite 305, San Francisco, CA 94107
- *******************************************************************************/
+/**
+ * Copyright (C) 2015 BonitaSoft S.A.
+ * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
+ * This library is free software; you can redistribute it and/or modify it under the terms
+ * of the GNU Lesser General Public License as published by the Free Software Foundation
+ * version 2.1 of the License.
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Lesser General Public License for more details.
+ * You should have received a copy of the GNU Lesser General Public License along with this
+ * program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+ * Floor, Boston, MA 02110-1301, USA.
+ **/
 package org.bonitasoft.engine.api.impl.transaction.profile;
 
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.commons.transaction.TransactionContentWithResult;
 import org.bonitasoft.engine.identity.IdentityService;
 import org.bonitasoft.engine.identity.MemberType;
+import org.bonitasoft.engine.identity.SGroupNotFoundException;
+import org.bonitasoft.engine.identity.SRoleNotFoundException;
+import org.bonitasoft.engine.identity.SUserNotFoundException;
 import org.bonitasoft.engine.identity.model.SGroup;
 import org.bonitasoft.engine.identity.model.SRole;
 import org.bonitasoft.engine.identity.model.SUser;
 import org.bonitasoft.engine.profile.ProfileService;
+import org.bonitasoft.engine.profile.exception.profilemember.SProfileMemberCreationException;
 import org.bonitasoft.engine.profile.model.SProfileMember;
 
 /**
  * @author Julien Mege
  * @author Elias Ricken de Medeiros
  * @author Matthieu Chaffotte
+ * @author Celine Souchet
  */
 public class CreateProfileMember implements TransactionContentWithResult<SProfileMember> {
 
@@ -51,40 +61,72 @@ public class CreateProfileMember implements TransactionContentWithResult<SProfil
         this.groupId = groupId;
         this.roleId = roleId;
         this.memberType = memberType;
+
     }
 
     @Override
     public void execute() throws SBonitaException {
-        SUser user = null;
-        SGroup group = null;
-        SRole role = null;
-        if (userId != null && userId > 0) {
-            user = identityService.getUser(userId);
-        }
-        if (groupId != null && groupId > 0) {
-            group = identityService.getGroup(groupId);
+        profileService.updateProfileMetaData(profileId);
 
-        }
-        if (roleId != null && roleId > 0) {
-            role = identityService.getRole(roleId);
-        }
         switch (memberType) {
             case USER:
-                sProfileMember = profileService.addUserToProfile(profileId, userId, user.getUserName(), user.getLastName(), user.getUserName());
+                if (isNotNullOrEmpty(userId)) {
+                    addUserToProfile();
+                }
                 break;
-
             case GROUP:
-                sProfileMember = profileService.addGroupToProfile(profileId, groupId, group.getName(), group.getParentPath());
+                if (isNotNullOrEmpty(groupId)) {
+                    addGroupToProfile();
+                }
                 break;
-
             case ROLE:
-                sProfileMember = profileService.addRoleToProfile(profileId, roleId, role.getName());
+                if (isNotNullOrEmpty(roleId)) {
+                    addRoleToProfile();
+                }
                 break;
-
             default:
-                sProfileMember = profileService.addRoleAndGroupToProfile(profileId, roleId, groupId, role.getName(), group.getName(), group.getParentPath());
+                if (isNotNullOrEmpty(groupId) && isNotNullOrEmpty(roleId)) {
+                    addRoleAndGroupToProfile();
+                }
                 break;
         }
+    }
+
+    private void addRoleAndGroupToProfile() throws SGroupNotFoundException, SRoleNotFoundException, SProfileMemberCreationException {
+        final SGroup group = identityService.getGroup(groupId);
+        final SRole role = identityService.getRole(roleId);
+        if (group != null && role != null) {
+            sProfileMember = profileService
+                    .addRoleAndGroupToProfile(profileId, roleId, groupId, role.getName(), group.getName(), group.getParentPath());
+        }
+    }
+
+    private void addRoleToProfile() throws SRoleNotFoundException, SProfileMemberCreationException {
+        final SRole role = identityService.getRole(roleId);
+
+        if (role != null) {
+            sProfileMember = profileService.addRoleToProfile(profileId, roleId, role.getName());
+        }
+    }
+
+    private void addGroupToProfile() throws SGroupNotFoundException, SProfileMemberCreationException {
+        final SGroup group = identityService.getGroup(groupId);
+
+        if (group != null) {
+            sProfileMember = profileService.addGroupToProfile(profileId, groupId, group.getName(), group.getParentPath());
+        }
+    }
+
+    private void addUserToProfile() throws SUserNotFoundException, SProfileMemberCreationException {
+        final SUser user = identityService.getUser(userId);
+
+        if (user != null) {
+            sProfileMember = profileService.addUserToProfile(profileId, userId, user.getUserName(), user.getLastName(), user.getUserName());
+        }
+    }
+
+    private boolean isNotNullOrEmpty(final Long id) {
+        return id != null && id > 0;
     }
 
     @Override

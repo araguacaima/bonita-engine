@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -41,7 +41,14 @@ public class SetExpectedEndDate implements TransactionContent {
     @Override
     public void execute() throws SBonitaException {
         final SFlowNodeInstance flowNodeInstance = activityInstanceService.getFlowNodeInstance(userTaskId);
-        activityInstanceService.setExpectedEndDate(flowNodeInstance, dueDate.getTime());
+        activityInstanceService.setExpectedEndDate(flowNodeInstance, convertToLong());
+    }
+
+    public Long convertToLong() {
+        if (dueDate == null) {
+            return null;
+        }
+        return dueDate.getTime();
     }
 
 }

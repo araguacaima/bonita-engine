@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,136 +13,134 @@
  **/
 package org.bonitasoft.engine.profile.impl;
 
+import java.util.Objects;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+
+import org.bonitasoft.engine.api.ImportError;
+import org.bonitasoft.engine.api.ImportError.Type;
+
 /**
  * @author Zhao Na
  * @author Matthieu Chaffotte
  */
+@XmlAccessorType(XmlAccessType.FIELD)
 public class ExportedProfileEntry {
 
-    private final String name;
-
-    private String description;
-
-    private String type;
-
+    @XmlAttribute
+    private String name;
+    @XmlAttribute
+    private boolean isCustom;
+    //deprecated because it is not used but kept in xsd, this should be removed along with xsd change and migration
+    @Deprecated
+    @XmlElement
     private String parentName;
-
-    private long index;
-
+    @XmlElement
+    private Long index = 0L;
+    @XmlElement
+    private String description;
+    @XmlElement
+    private String type;
+    @XmlElement
     private String page;
+
+    public ExportedProfileEntry() {
+    }
 
     public ExportedProfileEntry(final String name) {
         this.name = name;
     }
 
-    public String getName() {
-        return name;
+    public final boolean isCustom() {
+        return isCustom;
     }
 
-    public void setDescription(final String description) {
+    public final void setCustom(final boolean isCustom) {
+        this.isCustom = isCustom;
+    }
+
+    public final String getDescription() {
+        return description;
+    }
+
+    public final void setDescription(final String description) {
         this.description = description;
     }
 
-    public String getDescription() {
-        return description;
+    public final String getType() {
+        return type;
+    }
+
+    public final void setType(final String type) {
+        this.type = type;
+    }
+
+    public final long getIndex() {
+        return index;
+    }
+
+    public final void setIndex(final long index) {
+        this.index = index;
+    }
+
+    public final String getPage() {
+        return page;
+    }
+
+    public final void setPage(final String page) {
+        this.page = page;
+    }
+
+    public final String getName() {
+        return name;
+    }
+
+    public boolean hasError() {
+        return getError() != null;
+    }
+
+    public ImportError getError() {
+        if (getName() == null) {
+            return new ImportError(getName(), Type.PAGE);
+        }
+        if (getPage() == null || getPage().isEmpty()) {
+            return new ImportError(getName(), Type.PAGE);
+        }
+        return null;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        ExportedProfileEntry that = (ExportedProfileEntry) o;
+        return isCustom == that.isCustom &&
+                Objects.equals(name, that.name) &&
+                Objects.equals(index, that.index) &&
+                Objects.equals(description, that.description) &&
+                Objects.equals(type, that.type) &&
+                Objects.equals(page, that.page);
     }
 
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + (description == null ? 0 : description.hashCode());
-        result = prime * result + (int) (index ^ index >>> 32);
-        result = prime * result + (name == null ? 0 : name.hashCode());
-        result = prime * result + (page == null ? 0 : page.hashCode());
-        result = prime * result + (parentName == null ? 0 : parentName.hashCode());
-        result = prime * result + (type == null ? 0 : type.hashCode());
-        return result;
+        return Objects.hash(name, isCustom, index, description, type, page);
     }
 
     @Override
-    public boolean equals(final Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        final ExportedProfileEntry other = (ExportedProfileEntry) obj;
-        if (description == null) {
-            if (other.description != null) {
-                return false;
-            }
-        } else if (!description.equals(other.description)) {
-            return false;
-        }
-        if (index != other.index) {
-            return false;
-        }
-        if (name == null) {
-            if (other.name != null) {
-                return false;
-            }
-        } else if (!name.equals(other.name)) {
-            return false;
-        }
-        if (page == null) {
-            if (other.page != null) {
-                return false;
-            }
-        } else if (!page.equals(other.page)) {
-            return false;
-        }
-        if (parentName == null) {
-            if (other.parentName != null) {
-                return false;
-            }
-        } else if (!parentName.equals(other.parentName)) {
-            return false;
-        }
-        if (type == null) {
-            if (other.type != null) {
-                return false;
-            }
-        } else if (!type.equals(other.type)) {
-            return false;
-        }
-        return true;
+    public String toString() {
+        return "ExportedProfileEntry{" +
+                "name='" + name + '\'' +
+                ", isCustom=" + isCustom +
+                ", index=" + index +
+                ", description='" + description + '\'' +
+                ", type='" + type + '\'' +
+                ", page='" + page + '\'' +
+                '}';
     }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(final String type) {
-        this.type = type;
-    }
-
-    public String getParentName() {
-        return parentName;
-    }
-
-    public void setParentName(final String parentName) {
-        this.parentName = parentName;
-    }
-
-    public long getIndex() {
-        return index;
-    }
-
-    public void setIndex(final long index) {
-        this.index = index;
-    }
-
-    public String getPage() {
-        return page;
-    }
-
-    public void setPage(final String page) {
-        this.page = page;
-    }
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -21,22 +21,6 @@ import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 public class SPlatformLoginException extends SBonitaException {
 
     private static final long serialVersionUID = 4420091633702041899L;
-
-    public SPlatformLoginException(final Object... arguments) {
-        super(arguments);
-    }
-
-    public SPlatformLoginException(final String message, final Throwable cause) {
-        super(message, cause);
-    }
-
-    public SPlatformLoginException(final String message) {
-        super(message);
-    }
-
-    public SPlatformLoginException(final Throwable cause, final Object... arguments) {
-        super(cause, arguments);
-    }
 
     public SPlatformLoginException(final Throwable cause) {
         super(cause);

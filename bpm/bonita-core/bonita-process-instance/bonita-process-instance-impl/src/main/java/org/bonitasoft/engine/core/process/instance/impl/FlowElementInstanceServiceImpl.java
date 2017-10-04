@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,13 +17,10 @@ import java.util.List;
 
 import org.bonitasoft.engine.core.process.instance.api.FlowElementInstanceService;
 import org.bonitasoft.engine.core.process.instance.model.SFlowElementInstance;
-import org.bonitasoft.engine.core.process.instance.model.archive.SAFlowElementInstance;
-import org.bonitasoft.engine.core.process.instance.model.builder.BPMInstanceBuilders;
 import org.bonitasoft.engine.persistence.PersistentObject;
 import org.bonitasoft.engine.persistence.QueryOptions;
 import org.bonitasoft.engine.persistence.ReadPersistenceService;
 import org.bonitasoft.engine.persistence.SBonitaReadException;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
 import org.bonitasoft.engine.recorder.Recorder;
 
 /**
@@ -32,40 +29,26 @@ import org.bonitasoft.engine.recorder.Recorder;
  */
 public abstract class FlowElementInstanceServiceImpl implements FlowElementInstanceService {
 
-    protected final BPMInstanceBuilders instanceBuilders;
-
-    // private final EventService eventService;
-
     private final Recorder recorder;
 
     private final ReadPersistenceService persistenceRead;
 
-    public FlowElementInstanceServiceImpl(final Recorder recorder, final ReadPersistenceService persistenceRead, final BPMInstanceBuilders instanceBuilders) {
+    public FlowElementInstanceServiceImpl(final Recorder recorder, final ReadPersistenceService persistenceRead) {
         this.recorder = recorder;
         this.persistenceRead = persistenceRead;
-        this.instanceBuilders = instanceBuilders;
-        // this.eventService = eventService;
     }
 
     @Override
     public long getNumberOfFlowElementInstances(final Class<? extends PersistentObject> entityClass, final QueryOptions countOptions)
-            throws SBonitaSearchException {
-        try {
-            return getPersistenceRead().getNumberOfEntities(entityClass, countOptions, null);
-        } catch (final SBonitaReadException e) {
-            throw new SBonitaSearchException(e);
-        }
+            throws SBonitaReadException {
+        return getPersistenceRead().getNumberOfEntities(entityClass, countOptions, null);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<SFlowElementInstance> searchFlowElementInstances(final Class<? extends PersistentObject> entityClass, final QueryOptions searchOptions)
-            throws SBonitaSearchException {
-        try {
-            return (List<SFlowElementInstance>) getPersistenceRead().searchEntity(entityClass, searchOptions, null);
-        } catch (final SBonitaReadException e) {
-            throw new SBonitaSearchException(e);
-        }
+            throws SBonitaReadException {
+        return (List<SFlowElementInstance>) getPersistenceRead().searchEntity(entityClass, searchOptions, null);
     }
 
     protected Recorder getRecorder() {
@@ -76,22 +59,16 @@ public abstract class FlowElementInstanceServiceImpl implements FlowElementInsta
         return persistenceRead;
     }
 
-    protected BPMInstanceBuilders getInstanceBuilders() {
-        return instanceBuilders;
-    }
-
-    @Override
-    public List<SAFlowElementInstance> searchArchivedFlowElementInstances(final Class<? extends PersistentObject> entityClass, final QueryOptions searchOptions)
-            throws SBonitaSearchException {
-        // TODO Implement me!
-        return null;
-    }
-
-    @Override
-    public long getNumberOfArchivedFlowElementInstances(final Class<? extends PersistentObject> entityClass, final QueryOptions countOptions)
-            throws SBonitaSearchException {
-        // TODO Implement me!
-        return 0;
-    }
+    //    @Override
+    //    public List<SAFlowElementInstance> searchArchivedFlowElementInstances(final Class<? extends PersistentObject> entityClass, final QueryOptions searchOptions) {
+    //        // FIXME Implement me!
+    //        return null;
+    //    }
+    //
+    //    @Override
+    //    public long getNumberOfArchivedFlowElementInstances(final Class<? extends PersistentObject> entityClass, final QueryOptions countOptions) {
+    //        // FIXME Implement me!
+    //        return 0;
+    //    }
 
 }

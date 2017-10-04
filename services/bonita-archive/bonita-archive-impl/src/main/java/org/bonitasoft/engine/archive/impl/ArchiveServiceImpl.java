@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,11 +13,11 @@
  **/
 package org.bonitasoft.engine.archive.impl;
 
+import java.util.Map;
+
 import org.bonitasoft.engine.archive.ArchiveInsertRecord;
 import org.bonitasoft.engine.archive.ArchiveService;
 import org.bonitasoft.engine.archive.ArchivingStrategy;
-import org.bonitasoft.engine.archive.SArchiveDescriptor;
-import org.bonitasoft.engine.archive.SDefinitiveArchiveNotFound;
 import org.bonitasoft.engine.commons.ClassReflector;
 import org.bonitasoft.engine.commons.LogUtil;
 import org.bonitasoft.engine.log.technical.TechnicalLogSeverity;
@@ -25,36 +25,31 @@ import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
 import org.bonitasoft.engine.persistence.ArchivedPersistentObject;
 import org.bonitasoft.engine.persistence.PersistentObject;
 import org.bonitasoft.engine.persistence.ReadPersistenceService;
-import org.bonitasoft.engine.queriablelogger.model.SQueriableLog;
 import org.bonitasoft.engine.recorder.SRecorderException;
 import org.bonitasoft.engine.recorder.model.DeleteRecord;
 import org.bonitasoft.engine.services.PersistenceService;
 import org.bonitasoft.engine.services.SPersistenceException;
 import org.bonitasoft.engine.transaction.STransactionNotFoundException;
-import org.bonitasoft.engine.transaction.TransactionService;
+import org.bonitasoft.engine.transaction.UserTransactionService;
 
 /**
  * @author Matthieu Chaffotte
  * @author Hongwen Zang
+ * @author Celine Souchet
  */
 public class ArchiveServiceImpl implements ArchiveService {
 
-    private final SArchiveDescriptor definitiveArchiveDescriptor;
-
-    private final ThreadLocal<BatchArchiveSynchronization> synchronizations = new ThreadLocal<BatchArchiveSynchronization>();
-
-    private final TransactionService transactionService;
+    private final UserTransactionService transactionService;
 
     private final PersistenceService definitiveArchivePersistenceService;
 
     private final TechnicalLoggerService logger;
 
-    private final ArchivingStrategy archivingStrategy;
+    private ArchivingStrategy archivingStrategy;
 
-    public ArchiveServiceImpl(final SArchiveDescriptor definitiveArchiveDescriptor, final PersistenceService definitiveArchivePersistenceService,
-            final TechnicalLoggerService logger, final ArchivingStrategy archivingStrategy, final TransactionService transactionService) {
+    public ArchiveServiceImpl(final PersistenceService definitiveArchivePersistenceService,
+            final TechnicalLoggerService logger, final ArchivingStrategy archivingStrategy, final UserTransactionService transactionService) {
         super();
-        this.definitiveArchiveDescriptor = definitiveArchiveDescriptor;
         this.definitiveArchivePersistenceService = definitiveArchivePersistenceService;
         this.archivingStrategy = archivingStrategy;
         this.logger = logger;
@@ -62,64 +57,44 @@ public class ArchiveServiceImpl implements ArchiveService {
     }
 
     @Override
-    public void recordInsert(final long time, final ArchiveInsertRecord record, final SQueriableLog queriableLog) throws SDefinitiveArchiveNotFound,
-            SRecorderException {
+    public void recordInsert(final long time, final ArchiveInsertRecord record) throws SRecorderException {
         if (isArchivable(record.getEntity().getPersistentObjectInterface())) {
-            if (this.logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                this.logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "recordInsert"));
-            }
-            final ArchivedPersistentObject entity = record.getEntity();
-            setArchiveDate(entity, time);
-
-            BatchArchiveSynchronization synchro;
-            try {
-                synchro = getBatchArchiveSynchronization();
-                synchro.addArchivedObject(entity);
-            } catch (final STransactionNotFoundException e) {
-                this.logger.log(this.getClass(), TechnicalLogSeverity.ERROR, "Unable to register synchronization for the archives : transaction not found");
-            }
-
-            if (this.logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                this.logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "recordInsert"));
-            }
+            recordInserts(time, record);
         }
     }
 
     @Override
     public void recordInserts(final long time, final ArchiveInsertRecord... records) throws SRecorderException {
-        if (this.logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            this.logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "recordInsert"));
-        }
-        BatchArchiveSynchronization synchro;
-        try {
-            synchro = getBatchArchiveSynchronization();
-            for (final ArchiveInsertRecord record : records) {
-                final ArchivedPersistentObject entity = record.getEntity();
-                setArchiveDate(entity, time);
-                synchro.addArchivedObject(entity);
+        final String methodName = "recordInserts";
+        logBeforeMethod(TechnicalLogSeverity.TRACE, methodName);
+        if (records != null) {
+            assignArchiveDate(time, records);
+            final BatchArchiveCallable callable = buildBatchArchiveCallable(records);
+
+            try {
+                transactionService.registerBeforeCommitCallable(callable);
+            } catch (final STransactionNotFoundException e) {
+                if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
+                    logger.log(this.getClass(), TechnicalLogSeverity.ERROR,
+                            "Unable to register the beforeCommitCallable to log queriable logs: transaction not found", e);
+                }
             }
-        } catch (final STransactionNotFoundException e) {
-            this.logger.log(this.getClass(), TechnicalLogSeverity.ERROR, "Unable to register synchronization to log queriable logs: transaction not found");
         }
 
-        if (this.logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            this.logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "recordInsert"));
-        }
+        logAfterMethod(TechnicalLogSeverity.TRACE, methodName);
     }
 
-    /**
-     * get or create and return the batch synchronization registered on the current transaction
-     * 
-     * @return
-     * @throws STransactionNotFoundException
-     */
-    private synchronized BatchArchiveSynchronization getBatchArchiveSynchronization() throws STransactionNotFoundException {
-        BatchArchiveSynchronization synchro = this.synchronizations.get();
-        if (synchro == null) {
-            synchro = new BatchArchiveSynchronization(this.definitiveArchivePersistenceService);
-            this.transactionService.registerBonitaSynchronization(synchro);
+    // As a protected method for test purposes.
+    protected BatchArchiveCallable buildBatchArchiveCallable(final ArchiveInsertRecord... records) throws SRecorderException {
+        return new BatchArchiveCallable(definitiveArchivePersistenceService, records);
+    }
+
+    private void assignArchiveDate(final long time, final ArchiveInsertRecord... records) throws SRecorderException {
+        for (final ArchiveInsertRecord record : records) {
+            if (record != null) {
+                setArchiveDate(record.getEntity(), time);
+            }
         }
-        return synchro;
     }
 
     private void setArchiveDate(final ArchivedPersistentObject entity, final long time) throws SRecorderException {
@@ -133,36 +108,53 @@ public class ArchiveServiceImpl implements ArchiveService {
     }
 
     @Override
-    public void recordDelete(final DeleteRecord record, final SQueriableLog queriableLog) throws SRecorderException {
+    public void recordDelete(final DeleteRecord record) throws SRecorderException {
+        String methodName = "recordDelete";
         try {
-            if (this.logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                this.logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "recordDelete"));
-            }
-            this.definitiveArchivePersistenceService.delete(record.getEntity());
-            if (this.logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                this.logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "recordDelete"));
-            }
+            logBeforeMethod(TechnicalLogSeverity.TRACE, methodName);
+            definitiveArchivePersistenceService.delete(record.getEntity());
+            logAfterMethod(TechnicalLogSeverity.TRACE, methodName);
         } catch (final SPersistenceException e) {
-            if (this.logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                this.logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "recordDelete", e));
-            }
+            logOnExceptionMethod(TechnicalLogSeverity.TRACE, methodName, e);
             throw new SRecorderException(e);
         }
     }
 
-    @Override
-    public SArchiveDescriptor getDefinitiveArchiveDescriptor() {
-        return this.definitiveArchiveDescriptor;
+    private void logOnExceptionMethod(final TechnicalLogSeverity technicalLogSeverity, final String methodName, final Exception e) {
+        if (logger.isLoggable(this.getClass(), technicalLogSeverity)) {
+            logger.log(this.getClass(), technicalLogSeverity, LogUtil.getLogOnExceptionMethod(this.getClass(), methodName, e));
+        }
+    }
+
+    private void logAfterMethod(final TechnicalLogSeverity technicalLogSeverity, final String methodName) {
+        if (logger.isLoggable(this.getClass(), technicalLogSeverity)) {
+            logger.log(this.getClass(), technicalLogSeverity, LogUtil.getLogAfterMethod(this.getClass(), methodName));
+        }
+    }
+
+    private void logBeforeMethod(final TechnicalLogSeverity technicalLogSeverity, final String methodName) {
+        if (logger.isLoggable(this.getClass(), technicalLogSeverity)) {
+            logger.log(this.getClass(), technicalLogSeverity, LogUtil.getLogBeforeMethod(this.getClass(), methodName));
+        }
     }
 
     @Override
     public boolean isArchivable(final Class<? extends PersistentObject> sourceObjectClass) {
-        return this.archivingStrategy.isArchivable(sourceObjectClass);
+        return archivingStrategy.isArchivable(sourceObjectClass);
     }
 
     @Override
     public ReadPersistenceService getDefinitiveArchiveReadPersistenceService() {
-        return this.definitiveArchivePersistenceService;
+        return definitiveArchivePersistenceService;
+    }
+
+    @Override
+    public void deleteFromQuery(String queryName, Map<String, Object> parameters) throws SRecorderException {
+        try {
+            definitiveArchivePersistenceService.update(queryName, parameters);
+        } catch (SPersistenceException e) {
+            throw new SRecorderException(e);
+        }
     }
 
 }

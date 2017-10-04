@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -18,6 +18,22 @@ package org.bonitasoft.engine.persistence;
  */
 public enum OrderByType {
 
-    ASC, DESC;
+    ASC, DESC, ASC_NULLS_LAST, DESC_NULLS_FIRST, ASC_NULLS_FIRST, DESC_NULLS_LAST;
+
+    private String sqlKeyword;
+
+    static {
+        ASC.sqlKeyword = "ASC";
+        DESC.sqlKeyword = "DESC";
+        ASC_NULLS_LAST.sqlKeyword = "ASC NULLS LAST";
+        DESC_NULLS_FIRST.sqlKeyword = "DESC NULLS FIRST";
+        ASC_NULLS_FIRST.sqlKeyword = "ASC NULLS FIRST";
+        DESC_NULLS_LAST.sqlKeyword = "DESC NULLS LAST";
+
+    }
+
+    public String getSqlKeyword() {
+        return sqlKeyword;
+    }
 
 }

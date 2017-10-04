@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,11 +13,11 @@
  **/
 package org.bonitasoft.engine.execution.state;
 
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.bonitasoft.engine.bpm.model.impl.BPMInstancesCreator;
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.core.expression.control.api.ExpressionResolverService;
 import org.bonitasoft.engine.core.expression.control.model.SExpressionContext;
@@ -35,7 +35,7 @@ import org.bonitasoft.engine.core.process.instance.model.SFlowElementsContainerT
 import org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance;
 import org.bonitasoft.engine.core.process.instance.model.SLoopActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.SStateCategory;
-import org.bonitasoft.engine.core.process.instance.model.builder.SLoopActivityInstanceBuilder;
+import org.bonitasoft.engine.core.process.instance.model.builder.SLoopActivityInstanceBuilderFactory;
 import org.bonitasoft.engine.data.instance.api.DataInstanceContainer;
 import org.bonitasoft.engine.execution.StateBehaviors;
 import org.bonitasoft.engine.expression.ExpressionConstants;
@@ -77,27 +77,23 @@ public class InitializingLoopActivityStateImpl implements FlowNodeState {
             final SLoopActivityInstance loopActivity = (SLoopActivityInstance) activityInstanceService.getFlowNodeInstance(flowNodeInstance.getId());
             final SLoopCharacteristics loopCharacteristics = activity.getLoopCharacteristics();
             if (loopCharacteristics instanceof SStandardLoopCharacteristics) {
-                bpmInstancesCreator.addChildDataContainer(flowNodeInstance);
                 final SStandardLoopCharacteristics standardLoop = (SStandardLoopCharacteristics) loopCharacteristics;
                 final SExpression loopMax = ((SStandardLoopCharacteristics) loopCharacteristics).getLoopMax();
                 Integer intLoopMax;
 
                 if (loopMax != null) {
-                    final String containerType = loopActivity.getLogicalGroup(2) > 0 ? DataInstanceContainer.ACTIVITY_INSTANCE.name()
-                            : DataInstanceContainer.PROCESS_INSTANCE.name();
-                    intLoopMax = (Integer) expressionResolverService.evaluate(loopMax, new SExpressionContext(loopActivity.getId(), containerType,
+                    intLoopMax = (Integer) expressionResolverService.evaluate(loopMax, new SExpressionContext(loopActivity.getId(),
+                            DataInstanceContainer.ACTIVITY_INSTANCE.name(),
                             processDefinitionId));
                     activityInstanceService.setLoopMax(loopActivity, intLoopMax);
                 }
                 final boolean loop = !standardLoop.isTestBefore() || evaluateLoop(standardLoop, loopActivity);
                 if (loop) {
-                    final SLoopActivityInstanceBuilder loopActivityInstanceBuilder = bpmInstancesCreator.getBPMInstanceBuilders()
-                            .getSLoopActivityInstanceBuilder();
-                    final long rootProcessInstanceId = flowNodeInstance.getLogicalGroup(loopActivityInstanceBuilder.getRootProcessInstanceIndex());
-                    final long parentProcessInstanceId = flowNodeInstance.getLogicalGroup(loopActivityInstanceBuilder.getParentProcessInstanceIndex());
+                    final SLoopActivityInstanceBuilderFactory keyProvider = BuilderFactory.get(SLoopActivityInstanceBuilderFactory.class);
+                    final long rootProcessInstanceId = flowNodeInstance.getLogicalGroup(keyProvider.getRootProcessInstanceIndex());
+                    final long parentProcessInstanceId = flowNodeInstance.getLogicalGroup(keyProvider.getParentProcessInstanceIndex());
                     bpmInstancesCreator.createFlowNodeInstance(processDefinitionId, flowNodeInstance.getRootContainerId(), flowNodeInstance.getId(),
-                            SFlowElementsContainerType.FLOWNODE, activity, rootProcessInstanceId, parentProcessInstanceId, true, 1, SStateCategory.NORMAL, -1,
-                            null);
+                            SFlowElementsContainerType.FLOWNODE, activity, rootProcessInstanceId, parentProcessInstanceId, true, 1, SStateCategory.NORMAL, -1);
                     activityInstanceService.incrementLoopCounter(loopActivity);
                     activityInstanceService.setTokenCount(loopActivity, loopActivity.getTokenCount() + 1);
                 }
@@ -110,10 +106,10 @@ public class InitializingLoopActivityStateImpl implements FlowNodeState {
 
     private boolean evaluateLoop(final SStandardLoopCharacteristics standardLoop, final SLoopActivityInstance loopActivity)
             throws SExpressionTypeUnknownException, SExpressionEvaluationException, SExpressionDependencyMissingException, SInvalidExpressionException {
-
-        final Map<String, Serializable> input = new HashMap<String, Serializable>(0);
+        final Map<String, Object> input = new HashMap<>(1);
         input.put(ExpressionConstants.LOOP_COUNTER.getEngineConstantName(), loopActivity.getLoopCounter());
-        final SExpressionContext sExpressionContext = new SExpressionContext(loopActivity.getId(), DataInstanceContainer.ACTIVITY_INSTANCE.name(), input);
+        final SExpressionContext sExpressionContext = new SExpressionContext(loopActivity.getId(), DataInstanceContainer.ACTIVITY_INSTANCE.name(),
+                loopActivity.getProcessDefinitionId(), input);
         return ((Boolean) expressionResolverService.evaluate(standardLoop.getLoopCondition(), sExpressionContext)).booleanValue();
     }
 

@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
- * BonitaSoft, 31 rue Gustave Eiffel - 38000 Grenoble
+ * Copyright (C) 2015 BonitaSoft S.A.
+ * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
  * version 2.1 of the License.
@@ -18,19 +18,24 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.bonitasoft.engine.business.data.BusinessDataRepository;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.commons.transaction.TransactionContentWithResult;
 import org.bonitasoft.engine.core.expression.control.api.ExpressionResolverService;
 import org.bonitasoft.engine.core.expression.control.model.SExpressionContext;
 import org.bonitasoft.engine.core.process.definition.ProcessDefinitionService;
 import org.bonitasoft.engine.core.process.definition.model.SProcessDefinition;
-import org.bonitasoft.engine.core.process.definition.model.builder.ServerModelConvertor;
 import org.bonitasoft.engine.expression.Expression;
+import org.bonitasoft.engine.expression.exception.SExpressionDependencyMissingException;
+import org.bonitasoft.engine.expression.exception.SExpressionEvaluationException;
+import org.bonitasoft.engine.expression.exception.SExpressionTypeUnknownException;
+import org.bonitasoft.engine.expression.exception.SInvalidExpressionException;
 import org.bonitasoft.engine.expression.model.SExpression;
-import org.bonitasoft.engine.expression.model.builder.SExpressionBuilders;
+import org.bonitasoft.engine.service.ModelConvertor;
 
 /**
  * @author Zhao Na
+ * @author Matthieu Chaffotte
  */
 public class EvaluateExpressionsDefinitionLevel extends AbstractEvaluateExpressionsInstance implements TransactionContentWithResult<Map<String, Serializable>> {
 
@@ -42,17 +47,15 @@ public class EvaluateExpressionsDefinitionLevel extends AbstractEvaluateExpressi
 
     private final ProcessDefinitionService processDefinitionService;
 
-    private final SExpressionBuilders expBuilder;
-
     private final Map<String, Serializable> results = new HashMap<String, Serializable>(0);
 
     public EvaluateExpressionsDefinitionLevel(final Map<Expression, Map<String, Serializable>> expressions, final long processDefinitionId,
-            final ExpressionResolverService expressionResolverService, final SExpressionBuilders expBuilder,
-            final ProcessDefinitionService processDefinitionService) {
+            final ExpressionResolverService expressionResolverService, final ProcessDefinitionService processDefinitionService,
+            final BusinessDataRepository bdrService) {
+        super(bdrService);
         expressionsAndTheirPartialContext = expressions;
         this.processDefinitionId = processDefinitionId;
         expressionResolver = expressionResolverService;
-        this.expBuilder = expBuilder;
         this.processDefinitionService = processDefinitionService;
     }
 
@@ -65,22 +68,43 @@ public class EvaluateExpressionsDefinitionLevel extends AbstractEvaluateExpressi
             if (processDefinitionId != 0) {
                 final SProcessDefinition processDefinition = processDefinitionService.getProcessDefinition(processDefinitionId);
                 final Set<Expression> exps = expressionsAndTheirPartialContext.keySet();
-                for (Expression exp : exps) {
-                    Map<String, Serializable> inputValues = expressionsAndTheirPartialContext.get(exp);
+                for (final Expression exp : exps) {
+                    Map<String, Serializable> inputValues = getPartialContext(expressionsAndTheirPartialContext, exp);
                     if (inputValues == null) {
                         inputValues = new HashMap<String, Serializable>();
                     }
-                    inputValues.put(SExpressionContext.processDefinitionKey, processDefinition);
+                    inputValues.put(SExpressionContext.PROCESS_DEFINITION_KEY, processDefinition);
                     context.setProcessDefinitionId(processDefinitionId);
                     context.setSerializableInputValues(inputValues);
-                    final SExpression sexp = ServerModelConvertor.convertExpression(expBuilder, exp);
-                    // maybe the context's not enough to delivery those parameters like ap<String, Serializable>.
-                    final Serializable res = (Serializable) expressionResolver.evaluate(sexp, context);// evaluate(sexp, context);
+                    final SExpression sexp = ModelConvertor.constructSExpression(exp);
+                    final Serializable res = evaluateExpression(context, sexp, processDefinition);
                     results.put(buildName(exp), res);
                 }
             }
         }
 
+    }
+
+    protected Serializable evaluateExpression(final SExpressionContext context, final SExpression sexp, final SProcessDefinition processDefinition)
+            throws SExpressionTypeUnknownException, SExpressionEvaluationException, SExpressionDependencyMissingException, SInvalidExpressionException {
+        try {
+            return (Serializable) expressionResolver.evaluate(sexp, context);
+        } catch (final SExpressionTypeUnknownException e) {
+            throw enrichExceptionContext(e, processDefinition);
+        } catch (final SExpressionEvaluationException e) {
+            throw enrichExceptionContext(e, processDefinition);
+        } catch (final SExpressionDependencyMissingException e) {
+            throw enrichExceptionContext(e, processDefinition);
+        } catch (final SInvalidExpressionException e) {
+            throw enrichExceptionContext(e, processDefinition);
+        }
+    }
+
+    private <T extends SBonitaException> T enrichExceptionContext(final T e, final SProcessDefinition processDefinition) {
+        e.setProcessDefinitionIdOnContext(processDefinition.getId());
+        e.setProcessDefinitionNameOnContext(processDefinition.getName());
+        e.setProcessDefinitionVersionOnContext(processDefinition.getVersion());
+        return e;
     }
 
     @Override

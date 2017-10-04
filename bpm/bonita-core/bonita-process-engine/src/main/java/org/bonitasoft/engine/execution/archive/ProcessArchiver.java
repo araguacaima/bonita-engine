@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,23 +19,22 @@ import java.util.List;
 import org.bonitasoft.engine.SArchivingException;
 import org.bonitasoft.engine.archive.ArchiveInsertRecord;
 import org.bonitasoft.engine.archive.ArchiveService;
-import org.bonitasoft.engine.archive.SDefinitiveArchiveNotFound;
+import org.bonitasoft.engine.builder.BuilderFactory;
+import org.bonitasoft.engine.classloader.ClassLoaderService;
+import org.bonitasoft.engine.classloader.SClassLoaderException;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.core.connector.ConnectorInstanceService;
+import org.bonitasoft.engine.core.contract.data.ContractDataService;
+import org.bonitasoft.engine.core.document.api.DocumentService;
+import org.bonitasoft.engine.core.document.model.SMappedDocument;
 import org.bonitasoft.engine.core.process.comment.api.SCommentService;
 import org.bonitasoft.engine.core.process.comment.model.SComment;
-import org.bonitasoft.engine.core.process.comment.model.archive.SAComment;
-import org.bonitasoft.engine.core.process.comment.model.archive.builder.SACommentBuilder;
 import org.bonitasoft.engine.core.process.definition.ProcessDefinitionService;
 import org.bonitasoft.engine.core.process.definition.model.SActivityDefinition;
 import org.bonitasoft.engine.core.process.definition.model.SProcessDefinition;
-import org.bonitasoft.engine.core.process.document.mapping.DocumentMappingService;
-import org.bonitasoft.engine.core.process.document.mapping.exception.SDocumentMappingException;
-import org.bonitasoft.engine.core.process.document.mapping.exception.SPageOutOfRangeException;
-import org.bonitasoft.engine.core.process.document.mapping.model.SDocumentMapping;
 import org.bonitasoft.engine.core.process.instance.api.ActivityInstanceService;
 import org.bonitasoft.engine.core.process.instance.api.ProcessInstanceService;
-import org.bonitasoft.engine.core.process.instance.api.exceptions.SActivityExecutionException;
+import org.bonitasoft.engine.core.process.instance.api.RefBusinessDataService;
 import org.bonitasoft.engine.core.process.instance.model.SActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.SAutomaticTaskInstance;
 import org.bonitasoft.engine.core.process.instance.model.SCallActivityInstance;
@@ -52,87 +51,121 @@ import org.bonitasoft.engine.core.process.instance.model.SSubProcessActivityInst
 import org.bonitasoft.engine.core.process.instance.model.SUserTaskInstance;
 import org.bonitasoft.engine.core.process.instance.model.archive.SAFlowNodeInstance;
 import org.bonitasoft.engine.core.process.instance.model.archive.SAProcessInstance;
-import org.bonitasoft.engine.core.process.instance.model.archive.builder.SAProcessInstanceBuilder;
-import org.bonitasoft.engine.core.process.instance.model.builder.BPMInstanceBuilders;
-import org.bonitasoft.engine.core.process.instance.model.builder.ProcessInstanceLogBuilder;
+import org.bonitasoft.engine.core.process.instance.model.archive.builder.SAAutomaticTaskInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.archive.builder.SACallActivityInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.archive.builder.SAGatewayInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.archive.builder.SALoopActivityInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.archive.builder.SAManualTaskInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.archive.builder.SAMultiInstanceActivityInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.archive.builder.SAProcessInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.archive.builder.SAReceiveTaskInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.archive.builder.SASendTaskInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.archive.builder.SASubProcessActivityInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.archive.builder.SAUserTaskInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.business.data.SRefBusinessDataInstance;
 import org.bonitasoft.engine.data.instance.api.DataInstanceContainer;
 import org.bonitasoft.engine.data.instance.api.DataInstanceService;
 import org.bonitasoft.engine.data.instance.exception.SDataInstanceException;
 import org.bonitasoft.engine.data.instance.model.SDataInstance;
-import org.bonitasoft.engine.data.instance.model.archive.SADataInstance;
-import org.bonitasoft.engine.data.instance.model.builder.SDataInstanceBuilders;
+import org.bonitasoft.engine.dependency.model.ScopeType;
 import org.bonitasoft.engine.log.technical.TechnicalLogSeverity;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
+import org.bonitasoft.engine.persistence.OrderByType;
 import org.bonitasoft.engine.persistence.QueryOptions;
-import org.bonitasoft.engine.persistence.SBonitaReadException;
-import org.bonitasoft.engine.queriablelogger.model.SQueriableLog;
-import org.bonitasoft.engine.queriablelogger.model.SQueriableLogSeverity;
-import org.bonitasoft.engine.queriablelogger.model.builder.HasCRUDEAction;
-import org.bonitasoft.engine.queriablelogger.model.builder.HasCRUDEAction.ActionType;
-import org.bonitasoft.engine.queriablelogger.model.builder.SLogBuilder;
 import org.bonitasoft.engine.recorder.SRecorderException;
 
 /**
  * @author Elias Ricken de Medeiros
  * @author Baptiste Mesta
+ * @author Celine Souchet
  */
 public class ProcessArchiver {
 
-    private static final int BATCH_SIZE = 100;
+    private final int BATCH_SIZE = 100;
 
-    public static void archiveProcessInstance(final SProcessInstance processInstance, final ArchiveService archiveService,
-            final ProcessInstanceService processInstanceService, final DataInstanceService dataInstanceService,
-            final DocumentMappingService documentMappingService, final TechnicalLoggerService logger, final BPMInstanceBuilders instancesBuilders,
-            final SDataInstanceBuilders sDataInstanceBuilders, final SCommentService commentService, final SACommentBuilder saCommentBuilder,
-            final ProcessDefinitionService processDefinitionService, final ConnectorInstanceService connectorInstanceService) throws SArchivingException {
-        final SAProcessInstanceBuilder saProcessInstanceBuilder = instancesBuilders.getSAProcessInstanceBuilder();
-        final SAProcessInstance saProcessInstance = saProcessInstanceBuilder.createNewInstance(processInstance).done();
-        final long archiveDate = saProcessInstance.getEndDate();
+    public void archiveProcessInstance(final SProcessInstance processInstance, final ArchiveService archiveService,
+            final ProcessInstanceService processInstanceService, final DocumentService documentService, final TechnicalLoggerService logger,
+            final SCommentService commentService, final ProcessDefinitionService processDefinitionService,
+            final ConnectorInstanceService connectorInstanceService, ClassLoaderService classLoaderService, RefBusinessDataService refBusinessDataService)
+                    throws SArchivingException {
+
+        //set the classloader to this process because we need it e.g. to archive data instance
+
+        ClassLoader processClassLoader;
         try {
-            dataInstanceService.removeContainer(processInstance.getId(), DataInstanceContainer.PROCESS_INSTANCE.toString());
-        } catch (final SDataInstanceException e) {
-            throw new SArchivingException("unable to delete data mapping", e);
-        }
-        SProcessDefinition processDefinition = null;
-        try {
-            processDefinition = processDefinitionService.getProcessDefinition(processInstance.getProcessDefinitionId());
-        } catch (final SBonitaException e) {
+            processClassLoader = classLoaderService.getLocalClassLoader(ScopeType.PROCESS.name(), processInstance.getProcessDefinitionId());
+
+        } catch (SClassLoaderException e) {
             throw new SArchivingException(e);
         }
-        if (!processDefinition.getProcessContainer().getDataDefinitions().isEmpty()) {
-            // Archive SADataInstance
-            archiveDataInstances(processInstance, archiveService, dataInstanceService, logger, instancesBuilders, sDataInstanceBuilders, archiveDate);
+        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        Thread.currentThread().setContextClassLoader(processClassLoader);
+        try {
+
+            final SAProcessInstance saProcessInstance = buildArchiveProcessInstance(processInstance);
+
+            SProcessDefinition processDefinition;
+            try {
+                processDefinition = processDefinitionService.getProcessDefinition(processInstance.getProcessDefinitionId());
+            } catch (final SBonitaException e) {
+                throw new SArchivingException(e);
+            }
+
+            final long archiveDate = saProcessInstance.getEndDate();
+
+            // The archive of data instance is not done because it is done on creation + when updating.
+            // Archive SComment
+            archiveComments(processDefinition, processInstance, commentService, archiveDate);
+
+            // archive document mappings
+            archiveDocumentMappings(processDefinition, processInstance, documentService, archiveDate);
+
+            archiveConnectorInstancesIfAny(processInstance, connectorInstanceService, processDefinition, archiveDate);
+
+            archiveRefBusinessDataInstances(refBusinessDataService, processInstance.getId());
+
+            // Archive
+            archiveProcessInstance(processDefinition, processInstance, saProcessInstance, archiveDate, archiveService, processInstanceService, logger);
+        } finally {
+            Thread.currentThread().setContextClassLoader(contextClassLoader);
         }
-        // Archive SComment
-        archiveComments(processInstance, archiveService, logger, instancesBuilders, commentService, saCommentBuilder, archiveDate);
-
-        // archive document mappings
-        archiveDocumentMappings(processInstance, documentMappingService, archiveDate);
-
-        if (!processDefinition.getProcessContainer().getConnectors().isEmpty()) {
-            archiveConnectors(connectorInstanceService, archiveDate, processInstance.getId(), SConnectorInstance.PROCESS_TYPE);
-        }
-
-        // Archive
-        archiveProcessInstance(processInstance, archiveService, processInstanceService, logger, instancesBuilders, saProcessInstance, archiveDate);
 
     }
 
-    /**
-     * @param sProcessInstance
-     * @param connectorInstanceService
-     * @param archiveDate
-     * @param containerId
-     * @param containerType
-     * @throws SArchivingException
-     */
-    private static void archiveConnectors(final ConnectorInstanceService connectorInstanceService, final long archiveDate, final long containerId,
+    protected void archiveConnectorInstancesIfAny(SProcessInstance processInstance, ConnectorInstanceService connectorInstanceService,
+            SProcessDefinition processDefinition, long archiveDate) throws SArchivingException {
+        if (!processDefinition.getProcessContainer().getConnectors().isEmpty()) {
+            archiveConnectors(connectorInstanceService, archiveDate, processInstance.getId(), SConnectorInstance.PROCESS_TYPE);
+        }
+    }
+
+    protected SAProcessInstance buildArchiveProcessInstance(SProcessInstance processInstance) {
+        return BuilderFactory.get(SAProcessInstanceBuilderFactory.class).createNewInstance(processInstance).done();
+    }
+
+    private void archiveRefBusinessDataInstances(final RefBusinessDataService refBusinessDataService, long processInstanceId) throws SArchivingException {
+        try {
+            List<SRefBusinessDataInstance> refBusinessDataInstances;
+            int i = 0;
+            do {
+                refBusinessDataInstances = refBusinessDataService.getRefBusinessDataInstances(processInstanceId, i, i + BATCH_SIZE);
+                i += BATCH_SIZE;
+                for (final SRefBusinessDataInstance sRefBusinessDataInstance : refBusinessDataInstances) {
+                    refBusinessDataService.archiveRefBusinessDataInstance(sRefBusinessDataInstance);
+                }
+            } while (refBusinessDataInstances.size() == BATCH_SIZE);
+        } catch (final SBonitaException e) {
+            throw new SArchivingException("Unable to archive RefBusinessDataInstance", e);
+        }
+    }
+
+    private void archiveConnectors(final ConnectorInstanceService connectorInstanceService, final long archiveDate, final long containerId,
             final String containerType) throws SArchivingException {
         try {
             List<SConnectorInstance> connectorInstances;
             int i = 0;
             do {
-                connectorInstances = connectorInstanceService.getConnectorInstances(containerId, containerType, i, i + BATCH_SIZE, null, null);
+                connectorInstances = connectorInstanceService.getConnectorInstances(containerId, containerType, i, i + BATCH_SIZE, "id", OrderByType.ASC);
                 i += BATCH_SIZE;
                 for (final SConnectorInstance sConnectorInstance : connectorInstances) {
                     connectorInstanceService.archiveConnectorInstance(sConnectorInstance, archiveDate);
@@ -143,247 +176,221 @@ public class ProcessArchiver {
         }
     }
 
-    private static void archiveProcessInstance(final SProcessInstance processInstance, final ArchiveService archiveService,
-            final ProcessInstanceService processInstanceService, final TechnicalLoggerService logger, final BPMInstanceBuilders instancesBuilders,
-            final SAProcessInstance saProcessInstance, final long archiveDate) throws SArchivingException {
+    private void archiveProcessInstance(final SProcessDefinition processDefinition, final SProcessInstance processInstance,
+            final SAProcessInstance saProcessInstance, final long archiveDate,
+            final ArchiveService archiveService, final ProcessInstanceService processInstanceService, final TechnicalLoggerService logger)
+                    throws SArchivingException {
         try {
             final ArchiveInsertRecord insertRecord = new ArchiveInsertRecord(saProcessInstance);
-            archiveService.recordInsert(archiveDate, insertRecord, getQueriableLog(instancesBuilders, ActionType.CREATED, "Archive the process instance")
-                    .done());
+            archiveService.recordInsert(archiveDate, insertRecord);
 
             if (logger.isLoggable(ProcessArchiver.class, TechnicalLogSeverity.DEBUG)) {
-                logger.log(ProcessArchiver.class, TechnicalLogSeverity.DEBUG, MessageFormat.format("archiving {0} with id {1} and state {2}", processInstance
-                        .getClass().getSimpleName(), processInstance.getId(), processInstance.getStateId()));
+                final StringBuilder builder = new StringBuilder();
+                builder.append("Archiving " + processInstance.getClass().getSimpleName());
+                builder.append("with id = <" + processInstance.getId() + ">");
+                logger.log(ProcessArchiver.class, TechnicalLogSeverity.DEBUG, MessageFormat.format(" and state {2}", processInstance.getStateId()));
             }
             try {
                 processInstanceService.deleteProcessInstance(processInstance.getId());
             } catch (final SBonitaException e) {
-                throw new SArchivingException("Unable to delete the process instance during the archiving", e);
+                throw new SArchivingException("Unable to delete the process instance during the archiving.", e);
             }
         } catch (final SRecorderException e) {
-            throw new SArchivingException("Unable to archive the process instance with id " + processInstance.getId(), e);
-        } catch (final SDefinitiveArchiveNotFound e) {
-            logger.log(ProcessArchiver.class, TechnicalLogSeverity.WARNING, "the process instance was not archived id=" + processInstance.getId(), e);
+            setExceptionContext(processDefinition, processInstance, e);
+            throw new SArchivingException("Unable to archive the process instance.", e);
         }
     }
 
-    private static void archiveDocumentMappings(final SProcessInstance processInstance, final DocumentMappingService documentMappingService,
-            final long archiveDate) throws SArchivingException {
-        List<SDocumentMapping> sDocumentMappings = null;
-        do {
-            try {
-                sDocumentMappings = documentMappingService.getDocumentMappingsForProcessInstance(processInstance.getId(), 0, BATCH_SIZE, null, null);
-            } catch (final SPageOutOfRangeException e1) {
-                throw new SArchivingException("Unable to archive the process instance with id " + processInstance.getId(), e1);
-            } catch (final SDocumentMappingException e1) {
-                throw new SArchivingException("Unable to archive the process instance with id " + processInstance.getId(), e1);
-            }
-            for (final SDocumentMapping sDocumentMapping : sDocumentMappings) {
-                try {
-                    documentMappingService.archive(sDocumentMapping, archiveDate);
-                } catch (final SDocumentMappingException e) {
-                    throw new SArchivingException("Unable to archive the process instance with id " + processInstance.getId(), e);
+    private void archiveDocumentMappings(final SProcessDefinition processDefinition, final SProcessInstance processInstance,
+            final DocumentService documentService, final long archiveDate) throws SArchivingException {
+        try {
+            List<SMappedDocument> mappedDocuments;
+            int startIndex = 0;
+            do {
+                mappedDocuments = documentService.getDocumentsOfProcessInstance(processInstance.getId(), startIndex, BATCH_SIZE, null, null);
+                for (final SMappedDocument mappedDocument : mappedDocuments) {
+                    documentService.archive(mappedDocument, archiveDate);
                 }
-            }
-        } while (sDocumentMappings.size() == BATCH_SIZE);
+                startIndex += BATCH_SIZE;
+            } while (mappedDocuments.size() == BATCH_SIZE);
+        } catch (final SBonitaException e) {
+            setExceptionContext(processDefinition, processInstance, e);
+            throw new SArchivingException("Unable to archive the process instance.", e);
+        }
     }
 
-    private static void archiveComments(final SProcessInstance processInstance, final ArchiveService archiveService, final TechnicalLoggerService logger,
-            final BPMInstanceBuilders instancesBuilders, final SCommentService commentService, final SACommentBuilder saCommentBuilder, final long archiveDate)
+    private void archiveComments(final SProcessDefinition processDefinition, final SProcessInstance processInstance,
+            final SCommentService commentService, final long archiveDate) throws SArchivingException {
+        try {
+            List<SComment> sComments;
+            int startIndex = 0;
+            do {
+                sComments = commentService
+                        .getComments(processInstance.getId(), new QueryOptions(startIndex, BATCH_SIZE, SComment.class, "id", OrderByType.ASC));
+                for (final SComment sComment : sComments) {
+                    commentService.archive(archiveDate, sComment);
+                }
+                startIndex += BATCH_SIZE;
+            } while (!sComments.isEmpty());
+        } catch (final SBonitaException e) {
+            setExceptionContext(processDefinition, processInstance, e);
+            throw new SArchivingException("Unable to archive the process instance comments.", e);
+        }
+    }
+
+    private void setExceptionContext(final SProcessDefinition processDefinition, final SProcessInstance processInstance,
+            final SBonitaException e) {
+        e.setProcessInstanceIdOnContext(processInstance.getId());
+        e.setRootProcessInstanceIdOnContext(processInstance.getRootProcessInstanceId());
+        e.setProcessDefinitionIdOnContext(processInstance.getProcessDefinitionId());
+        e.setProcessDefinitionNameOnContext(processDefinition.getName());
+        e.setProcessDefinitionVersionOnContext(processDefinition.getVersion());
+    }
+
+    private void archiveFlowNodeInstance(final SFlowNodeInstance flowNodeInstance, final ArchiveService archiveService, final long archiveDate)
             throws SArchivingException {
-        List<SComment> sComments = null;
         try {
-            sComments = commentService.getComments(processInstance.getId());
-        } catch (final SBonitaReadException e1) {
-            logger.log(ProcessArchiver.class, TechnicalLogSeverity.WARNING, "no process comment found for process. id=" + processInstance.getId(), e1);
-        }
-
-        if (sComments != null) {
-            for (final SComment sComment : sComments) {
-                final SAComment saComment = saCommentBuilder.createNewInstance(sComment).done();
-                if (saComment != null) {
-                    final ArchiveInsertRecord insertRecord = new ArchiveInsertRecord(saComment);
-                    try {
-                        archiveService.recordInsert(archiveDate, insertRecord,
-                                getQueriableLog(instancesBuilders, ActionType.CREATED, "archive the process comment").done());
-                    } catch (final SRecorderException e) {
-                        throw new SArchivingException("Unable to archive the process instance with id " + processInstance.getId(), e);
-                    } catch (final SDefinitiveArchiveNotFound e) {
-                        logger.log(ProcessArchiver.class, TechnicalLogSeverity.WARNING, "the process instance was not archived id=" + processInstance.getId(),
-                                e);
-                    }
-                }
+            final SAFlowNodeInstance saFlowNodeInstance = getArchivedObject(flowNodeInstance);
+            if (saFlowNodeInstance != null) {
+                final ArchiveInsertRecord insertRecord = new ArchiveInsertRecord(saFlowNodeInstance);
+                archiveService.recordInsert(archiveDate, insertRecord);
             }
+        } catch (final SBonitaException e) {
+            throw new SArchivingException(e);
         }
     }
 
-    private static void archiveDataInstances(final SProcessInstance processInstance, final ArchiveService archiveService,
-            final DataInstanceService dataInstanceService, final TechnicalLoggerService logger, final BPMInstanceBuilders instancesBuilders,
-            final SDataInstanceBuilders sDataInstanceBuilders, final long archiveDate) throws SArchivingException {
-        final int archiveBatchSize = 50;
-        int currentIndex = 0;
-        try {
-            List<SDataInstance> sDataInstances = dataInstanceService.getLocalDataInstances(processInstance.getId(),
-                    DataInstanceContainer.PROCESS_INSTANCE.toString(), currentIndex, archiveBatchSize);
+    private SAFlowNodeInstance getArchivedObject(final SFlowNodeInstance flowNodeInstance) {
+        SAFlowNodeInstance saFlowNodeInstance = null;
+        switch (flowNodeInstance.getType()) {// TODO archive other flow node
+            case AUTOMATIC_TASK:
+                saFlowNodeInstance = BuilderFactory.get(SAAutomaticTaskInstanceBuilderFactory.class)
+                        .createNewAutomaticTaskInstance((SAutomaticTaskInstance) flowNodeInstance).done();
+                break;
+            case GATEWAY:
+                saFlowNodeInstance = BuilderFactory.get(SAGatewayInstanceBuilderFactory.class)
+                        .createNewGatewayInstance((SGatewayInstance) flowNodeInstance).done();
+                break;
+            case MANUAL_TASK:
+                saFlowNodeInstance = BuilderFactory.get(SAManualTaskInstanceBuilderFactory.class)
+                        .createNewManualTaskInstance((SManualTaskInstance) flowNodeInstance).done();
+                break;
+            case USER_TASK:
+                saFlowNodeInstance = BuilderFactory.get(SAUserTaskInstanceBuilderFactory.class)
+                        .createNewUserTaskInstance((SUserTaskInstance) flowNodeInstance)
+                        .done();
+                break;
+            case RECEIVE_TASK:
+                saFlowNodeInstance = BuilderFactory.get(SAReceiveTaskInstanceBuilderFactory.class)
+                        .createNewReceiveTaskInstance((SReceiveTaskInstance) flowNodeInstance).done();
+                break;
+            case SEND_TASK:
+                saFlowNodeInstance = BuilderFactory.get(SASendTaskInstanceBuilderFactory.class)
+                        .createNewSendTaskInstance((SSendTaskInstance) flowNodeInstance)
+                        .done();
+                break;
+            case LOOP_ACTIVITY:
+                saFlowNodeInstance = BuilderFactory.get(SALoopActivityInstanceBuilderFactory.class)
+                        .createNewLoopActivityInstance((SLoopActivityInstance) flowNodeInstance).done();
+                break;
+            case CALL_ACTIVITY:
+                saFlowNodeInstance = BuilderFactory.get(SACallActivityInstanceBuilderFactory.class)
+                        .createNewArchivedCallActivityInstance((SCallActivityInstance) flowNodeInstance).done();
+                break;
+            case MULTI_INSTANCE_ACTIVITY:
+                saFlowNodeInstance = BuilderFactory.get(SAMultiInstanceActivityInstanceBuilderFactory.class)
+                        .createNewMultiInstanceActivityInstance((SMultiInstanceActivityInstance) flowNodeInstance).done();
+                break;
+            case SUB_PROCESS:
+                saFlowNodeInstance = BuilderFactory.get(SASubProcessActivityInstanceBuilderFactory.class)
+                        .createNewArchivedSubProcessActivityInstance((SSubProcessActivityInstance) flowNodeInstance).done();
+                break;
+            case END_EVENT:
+                // To uncomment if need to fix BS-11970
+                //                saFlowNodeInstance = BuilderFactory.get(SAEndEventInstanceBuilderFactory.class)
+                //                        .createNewArchivedEndEventInstance((SEndEventInstance) flowNodeInstance).done();
+                break;
+            case START_EVENT:
+                // To uncomment if need to fix BS-11970
+                //                saFlowNodeInstance = BuilderFactory.get(SAStartEventInstanceBuilderFactory.class)
+                //                        .createNewArchivedStartEventInstance((SStartEventInstance) flowNodeInstance).done();
+                break;
+            case BOUNDARY_EVENT:
+                break;
+            case INTERMEDIATE_CATCH_EVENT:
+                break;
+            case INTERMEDIATE_THROW_EVENT:
+                break;
+            default:
+                break;
+        }
+        return saFlowNodeInstance;
+    }
 
-            while (sDataInstances != null && sDataInstances.size() > 0) {
-                for (final SDataInstance sDataInstance : sDataInstances) {
-                    final SADataInstance saDataInstance = sDataInstanceBuilders.getSADataInstanceBuilder().createNewInstance(sDataInstance).done();
-                    if (saDataInstance != null) {
-                        final ArchiveInsertRecord insertRecord = new ArchiveInsertRecord(saDataInstance);
-                        try {
-                            archiveService.recordInsert(archiveDate, insertRecord,
-                                    getQueriableLog(instancesBuilders, ActionType.CREATED, "archive the data instance").done());
-                        } catch (final SRecorderException e) {
-                            throw new SArchivingException("Unable to archive the process instance with id " + processInstance.getId(), e);
-                        } catch (final SDefinitiveArchiveNotFound e) {
-                            logger.log(ProcessArchiver.class, TechnicalLogSeverity.WARNING,
-                                    "the process instance was not archived id=" + processInstance.getId(), e);
-                        }
-                    }
-                }
-                currentIndex += archiveBatchSize;
-                sDataInstances = dataInstanceService.getLocalDataInstances(processInstance.getId(), DataInstanceContainer.PROCESS_INSTANCE.toString(),
-                        currentIndex, archiveBatchSize);
+    private void deleteLocalDataInstancesFromActivityInstance(final SFlowNodeInstance flowNodeInstance, final DataInstanceService dataInstanceService)
+            throws SDataInstanceException {
+        List<SDataInstance> dataInstances;
+        do {
+            dataInstances = dataInstanceService.getLocalDataInstances(flowNodeInstance.getId(), DataInstanceContainer.ACTIVITY_INSTANCE.toString(), 0, 100);
+            for (final SDataInstance sDataInstance : dataInstances) {
+                dataInstanceService.deleteDataInstance(sDataInstance);
             }
-        } catch (final SDataInstanceException e) {
-            // /FIXME: improve data service to make difference between invalid container and container without data
-            logger.log(ProcessArchiver.class, TechnicalLogSeverity.WARNING, "no data instances found for process. id=" + processInstance.getId(), e);
-            // return;
-        }
+        } while (dataInstances.size() > 0);
     }
 
-    private static ProcessInstanceLogBuilder getQueriableLog(final BPMInstanceBuilders instancesBuilders, final ActionType actionType, final String message) {
-        final ProcessInstanceLogBuilder logBuilder = instancesBuilders.getProcessInstanceLogBuilder();
-        initializeLogBuilder(logBuilder, message);
-        updateLog(actionType, logBuilder);
-        return logBuilder;
-    }
-
-    private static <T extends SLogBuilder> void initializeLogBuilder(final T logBuilder, final String message) {
-        logBuilder.createNewInstance().actionStatus(SQueriableLog.STATUS_FAIL).severity(SQueriableLogSeverity.INTERNAL).rawMessage(message);
-    }
-
-    private static <T extends HasCRUDEAction> void updateLog(final ActionType actionType, final T logBuilder) {
-        logBuilder.setActionType(actionType);
-    }
-
-    private static void archiveFlowNodeInstance(final SFlowNodeInstance flowNodeInstance, final boolean deleteAfterArchive,
-            final ProcessInstanceService processInstanceService, final ArchiveService archiveService, final BPMInstanceBuilders bpmInstanceBuilders,
-            final DataInstanceService dataInstanceService, final SProcessDefinition processDefinition, final ActivityInstanceService activityInstanceService,
-            final ConnectorInstanceService connectorInstanceService) throws SActivityExecutionException {
+    public void archiveFlowNodeInstance(final SFlowNodeInstance intTxflowNodeInstance, final boolean deleteAfterArchive, final long processDefinitionId,
+            final ProcessInstanceService processInstanceService, final ProcessDefinitionService processDefinitionService, final ArchiveService archiveService,
+            final DataInstanceService dataInstanceService, final ActivityInstanceService activityInstanceService,
+            final ConnectorInstanceService connectorInstanceService, final ContractDataService contractDataService) throws SArchivingException {
         try {
+            final SProcessDefinition processDefinition = processDefinitionService.getProcessDefinition(processDefinitionId);
             final long archiveDate = System.currentTimeMillis();
             // Remove data instance + data visibility mapping
-            if (deleteAfterArchive && flowNodeInstance instanceof SActivityInstance) {
-                final SActivityDefinition activityDef = (SActivityDefinition) processDefinition.getProcessContainer().getFlowNode(
-                        flowNodeInstance.getFlowNodeDefinitionId());
-                // only do search for data instances with there are data definitions. Can be null if it's a manual data add at runtime
-                if (activityDef != null && !activityDef.getSDataDefinitions().isEmpty()) {
-                    try {
+            if (deleteAfterArchive) {
+                if (intTxflowNodeInstance instanceof SActivityInstance) {
+                    final SActivityDefinition activityDef = (SActivityDefinition) processDefinition.getProcessContainer().getFlowNode(
+                            intTxflowNodeInstance.getFlowNodeDefinitionId());
+                    // only do search for data instances with there are data definitions. Can be null if it's a manual data add at runtime
+                    if (activityDef != null && !activityDef.getSDataDefinitions().isEmpty()) {
                         /*
                          * Delete data instances defined at activity level:
                          * We do not archive because it's done after update not before update
                          */
-                        List<SDataInstance> dataInstances;
-                        do {
-                            dataInstances = dataInstanceService.getLocalDataInstances(flowNodeInstance.getId(),
-                                    DataInstanceContainer.ACTIVITY_INSTANCE.toString(), 0, QueryOptions.DEFAULT_NUMBER_OF_RESULTS);
-                            for (final SDataInstance sDataInstance : dataInstances) {
-                                dataInstanceService.deleteDataInstance(sDataInstance);
-                            }
-                        } while (dataInstances != null && dataInstances.size() > 0);
-                        dataInstanceService.removeContainer(flowNodeInstance.getId(), DataInstanceContainer.ACTIVITY_INSTANCE.toString());
-                    } catch (final SDataInstanceException e) {
-                        throw new SActivityExecutionException(e);
+                        deleteLocalDataInstancesFromActivityInstance(intTxflowNodeInstance, dataInstanceService);
+                    }
+
+                    if (activityDef != null && !activityDef.getConnectors().isEmpty()) {
+                        archiveConnectors(connectorInstanceService, archiveDate, intTxflowNodeInstance.getId(), SConnectorInstance.FLOWNODE_TYPE);
                     }
                 }
-
-                if (activityDef != null && !activityDef.getConnectors().isEmpty()) {
-                    archiveConnectors(connectorInstanceService, archiveDate, flowNodeInstance.getId(), SConnectorInstance.FLOWNODE_TYPE);
+                if (intTxflowNodeInstance instanceof SUserTaskInstance) {
+                    archiveContractData(contractDataService, archiveDate, intTxflowNodeInstance.getId());
                 }
-            }
-            // then archive the flownode instance:
-            SAFlowNodeInstance saFlowNodeInstance = null;
-            switch (flowNodeInstance.getType()) {// TODO archive other flow node
-                case AUTOMATIC_TASK:
-                    saFlowNodeInstance = bpmInstanceBuilders.getSAAutomaticTaskInstanceBuilder()
-                            .createNewAutomaticTaskInstance((SAutomaticTaskInstance) flowNodeInstance).done();
-                    break;
-                case GATEWAY:
-                    saFlowNodeInstance = bpmInstanceBuilders.getSAGatewayInstanceBuilder().createNewGatewayInstance((SGatewayInstance) flowNodeInstance).done();
-                    break;
-                case MANUAL_TASK:
-                    saFlowNodeInstance = bpmInstanceBuilders.getSAManualTaskInstanceBuilder()
-                            .createNewManualTaskInstance((SManualTaskInstance) flowNodeInstance).done();
-                    break;
-                case USER_TASK:
-                    saFlowNodeInstance = bpmInstanceBuilders.getSAUserTaskInstanceBuilder().createNewUserTaskInstance((SUserTaskInstance) flowNodeInstance)
-                            .done();
-                    break;
-                case RECEIVE_TASK:
-                    saFlowNodeInstance = bpmInstanceBuilders.getSAReceiveTaskInstanceBuilder()
-                            .createNewReceiveTaskInstance((SReceiveTaskInstance) flowNodeInstance).done();
-                    break;
-                case SEND_TASK:
-                    saFlowNodeInstance = bpmInstanceBuilders.getSASendTaskInstanceBuilder().createNewSendTaskInstance((SSendTaskInstance) flowNodeInstance)
-                            .done();
-                    break;
-                case LOOP_ACTIVITY:
-                    saFlowNodeInstance = bpmInstanceBuilders.getSALoopActivitynstanceBuilder()
-                            .createNewLoopActivityInstance((SLoopActivityInstance) flowNodeInstance).done();
-                    break;
-                case CALL_ACTIVITY:
-                    saFlowNodeInstance = bpmInstanceBuilders.getSACallActivityInstanceBuilder()
-                            .createNewArchivedCallActivityInstance((SCallActivityInstance) flowNodeInstance).done();
-                    break;
-                case MULTI_INSTANCE_ACTIVITY:
-                    saFlowNodeInstance = bpmInstanceBuilders.getSAMultiInstanceActivitynstanceBuilder()
-                            .createNewMultiInstanceActivityInstance((SMultiInstanceActivityInstance) flowNodeInstance).done();
-                    break;
-                case SUB_PROCESS:
-                    saFlowNodeInstance = bpmInstanceBuilders.getSASubProcessActivityInstanceBuilder()
-                            .createNewArchivedSubProcessActivityInstance((SSubProcessActivityInstance) flowNodeInstance).done();
-                    break;
-                case END_EVENT:
-                    break;
-                case START_EVENT:
-                    break;
-                case BOUNDARY_EVENT:
-                    break;
-                case INTERMEDIATE_CATCH_EVENT:
-                    break;
-                case INTERMEDIATE_THROW_EVENT:
-                    break;
-                default:
-                    break;
-            }
-            if (saFlowNodeInstance != null) {
-                final ArchiveInsertRecord insertRecord = new ArchiveInsertRecord(saFlowNodeInstance);
-                archiveService.recordInsert(archiveDate, insertRecord,
-                        getQueriableLog(bpmInstanceBuilders, ActionType.CREATED, "archive the activity instance").done());
-            }
-            if (deleteAfterArchive) {
+
+                // then archive the flow node instance:
+                archiveFlowNodeInstance(intTxflowNodeInstance, archiveService, archiveDate);
+
                 // Reconnect the persisted object before deleting it:
-                final SFlowNodeInstance flowNodeInstance2 = activityInstanceService.getFlowNodeInstance(flowNodeInstance.getId());
+                final SFlowNodeInstance flowNodeInstance2 = activityInstanceService.getFlowNodeInstance(intTxflowNodeInstance.getId());
                 processInstanceService.deleteFlowNodeInstance(flowNodeInstance2, processDefinition);
+            } else {
+                archiveFlowNodeInstance(intTxflowNodeInstance, archiveService, archiveDate);
             }
+        } catch (final SArchivingException e) {
+            throw e;
         } catch (final SBonitaException e) {
-            throw new SActivityExecutionException(e);
+            throw new SArchivingException(e);
+        }
+
+    }
+
+    private void archiveContractData(final ContractDataService contractDataService, final long archiveDate, final long userTaskId)
+            throws SArchivingException {
+        try {
+            contractDataService.archiveAndDeleteUserTaskData(userTaskId, archiveDate);
+        } catch (final SBonitaException e) {
+            throw new SArchivingException("Unable to archive contract data of container instance with id " + userTaskId, e);
         }
     }
 
-    public static void archiveFlowNodeInstance(final SFlowNodeInstance intTxflowNodeInstance, final boolean deleteAfterArchive, final long processDefinitionId,
-            final ProcessInstanceService processInstanceService, final ProcessDefinitionService processDefinitionService, final ArchiveService archiveService,
-            final BPMInstanceBuilders bpmInstanceBuilders, final DataInstanceService dataInstanceService,
-            final ActivityInstanceService activityInstanceService, final ConnectorInstanceService connectorInstanceService) throws SActivityExecutionException {
-        final SProcessDefinition processDefinition;
-        try {
-            processDefinition = processDefinitionService.getProcessDefinition(processDefinitionId);
-        } catch (final SBonitaException e) {
-            throw new SActivityExecutionException(e);
-        }
-        archiveFlowNodeInstance(intTxflowNodeInstance, deleteAfterArchive, processInstanceService, archiveService, bpmInstanceBuilders, dataInstanceService,
-                processDefinition, activityInstanceService, connectorInstanceService);
-    }
 }

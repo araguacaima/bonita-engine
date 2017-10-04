@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,10 +14,11 @@
 package org.bonitasoft.engine.core.operation.impl;
 
 import org.bonitasoft.engine.core.expression.control.model.SExpressionContext;
+import org.bonitasoft.engine.core.operation.OperationExecutorStrategy;
 import org.bonitasoft.engine.core.operation.exception.SOperationExecutionException;
+import org.bonitasoft.engine.core.operation.model.SLeftOperand;
 import org.bonitasoft.engine.core.operation.model.SOperation;
-import org.bonitasoft.engine.data.instance.api.DataInstanceService;
-import org.bonitasoft.engine.data.instance.model.builder.SDataInstanceBuilders;
+import org.bonitasoft.engine.core.operation.model.SOperatorType;
 
 /**
  * AssignmentOperationExecutorStrategy is the default Bonita strategy to execute data assignment operations
@@ -27,29 +28,21 @@ import org.bonitasoft.engine.data.instance.model.builder.SDataInstanceBuilders;
  * @author Baptiste Mesta
  * @author Matthieu Chaffotte
  */
-public class AssignmentOperationExecutorStrategy extends UpdateOperationExecutorStrategy {
-
-    /**
-     * The Operation type of this strategy, as a String
-     */
-    public static final String TYPE_ASSIGNMENT = "ASSIGNMENT";
+public class AssignmentOperationExecutorStrategy implements OperationExecutorStrategy {
 
     /**
      * Builds a new AssignmentOperationExecutorStrategy, which is the strategy to execute data assignment operations
-     * 
-     * @param dataInstanceService
-     *            how to access to the data
-     * @param sDataInstanceBuilders
-     *            <code>SDataInstanceBuilders</code> to build the updateDescriptor when updating the data
      */
-    public AssignmentOperationExecutorStrategy(final DataInstanceService dataInstanceService, final SDataInstanceBuilders sDataInstanceBuilders) {
-        super(dataInstanceService, sDataInstanceBuilders);
+    public AssignmentOperationExecutorStrategy() {
     }
 
     @Override
-    public Object getValue(final SOperation operation, final Object value, final long containerId, final String containerType,
-            final SExpressionContext expressionContext) throws SOperationExecutionException {
-        checkReturnType(value, operation, expressionContext);
+    public Object computeNewValueForLeftOperand(final SOperation operation, final Object value, final SExpressionContext expressionContext,
+            final boolean shouldPersistValue) throws SOperationExecutionException {
+        // do not check if value is external, see ENGINE-1739
+        if (operation.getLeftOperand().getType().equals(SLeftOperand.TYPE_DATA)) {
+            checkReturnType(value, operation, expressionContext);
+        }
         // no processing on the value, just return it
         return value;
     }
@@ -60,15 +53,15 @@ public class AssignmentOperationExecutorStrategy extends UpdateOperationExecutor
             final String name = operation.getLeftOperand().getName();
             final Object object = expressionContext.getInputValues().get(name);
             /*
-             * if the object is null (data is not initialised) the return type is not checked
+             * if the object is null (data is not initialized) the return type is not checked
              * but the data instance service should throw an exception
              */
             if (object != null) {
                 final Class<?> dataEffectiveType = object.getClass();
                 final Class<?> evaluatedReturnedType = value.getClass();
-                if (!dataEffectiveType.isAssignableFrom(evaluatedReturnedType)) {
-                    throw new SOperationExecutionException("Incompatible assignment operation type: Left operand " + dataEffectiveType +
-                            " is not compatible with right operand " + evaluatedReturnedType + " for expression with name '" + expressionContext + "'");
+                if (!(dataEffectiveType.isAssignableFrom(evaluatedReturnedType) || dataEffectiveType.equals(evaluatedReturnedType))) {
+                    throw new SOperationExecutionException("Incompatible assignment operation type: Left operand " + dataEffectiveType
+                            + " is not compatible with right operand " + evaluatedReturnedType + " for expression with name '" + expressionContext + "'");
                 }
             }
         }
@@ -76,6 +69,12 @@ public class AssignmentOperationExecutorStrategy extends UpdateOperationExecutor
 
     @Override
     public String getOperationType() {
-        return TYPE_ASSIGNMENT;
+        return SOperatorType.ASSIGNMENT.name();
     }
+
+    @Override
+    public boolean shouldPersistOnNullValue() {
+        return false;
+    }
+
 }

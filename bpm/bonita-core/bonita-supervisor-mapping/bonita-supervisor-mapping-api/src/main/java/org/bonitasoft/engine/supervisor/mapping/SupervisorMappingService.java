@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,7 +17,6 @@ import java.util.List;
 
 import org.bonitasoft.engine.persistence.QueryOptions;
 import org.bonitasoft.engine.persistence.SBonitaReadException;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
 import org.bonitasoft.engine.supervisor.mapping.model.SProcessSupervisor;
 
 /**
@@ -33,59 +32,58 @@ public interface SupervisorMappingService {
 
     /**
      * Create supervisor in DB according to the given supervisor
-     * 
+     *
      * @param supervisor
-     *            a SSupervisor object
+     *        a SSupervisor object
      * @return the new created supervisor
-     * @throws SSupervisorAlreadyExistsException
      * @throws SSupervisorCreationException
      */
-    SProcessSupervisor createSupervisor(SProcessSupervisor supervisor) throws SSupervisorAlreadyExistsException, SSupervisorCreationException;
+    SProcessSupervisor createProcessSupervisor(SProcessSupervisor supervisor) throws SSupervisorCreationException;
 
     /**
      * get supervisor without display name by its id
-     * 
+     *
      * @param supervisorId
-     *            identifier of supervisor
+     *        identifier of supervisor
      * @return the supervisor with id equals the parameter
      * @throws SSupervisorNotFoundException
      */
-    SProcessSupervisor getSupervisor(long supervisorId) throws SSupervisorNotFoundException;
+    SProcessSupervisor getProcessSupervisor(long supervisorId) throws SSupervisorNotFoundException;
 
     /**
      * Delete the id specified supervisor
-     * 
+     *
      * @param supervisorId
-     *            identifier of supervisor
+     *        identifier of supervisor
      * @throws SSupervisorNotFoundException
      * @throws SSupervisorDeletionException
      */
-    void deleteSupervisor(long supervisorId) throws SSupervisorNotFoundException, SSupervisorDeletionException;
+    void deleteProcessSupervisor(long supervisorId) throws SSupervisorNotFoundException, SSupervisorDeletionException;
 
     /**
      * Delete the specific supervisor
-     * 
+     *
      * @param supervisor
-     *            the supervisor will be deleted
+     *        the supervisor will be deleted
      * @throws SSupervisorDeletionException
      */
-    void deleteSupervisor(SProcessSupervisor supervisor) throws SSupervisorDeletionException;
+    void deleteProcessSupervisor(SProcessSupervisor supervisor) throws SSupervisorDeletionException;
 
     /**
      * Delete all supervisors for the connected tenant
-     * 
+     *
      * @throws SSupervisorDeletionException
      * @since 6.1
      */
-    void deleteAllSupervisors() throws SSupervisorDeletionException;
+    void deleteAllProcessSupervisors() throws SSupervisorDeletionException;
 
     /**
      * Verify if the id specified user is the supervisor of id specified process definition
-     * 
+     *
      * @param processDefinitionId
-     *            identifier of process definition
+     *        identifier of process definition
      * @param userId
-     *            identifier of user
+     *        identifier of user
      * @return true if user is supervisor of the process, false otherwise
      * @throws SBonitaReadException
      */
@@ -93,22 +91,22 @@ public interface SupervisorMappingService {
 
     /**
      * Search all supervisors suit to the specific criteria
-     * 
+     *
      * @param queryOptions
-     *            The QueryOptions object containing some query conditions
+     *        The QueryOptions object containing some query conditions
      * @return a list of SSupervisor objects
-     * @throws SBonitaSearchException
+     * @throws SBonitaReadException
      */
-    List<SProcessSupervisor> searchProcessDefSupervisors(QueryOptions queryOptions) throws SBonitaSearchException;
+    List<SProcessSupervisor> searchProcessSupervisors(QueryOptions queryOptions) throws SBonitaReadException;
 
     /**
      * Get total number of supervisors suit to the specific criteria
-     * 
+     *
      * @param searchOptions
-     *            The QueryOptions object containing some query conditions
+     *        The QueryOptions object containing some query conditions
      * @return a list of SSupervisor objects
-     * @throws SBonitaSearchException
+     * @throws SBonitaReadException
      */
-    long getNumberOfProcessDefSupervisors(QueryOptions searchOptions) throws SBonitaSearchException;
+    long getNumberOfProcessSupervisors(QueryOptions searchOptions) throws SBonitaReadException;
 
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -15,6 +15,7 @@ package org.bonitasoft.engine.operation;
 
 import java.io.Serializable;
 
+import org.bonitasoft.engine.bpm.process.Visitable;
 import org.bonitasoft.engine.expression.Expression;
 
 /**
@@ -28,13 +29,16 @@ import org.bonitasoft.engine.expression.Expression;
  * @author Zhang Bole
  * @author Emmanuel Duchastenier
  */
-public interface Operation extends Serializable {
+public interface Operation extends Serializable, Visitable, Cloneable {
 
     /**
      * @return the <code>LeftOperand</code> of this <code>Operation</code>, representing what entity will be set after execution.
      */
     LeftOperand getLeftOperand();
 
+    /**
+     * @deprecated As of 6.0 replaced by {@link #getLeftOperand()}
+     */
     @Deprecated
     LeftOperand getVariableToSet();
 
@@ -52,5 +56,7 @@ public interface Operation extends Serializable {
      * @return the right operand <code>Expression</code> to be evaluated before executing the operation
      */
     Expression getRightOperand();
+
+    Operation copy();
 
 }

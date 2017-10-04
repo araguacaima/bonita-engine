@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,25 +17,54 @@ import org.bonitasoft.engine.bpm.BaseElement;
 import org.bonitasoft.engine.bpm.NamedElement;
 
 /**
+ * Represents a connector, once instanciated by the containinig activity or process at runtime.
+ * 
  * @author Baptiste Mesta
  * @author Matthieu Chaffotte
+ * @author Celine Souchet
  */
 public interface ConnectorInstance extends NamedElement, BaseElement {
 
+    /**
+     * 
+     */
     String FLOWNODE_TYPE = "flowNode";
 
+    /**
+     * 
+     */
     String PROCESS_TYPE = "process";
 
+    /**
+     * @return The identifier of the containing element (process or activity)
+     */
     long getContainerId();
 
+    /**
+     * @return The type of the connector container (PROCESS or ACTIVITY)
+     */
     String getContainerType();
 
+    /**
+     * @return The identifier of the connector.
+     */
     String getConnectorId();
 
+    /**
+     * @return the version of the connector.
+     */
     String getVersion();
 
+    /**
+     * @return where this connector should be activated.
+     * @see ConnectorEvent
+     */
     ConnectorEvent getActivationEvent();
 
+    /**
+     * @return the state of the connector ({@link ConnectorState#TO_BE_EXECUTED} before the first execution)
+     * @see ConnectorState
+     */
     ConnectorState getState();
 
 }

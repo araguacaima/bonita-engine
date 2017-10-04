@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,9 +19,10 @@ import java.util.Map;
 import java.util.Set;
 
 import org.bonitasoft.engine.bpm.flownode.FlowNodeInstanceSearchDescriptor;
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance;
-import org.bonitasoft.engine.core.process.instance.model.builder.BPMInstanceBuilders;
-import org.bonitasoft.engine.core.process.instance.model.builder.SFlowNodeInstanceBuilder;
+import org.bonitasoft.engine.core.process.instance.model.builder.SFlowNodeInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.builder.SUserTaskInstanceBuilderFactory;
 import org.bonitasoft.engine.persistence.PersistentObject;
 
 /**
@@ -33,29 +34,31 @@ public class SearchFlowNodeInstanceDescriptor extends SearchEntityDescriptor {
 
     private final Map<Class<? extends PersistentObject>, Set<String>> flowNodeInstanceDescriptorAllFields;
 
-    public SearchFlowNodeInstanceDescriptor(final BPMInstanceBuilders bpmInstanceBuilders) {
-        final SFlowNodeInstanceBuilder flowNodeKeyProvider = bpmInstanceBuilders.getSUserTaskInstanceBuilder();
+    public SearchFlowNodeInstanceDescriptor() {
+        final SFlowNodeInstanceBuilderFactory keyProvider = BuilderFactory.get(SUserTaskInstanceBuilderFactory.class);
         flowNodeInstanceDescriptorKeys = new HashMap<String, FieldDescriptor>(8);
         flowNodeInstanceDescriptorKeys.put(FlowNodeInstanceSearchDescriptor.NAME,
-                new FieldDescriptor(SFlowNodeInstance.class, flowNodeKeyProvider.getNameKey()));
+                new FieldDescriptor(SFlowNodeInstance.class, keyProvider.getNameKey()));
         flowNodeInstanceDescriptorKeys.put(FlowNodeInstanceSearchDescriptor.STATE_NAME,
-                new FieldDescriptor(SFlowNodeInstance.class, flowNodeKeyProvider.getStateNameKey()));
+                new FieldDescriptor(SFlowNodeInstance.class, keyProvider.getStateNameKey()));
         flowNodeInstanceDescriptorKeys.put(FlowNodeInstanceSearchDescriptor.PROCESS_DEFINITION_ID, new FieldDescriptor(SFlowNodeInstance.class,
-                flowNodeKeyProvider.getProcessDefinitionKey()));
+                keyProvider.getProcessDefinitionKey()));
         flowNodeInstanceDescriptorKeys.put(FlowNodeInstanceSearchDescriptor.PARENT_PROCESS_INSTANCE_ID, new FieldDescriptor(SFlowNodeInstance.class,
-                flowNodeKeyProvider.getParentProcessInstanceKey()));
+                keyProvider.getParentProcessInstanceKey()));
         flowNodeInstanceDescriptorKeys.put(FlowNodeInstanceSearchDescriptor.PARENT_ACTIVITY_INSTANCE_ID, new FieldDescriptor(SFlowNodeInstance.class,
-                flowNodeKeyProvider.getParentActivityInstanceKey()));
+                keyProvider.getParentActivityInstanceKey()));
         flowNodeInstanceDescriptorKeys.put(FlowNodeInstanceSearchDescriptor.ROOT_PROCESS_INSTANCE_ID, new FieldDescriptor(SFlowNodeInstance.class,
-                flowNodeKeyProvider.getRootProcessInstanceKey()));
+                keyProvider.getRootProcessInstanceKey()));
         flowNodeInstanceDescriptorKeys.put(FlowNodeInstanceSearchDescriptor.DISPLAY_NAME,
-                new FieldDescriptor(SFlowNodeInstance.class, flowNodeKeyProvider.getDisplayNameKey()));
+                new FieldDescriptor(SFlowNodeInstance.class, keyProvider.getDisplayNameKey()));
         flowNodeInstanceDescriptorKeys.put(FlowNodeInstanceSearchDescriptor.STATE_CATEGORY,
-                new FieldDescriptor(SFlowNodeInstance.class, flowNodeKeyProvider.getStateCategoryKey()));
+                new FieldDescriptor(SFlowNodeInstance.class, keyProvider.getStateCategoryKey()));
+        flowNodeInstanceDescriptorKeys.put(FlowNodeInstanceSearchDescriptor.LAST_UPDATE_DATE,
+                new FieldDescriptor(SFlowNodeInstance.class, keyProvider.getLastUpdateDateKey()));
 
         final Set<String> tasksInstanceFields = new HashSet<String>(2);
-        tasksInstanceFields.add(flowNodeKeyProvider.getNameKey());
-        tasksInstanceFields.add(flowNodeKeyProvider.getDisplayNameKey());
+        tasksInstanceFields.add(keyProvider.getNameKey());
+        tasksInstanceFields.add(keyProvider.getDisplayNameKey());
         flowNodeInstanceDescriptorAllFields = new HashMap<Class<? extends PersistentObject>, Set<String>>(1);
         flowNodeInstanceDescriptorAllFields.put(SFlowNodeInstance.class, tasksInstanceFields);
     }

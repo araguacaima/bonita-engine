@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -34,12 +34,29 @@ public class ActivityInstanceSearchDescriptor {
 
     public static final String PROCESS_INSTANCE_ID = "processInstanceId";
 
+    public static final String PARENT_PROCESS_INSTANCE_ID = "parentProcessInstanceId";
+
     public static final String PARENT_ACTIVITY_INSTANCE_ID = "parentActivityInstanceId";
 
     public static final String PARENT_CONTAINER_ID = "parentContainerId";
 
     public static final String DISPLAY_NAME = "displayName";
 
+    /**
+     * Use this field to match a specific type of flow node. <br>
+     * Activity type filter can only be used once per query. <br>
+     * Example of invalid query:<br>
+     *          <ul>
+     *              <li>
+     *                  .leftParenthesis()
+     *                  .filter(ActivityInstanceSearchDescriptor.ACTIVITY_TYPE, FlowNodeType.USER_TASK)
+     *                  .or()
+     *                  .filter(ActivityInstanceSearchDescriptor.ACTIVITY_TYPE, FlowNodeType.HUMAN_TASK)
+     *                  .rightParenthesis()
+     *                  .done();
+     *              </li>
+     *          </ul>
+     */
     public static final String ACTIVITY_TYPE = "activityType";
 
     public static final String LAST_MODIFICATION_DATE = "lastUpdateDate";

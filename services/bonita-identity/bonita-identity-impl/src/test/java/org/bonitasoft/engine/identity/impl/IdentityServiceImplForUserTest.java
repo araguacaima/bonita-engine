@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,65 +13,120 @@
  **/
 package org.bonitasoft.engine.identity.impl;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.*;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
 import org.bonitasoft.engine.events.EventService;
+import org.bonitasoft.engine.events.model.SDeleteEvent;
+import org.bonitasoft.engine.events.model.SInsertEvent;
+import org.bonitasoft.engine.events.model.SUpdateEvent;
 import org.bonitasoft.engine.identity.SIdentityException;
 import org.bonitasoft.engine.identity.SUserNotFoundException;
-import org.bonitasoft.engine.identity.impl.IdentityServiceImpl;
 import org.bonitasoft.engine.identity.model.SUser;
+import org.bonitasoft.engine.identity.model.builder.SUserLogBuilder;
+import org.bonitasoft.engine.identity.model.impl.SIconImpl;
+import org.bonitasoft.engine.identity.model.impl.SUserImpl;
 import org.bonitasoft.engine.identity.recorder.SelectDescriptorBuilder;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
 import org.bonitasoft.engine.persistence.QueryOptions;
 import org.bonitasoft.engine.persistence.ReadPersistenceService;
 import org.bonitasoft.engine.persistence.SBonitaReadException;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
+import org.bonitasoft.engine.persistence.SelectListDescriptor;
 import org.bonitasoft.engine.persistence.SelectOneDescriptor;
+import org.bonitasoft.engine.queriablelogger.model.SQueriableLog;
+import org.bonitasoft.engine.queriablelogger.model.builder.ActionType;
 import org.bonitasoft.engine.recorder.Recorder;
+import org.bonitasoft.engine.recorder.SRecorderException;
+import org.bonitasoft.engine.recorder.model.DeleteRecord;
+import org.bonitasoft.engine.recorder.model.EntityUpdateDescriptor;
+import org.bonitasoft.engine.recorder.model.InsertRecord;
+import org.bonitasoft.engine.recorder.model.UpdateRecord;
+import org.bonitasoft.engine.services.QueriableLoggerService;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyZeroInteractions;
-import static org.mockito.Mockito.when;
-import static org.mockito.Matchers.any;
-
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InjectMocks;
+import org.mockito.Matchers;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.stubbing.Answer;
 
 /**
  * @author Matthieu Chaffotte
  * @author Celine Souchet
  */
+@RunWith(MockitoJUnitRunner.class)
 public class IdentityServiceImplForUserTest {
 
+    public static final long USER_ID = 6543L;
+    public static final long ICON_ID = 5247890L;
+    public static final long NEW_ICON_ID = 4328976L;
+    @Mock
+    private CredentialsEncrypter encrypter;
     @Mock
     private Recorder recorder;
-
     @Mock
     private ReadPersistenceService persistenceService;
-
     @Mock
     private EventService eventService;
-
     @Mock
     private TechnicalLoggerService logger;
-
+    @Spy
     @InjectMocks
     private IdentityServiceImpl identityServiceImpl;
+    @Captor
+    private ArgumentCaptor<InsertRecord> insertRecordArgumentCaptor;
+    @Captor
+    private ArgumentCaptor<UpdateRecord> updateRecordArgumentCaptor;
+    @Captor
+    private ArgumentCaptor<DeleteRecord> deleteRecordArgumentCaptor;
+    @Mock
+    private SUserLogBuilder sUserLogBuilder;
+    @Mock
+    private SQueriableLog log;
+    @Mock
+    private QueriableLoggerService queriableLoggerService;
 
     @Before
-    public void setUp() throws Exception {
-        MockitoAnnotations.initMocks(this);
+    public void setUp() throws SRecorderException {
+        doReturn(sUserLogBuilder).when(identityServiceImpl).getUserLog(any(ActionType.class), anyString());
+        doReturn(log).when(sUserLogBuilder).done();
+        SIconImpl newIcon = new SIconImpl("", null);
+        newIcon.setId(NEW_ICON_ID);
+        doAnswer(new Answer() {
+
+            @Override
+            public Void answer(InvocationOnMock invocation) throws Throwable {
+                ((InsertRecord) invocation.getArguments()[0]).getEntity().setId(NEW_ICON_ID);
+                return null;
+            }
+        }).when(recorder).recordInsert(argThat(new BaseMatcher<InsertRecord>() {
+
+            @Override
+            public void describeTo(Description description) {
+            }
+
+            @Override
+            public boolean matches(Object item) {
+                return item instanceof InsertRecord && ((InsertRecord) item).getEntity() instanceof SIconImpl;
+            }
+        }), any(SInsertEvent.class));
     }
 
     /**
@@ -79,7 +134,7 @@ public class IdentityServiceImplForUserTest {
      */
     @Test
     public void getNumberOfUsers() throws Exception {
-        when(persistenceService.selectOne(any(SelectOneDescriptor.class))).thenReturn(1L);
+        when(persistenceService.selectOne(Matchers.<SelectOneDescriptor<Long>> any())).thenReturn(1L);
         Assert.assertEquals(1L, identityServiceImpl.getNumberOfUsers());
 
         verifyZeroInteractions(recorder);
@@ -87,7 +142,7 @@ public class IdentityServiceImplForUserTest {
 
     @Test(expected = SIdentityException.class)
     public void getNumberOfUsersThrowException() throws Exception {
-        when(persistenceService.selectOne(any(SelectOneDescriptor.class))).thenThrow(new SBonitaReadException(""));
+        when(persistenceService.selectOne(Matchers.<SelectOneDescriptor<SUser>> any())).thenThrow(new SBonitaReadException(""));
         identityServiceImpl.getNumberOfUsers();
     }
 
@@ -102,7 +157,7 @@ public class IdentityServiceImplForUserTest {
         Assert.assertEquals(1L, identityServiceImpl.getNumberOfUsers(options));
     }
 
-    @Test(expected = SBonitaSearchException.class)
+    @Test(expected = SBonitaReadException.class)
     public void getNumberOfUsersWithOptionsThrowException() throws Exception {
         final QueryOptions options = new QueryOptions(0, 10);
 
@@ -225,10 +280,38 @@ public class IdentityServiceImplForUserTest {
     @SuppressWarnings("unchecked")
     @Test(expected = SUserNotFoundException.class)
     public void getUsersByIdsThrowException() throws Exception {
-        when(persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(SUser.class, "User", any(Collection.class))))
-                .thenThrow(SBonitaReadException.class);
+        when(persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(SUser.class, "User", any(Collection.class)))).thenThrow(
+                new SBonitaReadException("plop"));
 
-        assertTrue(identityServiceImpl.getUsers(Arrays.asList(1l)).isEmpty());
+        identityServiceImpl.getUsers(Arrays.asList(1l));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void getUsersByNames() throws Exception {
+        final SUser sUser1 = mock(SUser.class);
+        final SUser sUser2 = mock(SUser.class);
+        final List<SUser> users = Arrays.asList(sUser1, sUser2);
+        final List<String> names = Arrays.asList("matti", "marja", "taina");
+        when(persistenceService.selectList(any(SelectListDescriptor.class))).thenReturn(users);
+        Assert.assertEquals(users, identityServiceImpl.getUsersByUsername(names));
+    }
+
+    @Test
+    public void getUsersByNullNames() throws Exception {
+        assertTrue(identityServiceImpl.getUsersByUsername(null).isEmpty());
+    }
+
+    @Test
+    public void getUsersByEmptyNames() throws Exception {
+        assertTrue(identityServiceImpl.getUsersByUsername(Collections.<String> emptyList()).isEmpty());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test(expected = SIdentityException.class)
+    public void getUsersByNamesThrowException() throws Exception {
+        when(persistenceService.selectList(any(SelectListDescriptor.class))).thenThrow(new SBonitaReadException("plop"));
+        identityServiceImpl.getUsersByUsername(Arrays.asList("hannu"));
     }
 
     /**
@@ -243,193 +326,125 @@ public class IdentityServiceImplForUserTest {
         assertEquals(user, identityServiceImpl.searchUsers(options).get(0));
     }
 
-    @Test(expected = SBonitaSearchException.class)
-    public void searchUsersThrowException() throws SBonitaSearchException, SBonitaReadException {
+    @Test(expected = SBonitaReadException.class)
+    public void searchUsersThrowException() throws SBonitaReadException {
         final QueryOptions options = new QueryOptions(0, 10);
         doThrow(new SBonitaReadException("")).when(persistenceService).searchEntity(SUser.class, options, null);
 
         identityServiceImpl.searchUsers(options).get(0);
     }
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#chechCredentials(org.bonitasoft.engine.identity.model.SUser, java.lang.String)}.
-     */
     @Test
-    public final void chechCredentials() {
-        // TODO : Not yet implemented
+    public void should_createUser_create_the_icon() throws Exception {
+        //given
+        SUserImpl sUser = new SUserImpl();
+        sUser.setId(6543L);
+
+        //when
+        SUser user = identityServiceImpl.createUser(sUser, null, null, "test.jpg", "iconContent".getBytes());
+        //then
+        verify(recorder, times(3)).recordInsert(insertRecordArgumentCaptor.capture(), any(SInsertEvent.class));
+        SIconImpl sIcon = new SIconImpl("image/jpeg", "iconContent".getBytes());
+        sIcon.setId(NEW_ICON_ID);
+        assertThat(insertRecordArgumentCaptor.getAllValues()).extracting("entity")
+                .hasSize(3)
+                .contains(sIcon);
     }
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#createUserWithoutEncryptingPassword(org.bonitasoft.engine.identity.model.SUser)}.
-     */
     @Test
-    public final void createUserWithoutEncryptingPassword() {
-        // TODO : Not yet implemented
+    public void should_updateUser_create_the_icon_if_it_does_not_exists() throws Exception {
+        //given
+        haveUser();
+
+        //when
+        EntityUpdateDescriptor iconUpdateDescriptor = new EntityUpdateDescriptor();
+        iconUpdateDescriptor.addField("filename", "theNewIcon.gif");
+        iconUpdateDescriptor.addField("content", "theContent".getBytes());
+        identityServiceImpl.updateUser(USER_ID, new EntityUpdateDescriptor(), null, null, iconUpdateDescriptor);
+        //then
+        verify(recorder, times(1)).recordInsert(insertRecordArgumentCaptor.capture(), any(SInsertEvent.class));
+        SIconImpl newIcon = new SIconImpl("image/gif", "theContent".getBytes());
+        newIcon.setId(NEW_ICON_ID);
+        assertThat(insertRecordArgumentCaptor.getAllValues()).extracting("entity")
+                .hasSize(1)
+                .contains(newIcon);
     }
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#updateUser(org.bonitasoft.engine.identity.model.SUser, org.bonitasoft.engine.recorder.model.EntityUpdateDescriptor)}
-     * .
-     */
     @Test
-    public final void updateUser() {
-        // TODO : Not yet implemented
+    public void should_updateUser_create_new_icon_if_it_exists() throws Exception {
+        //given
+        SUserImpl sUser = haveUser();
+        SIconImpl sIcon = haveIcon(sUser);
+        //when
+        EntityUpdateDescriptor iconUpdateDescriptor = new EntityUpdateDescriptor();
+        iconUpdateDescriptor.addField("filename", "theNewIcon.jpg");
+        iconUpdateDescriptor.addField("content", "updated content".getBytes());
+        identityServiceImpl.updateUser(USER_ID, new EntityUpdateDescriptor(), null, null, iconUpdateDescriptor);
+        //then
+        verify(recorder).recordUpdate(updateRecordArgumentCaptor.capture(), any(SUpdateEvent.class));
+        verify(recorder).recordInsert(insertRecordArgumentCaptor.capture(), any(SInsertEvent.class));
+        verify(recorder).recordDelete(deleteRecordArgumentCaptor.capture(), any(SDeleteEvent.class));
+        assertThat(updateRecordArgumentCaptor.getValue().getEntity()).isEqualTo(sUser);
+        assertThat(updateRecordArgumentCaptor.getValue().getFields()).containsOnly(entry("iconId", NEW_ICON_ID));
+        assertThat(insertRecordArgumentCaptor.getValue().getEntity()).isEqualToIgnoringGivenFields(new SIconImpl("image/jpeg", "updated content".getBytes()),
+                "id");
+        assertThat(deleteRecordArgumentCaptor.getValue().getEntity()).isEqualTo(sIcon);
     }
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#updateUser(org.bonitasoft.engine.identity.model.SUser, org.bonitasoft.engine.recorder.model.EntityUpdateDescriptor, boolean)}
-     * .
-     */
     @Test
-    public final void updateUserAndEncryptPassword() {
-        // TODO : Not yet implemented
+    public void should_update_user_with_null_content_remove_the_icon() throws Exception {
+        //given
+        SUserImpl sUser = haveUser();
+        SIconImpl sIcon = haveIcon(sUser);
+        //when
+        EntityUpdateDescriptor iconUpdateDescriptor = new EntityUpdateDescriptor();
+        iconUpdateDescriptor.addField("content", null);
+        identityServiceImpl.updateUser(USER_ID, new EntityUpdateDescriptor(), null, null, iconUpdateDescriptor);
+        //then
+        verify(recorder).recordUpdate(updateRecordArgumentCaptor.capture(), any(SUpdateEvent.class));
+        verify(recorder, never()).recordInsert(any(InsertRecord.class), any(SInsertEvent.class));
+        verify(recorder).recordDelete(deleteRecordArgumentCaptor.capture(), any(SDeleteEvent.class));
+        assertThat(updateRecordArgumentCaptor.getValue().getEntity()).isEqualTo(sUser);
+        assertThat(updateRecordArgumentCaptor.getValue().getFields()).containsOnly(entry("iconId", null));
+        assertThat(deleteRecordArgumentCaptor.getValue().getEntity()).isEqualTo(sIcon);
     }
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#updateUserContactInfo(org.bonitasoft.engine.identity.model.SContactInfo, org.bonitasoft.engine.recorder.model.EntityUpdateDescriptor)}
-     * .
-     */
-    @Test
-    public final void updateUserContactInfo() {
-        // TODO : Not yet implemented
+    private SUserImpl haveUser() throws SUserNotFoundException {
+        SUserImpl sUser = new SUserImpl();
+        sUser.setId(USER_ID);
+        doReturn(sUser).when(identityServiceImpl).getUser(USER_ID);
+        return sUser;
     }
 
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getUsers(int, int)}.
-     */
     @Test
-    public final void getUsersPaginated() {
-        // TODO : Not yet implemented
+    public void should_deleteUser_delete_the_icon_if_it_exists() throws Exception {
+        //given
+        SUserImpl sUser = haveUser();
+        SIconImpl icon = haveIcon(sUser);
+        //when
+        identityServiceImpl.deleteUser(USER_ID);
+        //then
+        verify(recorder, times(2)).recordDelete(deleteRecordArgumentCaptor.capture(), any(SDeleteEvent.class));
+        assertThat(deleteRecordArgumentCaptor.getAllValues()).extracting("entity").containsOnly(sUser, icon);
     }
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getUsers(int, int, java.lang.String, org.bonitasoft.engine.persistence.OrderByType)}.
-     */
     @Test
-    public final void getUsersPaginatedWithOrder() {
-        // TODO : Not yet implemented
+    public void should_deleteUser_not_delete_the_icon_if_it_does_not_exists() throws Exception {
+        //given
+        SUserImpl sUser = haveUser();
+        //when
+        identityServiceImpl.deleteUser(USER_ID);
+        //then
+        verify(recorder, times(1)).recordDelete(deleteRecordArgumentCaptor.capture(), any(SDeleteEvent.class));
+        assertThat(deleteRecordArgumentCaptor.getAllValues()).extracting("entity").containsOnly(sUser);
     }
 
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getUsersByDelegee(long)}.
-     */
-    @Test
-    public final void getUsersByDelegee() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getUsersByGroup(long)}.
-     */
-    @Test
-    public final void getUsersByGroup() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getUsersByGroup(long, int, int)}.
-     */
-    @Test
-    public final void getUsersByGroupPaginated() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getUsersByGroup(long, int, int, java.lang.String, org.bonitasoft.engine.persistence.OrderByType)}
-     * .
-     */
-    @Test
-    public final void getUsersByGroupPaginatedWithOrder() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getUsersByManager(long)}.
-     */
-    @Test
-    public final void getUsersByManager() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getUserContactInfo(long, boolean)}.
-     */
-    @Test
-    public final void getUserContactInfo() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getUserByUserName(java.lang.String)}.
-     */
-    @Test
-    public final void getUserByUserName() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getUsersByRole(long)}.
-     */
-    @Test
-    public final void getUsersByRole() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getUsersByRole(long, int, int)}.
-     */
-    @Test
-    public final void getUsersByRolePaginated() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#getUsersByRole(long, int, int, java.lang.String, org.bonitasoft.engine.persistence.OrderByType)}
-     * .
-     */
-    @Test
-    public final void getUsersByRolePaginatedWithOrder() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#deleteUser(long)}.
-     */
-    @Test
-    public final void deleteUserById() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#deleteUser(org.bonitasoft.engine.identity.model.SUser)}.
-     */
-    @Test
-    public final void deleteUserByObject() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#createUser(org.bonitasoft.engine.identity.model.SUser)}.
-     */
-    @Test
-    public final void createUser() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.identity.impl.IdentityServiceImpl#createUserContactInfo(org.bonitasoft.engine.identity.model.SContactInfo)}.
-     */
-    @Test
-    public final void createUserContactInfo() {
-        // TODO : Not yet implemented
+    private SIconImpl haveIcon(SUserImpl sUser) throws SBonitaReadException {
+        sUser.setIconId(ICON_ID);
+        SIconImpl icon = new SIconImpl("image/gif", "theContent".getBytes());
+        icon.setId(ICON_ID);
+        doReturn(icon).when(identityServiceImpl).getIcon(ICON_ID);
+        return icon;
     }
 
 }

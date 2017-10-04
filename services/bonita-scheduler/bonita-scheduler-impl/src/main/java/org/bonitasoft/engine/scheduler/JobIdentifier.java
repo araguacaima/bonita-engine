@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -29,7 +29,7 @@ public class JobIdentifier implements Serializable {
     private final String jobName;
 
     public JobIdentifier(final long jobId, final long tenantId, final String jobName) {
-        this.id = jobId;
+        id = jobId;
         this.tenantId = tenantId;
         this.jobName = jobName;
     }
@@ -44,6 +44,49 @@ public class JobIdentifier implements Serializable {
 
     public String getJobName() {
         return jobName;
+    }
+
+    @Override
+    public String toString() {
+        return "jobName=" + jobName + ";jobId=" + id + ";tenantId=" + tenantId;
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + (int) (id ^ id >>> 32);
+        result = prime * result + (jobName == null ? 0 : jobName.hashCode());
+        result = prime * result + (int) (tenantId ^ tenantId >>> 32);
+        return result;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final JobIdentifier other = (JobIdentifier) obj;
+        if (id != other.id) {
+            return false;
+        }
+        if (jobName == null) {
+            if (other.jobName != null) {
+                return false;
+            }
+        } else if (!jobName.equals(other.jobName)) {
+            return false;
+        }
+        if (tenantId != other.tenantId) {
+            return false;
+        }
+        return true;
     }
 
 }

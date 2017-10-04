@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,14 +19,9 @@ import java.util.Map;
  * @author Charles Souillard
  * @author Matthieu Chaffotte
  */
-public final class SelectListDescriptor<T> extends AbstractSelectWithParametersDescriptor<T> {
+public class SelectListDescriptor<T> extends AbstractSelectWithParametersDescriptor<T> {
 
     private final QueryOptions queryOptions;
-
-    public SelectListDescriptor(final String queryName, final Map<String, Object> inputParameters, final Class<? extends PersistentObject> entityType) {
-        super(queryName, inputParameters, entityType, (Class<T>) entityType);
-        this.queryOptions = QueryOptions.defaultQueryOptions();
-    }
 
     public SelectListDescriptor(final String queryName, final Map<String, Object> inputParameters, final Class<? extends PersistentObject> entityType,
             final QueryOptions queryOptions) {
@@ -34,14 +29,8 @@ public final class SelectListDescriptor<T> extends AbstractSelectWithParametersD
         if (queryOptions != null) {
             this.queryOptions = queryOptions;
         } else {
-            this.queryOptions = QueryOptions.defaultQueryOptions();
+            throw new IllegalArgumentException("Need to have a query option to paginate and order the results.");
         }
-    }
-
-    public SelectListDescriptor(final String queryName, final Map<String, Object> inputParameters, final Class<? extends PersistentObject> entityType,
-            final Class<T> returnType) {
-        super(queryName, inputParameters, entityType, returnType);
-        this.queryOptions = QueryOptions.defaultQueryOptions();
     }
 
     public SelectListDescriptor(final String queryName, final Map<String, Object> inputParameters, final Class<? extends PersistentObject> entityType,
@@ -50,7 +39,7 @@ public final class SelectListDescriptor<T> extends AbstractSelectWithParametersD
         if (queryOptions != null) {
             this.queryOptions = queryOptions;
         } else {
-            this.queryOptions = QueryOptions.defaultQueryOptions();
+            throw new IllegalArgumentException("Need to have a query option to paginate and order the results.");
         }
     }
 

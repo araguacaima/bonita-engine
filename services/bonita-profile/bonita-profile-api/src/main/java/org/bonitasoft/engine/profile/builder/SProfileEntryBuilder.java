@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -20,26 +20,6 @@ import org.bonitasoft.engine.profile.model.SProfileEntry;
  */
 public interface SProfileEntryBuilder {
 
-    String ID = "id";
-
-    String NAME = "name";
-
-    String DESCRIPTION = "description";
-
-    String PROFILE_ID = "profileId";
-
-    String PARENT_ID = "parentId";
-
-    String PAGE = "page";
-
-    String INDEX = "index";
-
-    String TYPE = "type";
-
-    SProfileEntryBuilder createNewInstance(String name, long profileId);
-
-    SProfileEntryBuilder createNewInstance(SProfileEntry profileEntry);
-
     SProfileEntryBuilder setId(long id);
 
     SProfileEntryBuilder setDescription(String description);
@@ -51,6 +31,8 @@ public interface SProfileEntryBuilder {
     SProfileEntryBuilder setPage(String page);
 
     SProfileEntryBuilder setIndex(long index);
+
+    SProfileEntryBuilder setCustom(Boolean custom);
 
     SProfileEntry done();
 

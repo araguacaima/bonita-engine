@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,8 +17,8 @@ import java.util.List;
 
 import org.bonitasoft.engine.bpm.BaseElement;
 import org.bonitasoft.engine.bpm.DescriptionElement;
-import org.bonitasoft.engine.bpm.NamedElement;
 import org.bonitasoft.engine.bpm.connector.ConnectorDefinition;
+import org.bonitasoft.engine.bpm.process.Visitable;
 import org.bonitasoft.engine.expression.Expression;
 
 /**
@@ -26,11 +26,11 @@ import org.bonitasoft.engine.expression.Expression;
  * @author Matthieu Chaffotte
  * @author Celine Souchet
  */
-public interface FlowNodeDefinition extends BaseElement, NamedElement, DescriptionElement {
+public interface FlowNodeDefinition extends BaseElement, DescriptionElement, Visitable {
 
     /**
      * Gets the outgoing transitions of the activity.
-     * 
+     *
      * @return the outgoing transitions of the activity
      */
     List<TransitionDefinition> getOutgoingTransitions();
@@ -39,7 +39,7 @@ public interface FlowNodeDefinition extends BaseElement, NamedElement, Descripti
 
     /**
      * Gets the incoming transitions of the activity.
-     * 
+     *
      * @return the incoming transitions of the activity
      */
     List<TransitionDefinition> getIncomingTransitions();

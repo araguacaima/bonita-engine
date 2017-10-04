@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -18,10 +18,10 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.identity.RoleSearchDescriptor;
 import org.bonitasoft.engine.identity.model.SRole;
-import org.bonitasoft.engine.identity.model.builder.IdentityModelBuilder;
-import org.bonitasoft.engine.identity.model.builder.RoleBuilder;
+import org.bonitasoft.engine.identity.model.builder.SRoleBuilderFactory;
 import org.bonitasoft.engine.persistence.PersistentObject;
 
 /**
@@ -33,20 +33,17 @@ public class SearchRoleDescriptor extends SearchEntityDescriptor {
 
     private final Map<Class<? extends PersistentObject>, Set<String>> roleAllFields;
 
-    SearchRoleDescriptor(final IdentityModelBuilder identityModelBuilder) {
-        final RoleBuilder roleBuilder = identityModelBuilder.getRoleBuilder();
-        roleKeys = new HashMap<String, FieldDescriptor>(5);
-        roleKeys.put(RoleSearchDescriptor.ID, new FieldDescriptor(SRole.class, roleBuilder.getIdKey()));
-        roleKeys.put(RoleSearchDescriptor.NAME, new FieldDescriptor(SRole.class, roleBuilder.getNameKey()));
-        roleKeys.put(RoleSearchDescriptor.DISPLAY_NAME, new FieldDescriptor(SRole.class, roleBuilder.getDisplayNameKey()));
+    SearchRoleDescriptor() {
+        roleKeys = new HashMap<>(5);
+        roleKeys.put(RoleSearchDescriptor.ID, new FieldDescriptor(SRole.class, BuilderFactory.get(SRoleBuilderFactory.class).getIdKey()));
+        roleKeys.put(RoleSearchDescriptor.NAME, new FieldDescriptor(SRole.class, BuilderFactory.get(SRoleBuilderFactory.class).getNameKey()));
+        roleKeys.put(RoleSearchDescriptor.DISPLAY_NAME, new FieldDescriptor(SRole.class, BuilderFactory.get(SRoleBuilderFactory.class).getDisplayNameKey()));
 
-        roleAllFields = new HashMap<Class<? extends PersistentObject>, Set<String>>(1);
-        final Set<String> roleFields = new HashSet<String>(8);
-        roleFields.add(roleBuilder.getNameKey());
-        roleFields.add(roleBuilder.getDisplayNameKey());
-        roleFields.add(roleBuilder.getDescriptionKey());
-        roleFields.add(roleBuilder.getIconNameKey());
-        roleFields.add(roleBuilder.getIconPathKey());
+        roleAllFields = new HashMap<>(1);
+        final Set<String> roleFields = new HashSet<>(3);
+        roleFields.add(BuilderFactory.get(SRoleBuilderFactory.class).getNameKey());
+        roleFields.add(BuilderFactory.get(SRoleBuilderFactory.class).getDisplayNameKey());
+        roleFields.add(BuilderFactory.get(SRoleBuilderFactory.class).getDescriptionKey());
         roleAllFields.put(SRole.class, roleFields);
     }
 

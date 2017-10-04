@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -22,30 +22,34 @@ import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
  * @author Charles Souillard
  * @author Baptiste Mesta
  */
-public class SequenceRunnableExecutor extends NotifyingRunnable {
+public class SequenceRunnableExecutor extends BonitaRunnable {
 
-    private final Collection<AbstractBonitaWork> works;
+    private static final long serialVersionUID = -2502579611570147194L;
+
+    private final Collection<BonitaWork> works;
 
     private boolean cancelled = false;
 
     private final TechnicalLoggerService loggerService;
 
-    public SequenceRunnableExecutor(final Collection<AbstractBonitaWork> works, final RunnableListener runnableListener, final long tenantId,
+    public SequenceRunnableExecutor(final Collection<BonitaWork> works, final long tenantId,
             final TechnicalLoggerService loggerService) {
-        super(runnableListener, tenantId);
+        super(tenantId);
         this.works = works;
         this.loggerService = loggerService;
     }
 
     @Override
     public void innerRun() {
-        for (final AbstractBonitaWork work : works) {
+        for (final BonitaWork work : works) {
             if (!cancelled) {
                 try {
                     work.run();
-                } catch (Throwable t) {
-                    loggerService.log(getClass(), TechnicalLogSeverity.ERROR, "Error while executing one work in the list of works: " + work.getDescription(),
-                            t);
+                } catch (final Exception t) {
+                    if (loggerService.isLoggable(getClass(), TechnicalLogSeverity.ERROR)) {
+                        loggerService.log(getClass(), TechnicalLogSeverity.ERROR,
+                                "Error while executing one work in the list of works : " + work.getDescription(), t);
+                    }
                 }
             }
         }
@@ -54,6 +58,11 @@ public class SequenceRunnableExecutor extends NotifyingRunnable {
     @Override
     public void cancel() {
         cancelled = true;
+    }
+
+    @Override
+    public String toString() {
+        return "sequence: " + works.toString();
     }
 
 }

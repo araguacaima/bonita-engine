@@ -5,7 +5,7 @@
 	<parent>
 		<artifactId>bonita-persistence</artifactId>
 		<groupId>org.bonitasoft.engine.persistence</groupId>
-		<version>6.1.0-SNAPSHOT</version>
+		<version>7.5.3-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>bonita-persistence-hibernate</artifactId>
@@ -16,28 +16,25 @@
 		<dependency>
 			<groupId>org.hibernate</groupId>
 			<artifactId>hibernate-core</artifactId>
-			<version>3.6.10.Final</version>
-			<exclusions>
-				<exclusion>
-					<groupId>javax.transaction</groupId>
-					<artifactId>jta</artifactId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>javax.transaction</groupId>
 			<artifactId>jta</artifactId>
-			<version>1.1</version>
 			<scope>provided</scope>
-		</dependency>
-		<dependency>
-			<groupId>javassist</groupId>
-			<artifactId>javassist</artifactId>
-			<version>3.12.1.GA</version>
 		</dependency>
 		<dependency>
 			<groupId>org.bonitasoft.engine</groupId>
 			<artifactId>bonita-commons</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.persistence</groupId>
+			<artifactId>bonita-persistence-db</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.log</groupId>
+			<artifactId>bonita-log-technical-api</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
@@ -46,34 +43,41 @@
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.bonitasoft.engine.session</groupId>
-			<artifactId>bonita-session-api</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.bonitasoft.engine.transaction</groupId>
-			<artifactId>bonita-transaction-api</artifactId>
+			<groupId>org.bonitasoft.engine.persistence</groupId>
+			<artifactId>bonita-sequence-api</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.bonitasoft.engine.persistence</groupId>
-			<artifactId>bonita-persistence-db</artifactId>
+			<artifactId>bonita-persistence-read</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-        <dependency>
-            <groupId>org.bonitasoft.engine.log</groupId>
-            <artifactId>bonita-log-technical-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
+		<dependency>
+			<groupId>org.bonitasoft.engine.persistence</groupId>
+			<artifactId>bonita-persistence-api</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+		</dependency>
+
+		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.mockito</groupId>
 			<artifactId>mockito-all</artifactId>
-			<scope>test</scope>
 		</dependency>
-    </dependencies>
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
+		</dependency>
+		<dependency>
+		    <groupId>com.h2database</groupId>
+		    <artifactId>h2</artifactId>
+		    <scope>test</scope>
+        </dependency>
+	</dependencies>
 </project>

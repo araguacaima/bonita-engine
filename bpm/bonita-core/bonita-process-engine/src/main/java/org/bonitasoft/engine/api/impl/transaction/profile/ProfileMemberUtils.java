@@ -1,29 +1,30 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
- * BonitaSoft, 31 rue Gustave Eiffel - 38000 Grenoble
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2.0 of the License, or
- * (at your option) any later version.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
+ * Copyright (C) 2015 BonitaSoft S.A.
+ * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
+ * This library is free software; you can redistribute it and/or modify it under the terms
+ * of the GNU Lesser General Public License as published by the Free Software Foundation
+ * version 2.1 of the License.
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Lesser General Public License for more details.
+ * You should have received a copy of the GNU Lesser General Public License along with this
+ * program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+ * Floor, Boston, MA 02110-1301, USA.
+ **/
 package org.bonitasoft.engine.api.impl.transaction.profile;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.bonitasoft.engine.profile.model.SProfileMember;
 
 /**
  * @author Julien Mege
  * @author Elias Ricken de Medeiros
+ * @author Celine Souchet
  */
 public class ProfileMemberUtils {
 
@@ -77,8 +78,12 @@ public class ProfileMemberUtils {
 
     public static final String ROLE_AND_GROUP_SUFFIX = "ForRoleAndGroup";
 
-    public static HashMap<String, Serializable> memberAsProfileMembersMap(final SProfileMember profileMember) {
-        final HashMap<String, Serializable> profileMemeber = new HashMap<String, Serializable>();
+    private ProfileMemberUtils() {
+        // For Sonar
+    }
+
+    public static Map<String, Serializable> memberAsProfileMembersMap(final SProfileMember profileMember) {
+        final Map<String, Serializable> profileMemeber = new HashMap<String, Serializable>();
         profileMemeber.put(PROFILE_ID, profileMember.getProfileId());
         profileMemeber.put(USER_ID, profileMember.getUserId());
         profileMemeber.put(GROUP_ID, profileMember.getGroupId());
@@ -90,8 +95,8 @@ public class ProfileMemberUtils {
         return profileMemeber;
     }
 
-    public static List<HashMap<String, Serializable>> membersAsProfileMembersMapList(final List<SProfileMember> serverObjects) {
-        final ArrayList<HashMap<String, Serializable>> profileMemberMaps = new ArrayList<HashMap<String, Serializable>>();
+    public static List<Map<String, Serializable>> membersAsProfileMembersMapList(final List<SProfileMember> serverObjects) {
+        final List<Map<String, Serializable>> profileMemberMaps = new ArrayList<Map<String, Serializable>>();
         for (final SProfileMember profileMember : serverObjects) {
             profileMemberMaps.add(memberAsProfileMembersMap(profileMember));
         }

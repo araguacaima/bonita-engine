@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -24,85 +24,99 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.text.WordUtils;
+import org.bonitasoft.engine.commons.exceptions.SReflectException;
+
 /**
  * @author Baptiste Mesta
  * @author Matthieu Chaffotte
+ * @author Laurent Leseigneur
  */
 public class ClassReflector {
+
+    private static final String EMPTY = "";
+
+    private static final String SET = "set";
+
+    private static final String IS = "is";
+
+    private static final String GET = "get";
 
     private static final Map<String, Method> methods;
 
     static {
-        methods = new HashMap<String, Method>();
+        methods = new HashMap<>();
     }
 
+    private static final Object MUTEX = new Object();
+
     public static Collection<Method> getAccessibleGetters(final Class<?> clazz) {
-        final Collection<Method> methods = new HashSet<Method>();
+        final Collection<Method> methods = new HashSet<>();
         for (final Method method : clazz.getMethods()) {
-            if (!Void.class.equals(method.getReturnType()) && method.getParameterTypes().length == 0 && method.getName().startsWith("get")) {
+            if (isAGetterMethod(method)) {
                 methods.add(method);
             }
         }
         return methods;
     }
 
-    public static <T> Class<T> getClass(final Class<T> clazz, final String className) throws ReflectException {
+    public static <T> Class<T> getClass(final Class<T> clazz, final String className) throws SReflectException {
         try {
             return (Class<T>) Class.forName(className);
         } catch (final Exception e) {
-            throw new ReflectException(e);
+            throw new SReflectException(e);
         }
     }
 
-    public static <T> T getObject(final Class<T> clazz, final String className) throws ReflectException {
+    public static <T> T getObject(final Class<T> clazz, final String className) throws SReflectException {
         try {
             return getClass(clazz, className).newInstance();
         } catch (final Exception e) {
-            throw new ReflectException(e);
+            throw new SReflectException(e);
         }
     }
 
-    public static <T> Constructor<T> getConstructor(final Class<T> clazz, final Class<?>... parameterTypes) throws ReflectException {
+    public static <T> Constructor<T> getConstructor(final Class<T> clazz, final Class<?>... parameterTypes) throws SReflectException {
         try {
             return clazz.getConstructor(parameterTypes);
         } catch (final Exception e) {
-            throw new ReflectException(e);
+            throw new SReflectException(e);
         }
     }
 
-    public static <T> Constructor<T> getConstructor(final Class<T> clazz, final String className, final Class<?>... parameterTypes) throws ReflectException {
+    public static <T> Constructor<T> getConstructor(final Class<T> clazz, final String className, final Class<?>... parameterTypes) throws SReflectException {
         try {
             return getClass(clazz, className).getConstructor(parameterTypes);
         } catch (final Exception e) {
-            throw new ReflectException(e);
+            throw new SReflectException(e);
         }
     }
 
-    public static <T> T getInstance(final Constructor<T> constructor, final Object... parameters) throws ReflectException {
+    public static <T> T getInstance(final Constructor<T> constructor, final Object... parameters) throws SReflectException {
         try {
             return constructor.newInstance(parameters);
         } catch (final Exception e) {
-            throw new ReflectException(e);
+            throw new SReflectException(e);
         }
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> T invokeGetter(final Object entity, final String getterName) throws ReflectException {
+    public static <T> T invokeGetter(final Object entity, final String getterName) throws SReflectException {
         try {
             final Method getter = getMethod(entity.getClass(), getterName);
             return (T) getter.invoke(entity, (Object[]) null);
         } catch (final Exception e) {
-            throw new ReflectException(e);
+            throw new SReflectException(e);
         }
     }
 
     public static void invokeSetter(final Object entity, final String setterName, final Class<?> parameterType, final Object parameterValue)
-            throws ReflectException {
+            throws SReflectException {
         try {
-            final Method setter = getMethod(entity.getClass(), setterName, new Class[] { parameterType });
-            setter.invoke(entity, new Object[] { parameterValue });
+            final Method setter = getMethod(entity.getClass(), setterName, parameterType);
+            setter.invoke(entity, parameterValue);
         } catch (final Exception e) {
-            throw new ReflectException(e);
+            throw new SReflectException(e);
         }
     }
 
@@ -122,39 +136,62 @@ public class ClassReflector {
         }
         stringBuilder.append(')');
         final String key = stringBuilder.toString();
-        if (!methods.containsKey(key)) {
-            methods.put(key, clazz.getMethod(methodName, parameterTypes));
-        }
+        putIfAbsent(clazz, methodName, key, parameterTypes);
         return methods.get(key);
     }
 
-    public static Method getMethodByName(final Class<?> clazz, final String methodName) {
-        final StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(clazz.getName());
-        stringBuilder.append('.');
-        stringBuilder.append(methodName);
-        final String key = stringBuilder.toString();
+    private static void putIfAbsent(final Class<?> clazz, final String methodName, final String key, final Class<?>... parameterTypes)
+            throws NoSuchMethodException {
         if (!methods.containsKey(key)) {
-            for (final Method method : clazz.getMethods()) {
-                if (method.getName().equals(methodName)) {
+            synchronized (MUTEX) {
+                // ensure that key was not put before between check and lock
+                if (!methods.containsKey(key)) {
+                    methods.put(key, clazz.getMethod(methodName, parameterTypes));
+                }
+            }
+        }
+    }
+
+    public static Method getMethodByName(final Class<?> clazz, final String methodName) {
+        final String key = clazz.getName() + '.' + methodName;
+        putIfAbsent(clazz, methodName, key);
+        return methods.get(key);
+    }
+
+    private static void putIfAbsent(final Class<?> clazz, final String methodName, final String key) {
+        if (!methods.containsKey(key)) {
+            synchronized (MUTEX) {
+                // ensure that key was not put before between check and lock
+                if (!methods.containsKey(key)) {
+                    final Method method = getFirstMethodWithName(clazz, methodName);
                     methods.put(key, method);
                 }
             }
         }
-        return methods.get(key);
     }
 
-    public static void invokeMethodByName(final Object entity, final String methodName, final Object... parameterValues) throws ReflectException {
+    public static Method getFirstMethodWithName(final Class<?> clazz, final String methodName) {
+        Method selectedMethod = null;
+        for (final Method method : clazz.getMethods()) {
+            if (method.getName().equals(methodName)) {
+                selectedMethod = method;
+                break;
+            }
+        }
+        return selectedMethod;
+    }
+
+    public static Object invokeMethodByName(final Object entity, final String methodName, final Object... parameterValues) throws SReflectException {
         final Class<?> clazz = entity.getClass();
         // no check on parameters
         final Method methodToInvoke = getMethodByName(clazz, methodName);
         if (methodToInvoke == null) {
-            throw new ReflectException("unable to find a method with name '" + methodName + "' within class " + clazz.getName());
+            throw new SReflectException("unable to find a method with name '" + methodName + "' within class " + clazz.getName());
         }
         try {
-            methodToInvoke.invoke(entity, parameterValues);
+            return methodToInvoke.invoke(entity, parameterValues);
         } catch (final Exception e) {
-            throw new ReflectException(e);
+            throw new SReflectException(e);
         }
     }
 
@@ -177,7 +214,7 @@ public class ClassReflector {
                 && b.equals(Byte.class);
     }
 
-    public static Method getCompatibleMethod(final Class<?> clazz, final String methodName, final Class<?>... paramTypes) throws ReflectException {
+    public static Method getCompatibleMethod(final Class<?> clazz, final String methodName, final Class<?>... paramTypes) throws SReflectException {
         try {
             return clazz.getMethod(methodName, paramTypes);
         } catch (final Exception e) {
@@ -187,6 +224,9 @@ public class ClassReflector {
                     if (methodName.equals(method.getName())) {
                         final Class<?>[] types = method.getParameterTypes();
                         boolean check = true;
+                        if (!(types.length == paramTypes.length)) {
+                            throw new SReflectException("wrong parameters");
+                        }
                         for (int i = 0; i < types.length; i++) {
                             if (!(types[i].isAssignableFrom(paramTypes[i]) || paramTypes[i].isAssignableFrom(types[i]) || isWrapped(types[i], paramTypes[i]))) {
                                 check = false;
@@ -199,25 +239,24 @@ public class ClassReflector {
                     }
                 }
             }
-            throw new ReflectException(e);
+            throw new SReflectException(e);
         }
     }
 
-    public static Type getGetterReturnType(final Class<?> classConnector, final String getterName) throws ReflectException {
+    public static Type getGetterReturnType(final Class<?> classConnector, final String getterName) throws SReflectException {
         Method m;
         try {
-            m = getMethod(classConnector, getterName, (Class<?>) null);
+            m = getMethod(classConnector, getterName);
         } catch (final Exception e) {
-            throw new ReflectException(e);
+            throw new SReflectException(e);
         }
         return m.getGenericReturnType();
     }
 
     public static Method[] getDeclaredSetters(final Class<?> clazz) {
-        final List<Method> setters = new ArrayList<Method>();
+        final List<Method> setters = new ArrayList<>();
         final Method[] methods = clazz.getDeclaredMethods();
-        for (int i = 0; i < methods.length; i++) {
-            final Method method = methods[i];
+        for (final Method method : methods) {
             if (isASetterMethod(method)) {
                 setters.add(method);
             }
@@ -226,10 +265,9 @@ public class ClassReflector {
     }
 
     public static Method[] getDeclaredGetters(final Class<?> clazz) {
-        final List<Method> getters = new ArrayList<Method>();
+        final List<Method> getters = new ArrayList<>();
         final Method[] methods = clazz.getDeclaredMethods();
-        for (int i = 0; i < methods.length; i++) {
-            final Method method = methods[i];
+        for (final Method method : methods) {
             if (isAGetterMethod(method)) {
                 getters.add(method);
             }
@@ -239,34 +277,78 @@ public class ClassReflector {
 
     public static boolean isAGetterMethod(final Method method) {
         final String methodName = method.getName();
-        return (methodName.startsWith("get") || methodName.startsWith("is")) && method.getParameterTypes().length == 0
+        return (methodName.startsWith(GET) || methodName.startsWith(IS)) && method.getParameterTypes().length == 0
                 && !Void.class.equals(method.getReturnType());
     }
 
     public static boolean isASetterMethod(final Method method) {
         final String methodName = method.getName();
-        return methodName.startsWith("set") && "void".equals(method.getReturnType().toString()) && method.getParameterTypes().length == 1;
+        return methodName.startsWith(SET) && "void".equals(method.getReturnType().toString()) && method.getParameterTypes().length == 1;
     }
 
     public static String getGetterName(final String fieldName) {
-        final StringBuilder builder = new StringBuilder("get");
-        builder.append(String.valueOf(fieldName.charAt(0)).toUpperCase());
-        builder.append(fieldName.substring(1));
-        return builder.toString();
+        return "get" + WordUtils.capitalize(fieldName);
+    }
+
+
+    public static String getGetterName(final String fieldName, final Class<?> fieldType) {
+        return getGetterPrefix(fieldType)+ WordUtils.capitalize(fieldName);
+    }
+
+    private static String getGetterPrefix(Class<?> fieldType) {
+        if (fieldType.isAssignableFrom(Boolean.class)) {
+            return IS;
+        }
+        return GET;
+
     }
 
     public static String getFieldName(final String methodName) {
         int cut = 4;
-        if (methodName.startsWith("is")) {
+        if (methodName.startsWith(IS)) {
             cut = 3;
         }
         if (methodName.length() < cut) {
-            return "";
+            return EMPTY;
         }
         final String end = methodName.substring(cut);
         final char c = methodName.charAt(cut - 1);
         final String begin = String.valueOf(c).toLowerCase();
         return begin.concat(end);
     }
+
+    /**
+     * call a setter by reflection
+     * support pointed notation like pojo.child.name
+     * @param object
+     *      object on with to call the setter
+     * @param fieldName
+     *
+     * @param parameterValue
+     * @throws SReflectException
+     */
+    public static void setField(Object object, String fieldName, Object parameterValue) throws SReflectException {
+        String[] getters = fieldName.split("\\.");
+        int i;
+        for (i = 0; i < getters.length -1; i++) {
+            object = invokeMethodByName(object, getGetterName(getters[i]));
+        }
+
+        invokeMethodByName(object, getSetterName(getters[i]), parameterValue);
+
+    }
+
+    private static String getSetterName(String getter) {
+        return "set" + WordUtils.capitalize(getter);
+    }
+
+    public static void clearCache(){
+        methods.clear();
+    }
+
+    public static int getCacheSize(){
+        return methods.size();
+    }
+
 
 }

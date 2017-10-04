@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,14 +13,13 @@
  **/
 package org.bonitasoft.engine.execution.state;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.bonitasoft.engine.bpm.model.impl.BPMInstancesCreator;
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.core.expression.control.api.ExpressionResolverService;
 import org.bonitasoft.engine.core.expression.control.model.SExpressionContext;
@@ -34,15 +33,11 @@ import org.bonitasoft.engine.core.process.instance.api.exceptions.SActivityState
 import org.bonitasoft.engine.core.process.instance.api.states.FlowNodeState;
 import org.bonitasoft.engine.core.process.instance.api.states.StateCode;
 import org.bonitasoft.engine.core.process.instance.model.SActivityInstance;
-import org.bonitasoft.engine.core.process.instance.model.SFlowElementsContainerType;
 import org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance;
 import org.bonitasoft.engine.core.process.instance.model.SMultiInstanceActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.SStateCategory;
-import org.bonitasoft.engine.core.process.instance.model.builder.SUserTaskInstanceBuilder;
+import org.bonitasoft.engine.core.process.instance.model.builder.SUserTaskInstanceBuilderFactory;
 import org.bonitasoft.engine.data.instance.api.DataInstanceContainer;
-import org.bonitasoft.engine.data.instance.api.DataInstanceService;
-import org.bonitasoft.engine.data.instance.exception.SDataInstanceException;
-import org.bonitasoft.engine.data.instance.model.SDataInstance;
 import org.bonitasoft.engine.execution.ContainerRegistry;
 import org.bonitasoft.engine.execution.StateBehaviors;
 import org.bonitasoft.engine.expression.ExpressionConstants;
@@ -52,34 +47,26 @@ import org.bonitasoft.engine.persistence.OrderByOption;
 import org.bonitasoft.engine.persistence.OrderByType;
 import org.bonitasoft.engine.persistence.QueryOptions;
 
-;
-
 /**
  * @author Baptiste Mesta
  * @author Matthieu Chaffotte
+ * @author Celine Souchet
  */
 public class ExecutingMultiInstanceActivityStateImpl implements FlowNodeState {
 
     private final ExpressionResolverService expressionResolverService;
 
-    private final BPMInstancesCreator bpmInstancesCreator;
-
     private final ContainerRegistry containerRegistry;
 
     private final ActivityInstanceService activityInstanceService;
 
-    private final DataInstanceService dataInstanceService;
-
     private final StateBehaviors stateBehaviors;
 
-    public ExecutingMultiInstanceActivityStateImpl(final ExpressionResolverService expressionResolverService, final BPMInstancesCreator bpmInstancesCreator,
-            final ContainerRegistry containerRegistry, final ActivityInstanceService activityInstanceService, final DataInstanceService dataInstanceService,
-            final StateBehaviors stateBehaviors) {
+    public ExecutingMultiInstanceActivityStateImpl(final ExpressionResolverService expressionResolverService, final ContainerRegistry containerRegistry,
+            final ActivityInstanceService activityInstanceService, final StateBehaviors stateBehaviors) {
         this.expressionResolverService = expressionResolverService;
-        this.bpmInstancesCreator = bpmInstancesCreator;
         this.containerRegistry = containerRegistry;
         this.activityInstanceService = activityInstanceService;
-        this.dataInstanceService = dataInstanceService;
         this.stateBehaviors = stateBehaviors;
     }
 
@@ -117,6 +104,12 @@ public class ExecutingMultiInstanceActivityStateImpl implements FlowNodeState {
 
         try {
             final SMultiInstanceActivityInstance miActivity = (SMultiInstanceActivityInstance) flowNodeInstance;
+            if (miActivity.getStateCategory() != SStateCategory.NORMAL) {
+                // if is not a normal state (aborting / canceling), return true to change state from executing to aborting / cancelling (ChildReadstate),
+                // without create a new child task
+                return true;
+            }
+
             if (childInstance.isAborting() || childInstance.isCanceling()) {
                 // TODO add synchronization
                 activityInstanceService.addMultiInstanceNumberOfTerminatedActivities(miActivity, 1);
@@ -125,13 +118,15 @@ public class ExecutingMultiInstanceActivityStateImpl implements FlowNodeState {
                 activityInstanceService.addMultiInstanceNumberOfCompletedActivities(miActivity, 1);
                 // check the completionCondition
                 final SExpression completionCondition = loopCharacteristics.getCompletionCondition();
-                final Map<String, Serializable> input = new HashMap<String, Serializable>(1);
+                final Map<String, Object> input = new HashMap<>(1);
                 input.put(ExpressionConstants.NUMBER_OF_ACTIVE_INSTANCES.getEngineConstantName(), miActivity.getNumberOfActiveInstances());
                 input.put(ExpressionConstants.NUMBER_OF_TERMINATED_INSTANCES.getEngineConstantName(), miActivity.getNumberOfTerminatedInstances());
                 input.put(ExpressionConstants.NUMBER_OF_COMPLETED_INSTANCES.getEngineConstantName(), miActivity.getNumberOfCompletedInstances());
                 final int numberOfInstances = miActivity.getNumberOfInstances();
                 input.put(ExpressionConstants.NUMBER_OF_INSTANCES.getEngineConstantName(), numberOfInstances);
-                final SExpressionContext sExpressionContext = new SExpressionContext(miActivity.getId(), DataInstanceContainer.ACTIVITY_INSTANCE.name(), input);
+                final SExpressionContext sExpressionContext = new SExpressionContext(miActivity.getId(), DataInstanceContainer.ACTIVITY_INSTANCE.name(),
+                        processDefinition.getId(), input);
+                sExpressionContext.setProcessDefinitionId(miActivity.getProcessDefinitionId());
                 if (completionCondition != null) {
                     final boolean complete = (Boolean) expressionResolverService.evaluate(completionCondition, sExpressionContext);
                     if (complete) {
@@ -150,18 +145,16 @@ public class ExecutingMultiInstanceActivityStateImpl implements FlowNodeState {
             if (miActivity.isSequential()) {
                 // only instantiate when we are in sequence
                 List<SFlowNodeInstance> createInnerInstances = null;
-                if (shouldCreateANewInstance(loopCharacteristics, numberOfInstances, miActivity)) {
-                    createInnerInstances = InitializingMultiInstanceActivityStateImpl.createInnerInstances(bpmInstancesCreator, activityInstanceService,
-                            processDefinition.getId(), activityDefinition, flowNodeInstance, loopCharacteristics, numberOfInstances, 1);
+                if (stateBehaviors.shouldCreateANewInstance(loopCharacteristics, numberOfInstances, miActivity)) {
+                    createInnerInstances = stateBehaviors.createInnerInstances(processDefinition.getId(), activityDefinition, miActivity, 1);
                     for (final SFlowNodeInstance sFlowNodeInstance : createInnerInstances) {
-                        containerRegistry.executeFlowNode(sFlowNodeInstance.getId(), null, null, SFlowElementsContainerType.FLOWNODE.name(),
-                                sFlowNodeInstance.getLogicalGroup(3));
+                        containerRegistry.executeFlowNode(processDefinition.getId(), sFlowNodeInstance.getLogicalGroup(3), sFlowNodeInstance.getId()
+                        );
                     }
                 }
                 return numberOfActiveInstances == 0 && (createInnerInstances == null || createInnerInstances.size() == 0);
-            } else {
-                return numberOfActiveInstances == 0 || numberOfInstances == numberOfCompletedInstances + numberOfTerminatedInstances;
             }
+            return numberOfActiveInstances == 0 || numberOfInstances == numberOfCompletedInstances + numberOfTerminatedInstances;
         } catch (final SBonitaException e) {
             throw new SActivityStateExecutionException(e);
         }
@@ -172,13 +165,13 @@ public class ExecutingMultiInstanceActivityStateImpl implements FlowNodeState {
         long count = 0;
         List<SActivityInstance> children;
         boolean hasChildren = false;
-        final SUserTaskInstanceBuilder userTaskInstanceBuilder = bpmInstancesCreator.getBPMInstanceBuilders().getUserTaskInstanceBuilder();
+        final SUserTaskInstanceBuilderFactory keyProvider = BuilderFactory.get(SUserTaskInstanceBuilderFactory.class);
         do {
-            final OrderByOption orderByOption = new OrderByOption(SActivityInstance.class, userTaskInstanceBuilder.getNameKey(), OrderByType.ASC);
-            final List<FilterOption> filters = new ArrayList<FilterOption>(2);
-            filters.add(new FilterOption(SActivityInstance.class, userTaskInstanceBuilder.getParentActivityInstanceKey(), flowNodeInstance.getId()));
-            filters.add(new FilterOption(SActivityInstance.class, userTaskInstanceBuilder.getTerminalKey(), false));
-            filters.add(new FilterOption(SActivityInstance.class, userTaskInstanceBuilder.getStateCategoryKey(), SStateCategory.NORMAL.name()));
+            final OrderByOption orderByOption = new OrderByOption(SActivityInstance.class, keyProvider.getNameKey(), OrderByType.ASC);
+            final List<FilterOption> filters = new ArrayList<>(2);
+            filters.add(new FilterOption(SActivityInstance.class, keyProvider.getParentActivityInstanceKey(), flowNodeInstance.getId()));
+            filters.add(new FilterOption(SActivityInstance.class, keyProvider.getTerminalKey(), false));
+            filters.add(new FilterOption(SActivityInstance.class, keyProvider.getStateCategoryKey(), SStateCategory.NORMAL.name()));
             final QueryOptions queryOptions = new QueryOptions(0, numberOfResults, Collections.singletonList(orderByOption), filters, null);
             final QueryOptions countOptions = new QueryOptions(0, numberOfResults, null, filters, null);
             children = activityInstanceService.searchActivityInstances(SActivityInstance.class, queryOptions);
@@ -189,7 +182,7 @@ public class ExecutingMultiInstanceActivityStateImpl implements FlowNodeState {
             for (final SActivityInstance child : children) {
                 activityInstanceService.setStateCategory(child, SStateCategory.ABORTING);
                 if (child.isStable()) {
-                    containerRegistry.executeFlowNode(child.getId(), null, null, SFlowElementsContainerType.FLOWNODE.name(), child.getLogicalGroup(3));
+                    containerRegistry.executeFlowNode(flowNodeInstance.getProcessDefinitionId(), child.getLogicalGroup(3), child.getId());
                 }
             }
 
@@ -197,27 +190,11 @@ public class ExecutingMultiInstanceActivityStateImpl implements FlowNodeState {
         return hasChildren;
     }
 
-    protected boolean shouldCreateANewInstance(final SMultiInstanceLoopCharacteristics loopCharacteristics, final int numberOfInstances,
-            final SMultiInstanceActivityInstance miActivityInstance) throws SDataInstanceException {
-        if (loopCharacteristics.getLoopCardinality() != null) {
-            return miActivityInstance.getLoopCardinality() > numberOfInstances;
-        } else {
-            final SDataInstance dataInstance = dataInstanceService.getDataInstance(loopCharacteristics.getLoopDataInputRef(), miActivityInstance.getId(),
-                    DataInstanceContainer.ACTIVITY_INSTANCE.name());
-            if (dataInstance != null) {
-                final List<?> loopDataInputCollection = (List<?>) dataInstance.getValue();
-                return numberOfInstances < loopDataInputCollection.size();
-            }
-        }
-        return false;
-    }
-
     @Override
     public boolean shouldExecuteState(final SProcessDefinition processDefinition, final SFlowNodeInstance flowNodeInstance) throws SActivityExecutionException {
         final int numberOfActiveInstances = ((SMultiInstanceActivityInstance) flowNodeInstance).getNumberOfActiveInstances();
         if (numberOfActiveInstances > 0) {
             stateBehaviors.executeChildrenActivities(flowNodeInstance);
-
         }
         return numberOfActiveInstances > 0;
     }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -21,37 +21,11 @@ import org.bonitasoft.engine.profile.model.SProfile;
  */
 public interface SProfileBuilder {
 
-    String PROFILE_IDS = "profileIds";
-
-    String ICON_PATH = "iconPath";
-
-    String DESCRIPTION = "description";
-
-    String NAME = "name";
-
-    String ID = "id";
-
-    String IS_DEFAULT = "isDefault";
-
-    String CREATION_DATE = "creationDate";
-
-    String CREATED_BY = "createdBy";
-
-    String LAST_UPDATE_DATE = "lastUpdateDate";
-
-    String LAST_UPDATED_BY = "lastUpdatedBy";
-
-    SProfileBuilder createNewInstance(SProfile profile);
-
-    SProfileBuilder createNewInstance(String name, boolean isDefault, long creationDate, long createdBy, long lastUpdateDate, long lastUpdatedBy);
-
     SProfileBuilder setId(long id);
 
     SProfileBuilder setDefault(boolean isDefault);
 
     SProfileBuilder setDescription(String description);
-
-    SProfileBuilder setIconPath(String iconPath);
 
     SProfileBuilder setCreationDate(long creationDate);
 

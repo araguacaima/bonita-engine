@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -21,8 +21,8 @@ public final class SelectByIdDescriptor<T extends PersistentObject> extends Abst
 
     private final long id;
 
-    public SelectByIdDescriptor(final String queryName, final Class<T> entityType, final long id) {
-        super(queryName, entityType, entityType);
+    public SelectByIdDescriptor(final Class<T> entityType, final long id) {
+        super(null, entityType, entityType);
         this.id = id;
     }
 

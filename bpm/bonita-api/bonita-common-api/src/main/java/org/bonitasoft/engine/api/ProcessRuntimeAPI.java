@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -10,9 +10,7 @@
  * You should have received a copy of the GNU Lesser General Public License along with this
  * program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
  * Floor, Boston, MA 02110-1301, USA.
- ** 
- * @since 6.0
- */
+ **/
 package org.bonitasoft.engine.api;
 
 import java.io.Serializable;
@@ -20,13 +18,16 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-import org.bonitasoft.engine.bpm.actor.ActorMember;
 import org.bonitasoft.engine.bpm.comment.ArchivedComment;
 import org.bonitasoft.engine.bpm.comment.Comment;
 import org.bonitasoft.engine.bpm.connector.ArchivedConnectorInstance;
 import org.bonitasoft.engine.bpm.connector.ConnectorExecutionException;
 import org.bonitasoft.engine.bpm.connector.ConnectorInstance;
 import org.bonitasoft.engine.bpm.connector.ConnectorNotFoundException;
+import org.bonitasoft.engine.bpm.contract.ContractDefinition;
+import org.bonitasoft.engine.bpm.contract.ContractViolationException;
+import org.bonitasoft.engine.bpm.data.ArchivedDataInstance;
+import org.bonitasoft.engine.bpm.data.ArchivedDataNotFoundException;
 import org.bonitasoft.engine.bpm.data.DataInstance;
 import org.bonitasoft.engine.bpm.data.DataNotFoundException;
 import org.bonitasoft.engine.bpm.flownode.ActivityExecutionException;
@@ -45,31 +46,42 @@ import org.bonitasoft.engine.bpm.flownode.FlowNodeInstanceNotFoundException;
 import org.bonitasoft.engine.bpm.flownode.HumanTaskInstance;
 import org.bonitasoft.engine.bpm.flownode.SendEventException;
 import org.bonitasoft.engine.bpm.flownode.TaskPriority;
+import org.bonitasoft.engine.bpm.flownode.TimerEventTriggerInstance;
+import org.bonitasoft.engine.bpm.flownode.TimerEventTriggerInstanceNotFoundException;
+import org.bonitasoft.engine.bpm.flownode.UserTaskNotFoundException;
 import org.bonitasoft.engine.bpm.process.ArchivedProcessInstance;
 import org.bonitasoft.engine.bpm.process.ArchivedProcessInstanceNotFoundException;
 import org.bonitasoft.engine.bpm.process.ProcessActivationException;
 import org.bonitasoft.engine.bpm.process.ProcessDefinitionNotFoundException;
+import org.bonitasoft.engine.bpm.process.ProcessDeploymentInfo;
 import org.bonitasoft.engine.bpm.process.ProcessExecutionException;
 import org.bonitasoft.engine.bpm.process.ProcessInstance;
 import org.bonitasoft.engine.bpm.process.ProcessInstanceCriterion;
 import org.bonitasoft.engine.bpm.process.ProcessInstanceNotFoundException;
+import org.bonitasoft.engine.exception.BonitaException;
+import org.bonitasoft.engine.exception.ContractDataNotFoundException;
+import org.bonitasoft.engine.exception.CreationException;
 import org.bonitasoft.engine.exception.DeletionException;
 import org.bonitasoft.engine.exception.ExecutionException;
 import org.bonitasoft.engine.exception.NotFoundException;
-import org.bonitasoft.engine.exception.ProcessInstanceHierarchicalDeletionException;
-import org.bonitasoft.engine.exception.RetrieveException;
 import org.bonitasoft.engine.exception.SearchException;
 import org.bonitasoft.engine.exception.UpdateException;
 import org.bonitasoft.engine.expression.Expression;
 import org.bonitasoft.engine.expression.ExpressionEvaluationException;
-import org.bonitasoft.engine.filter.UserFilter;
+import org.bonitasoft.engine.identity.User;
 import org.bonitasoft.engine.identity.UserNotFoundException;
+import org.bonitasoft.engine.job.FailedJob;
 import org.bonitasoft.engine.operation.Operation;
 import org.bonitasoft.engine.search.SearchOptions;
 import org.bonitasoft.engine.search.SearchResult;
 import org.bonitasoft.engine.session.InvalidSessionException;
 
 /**
+ * <code>ProcessRuntimeAPI</code> deals with Process runtime notions such as starting a new instance of a process, retrieving and executing tasks, accessing to
+ * all types of tasks, assigning a user to a task, retrieving archived versions of a task, accessing / updating data / variable values, adding / retrieving
+ * process comments ...
+ * It generally allows all BPM runtime actions, that is, once process instances are running of finished executing.
+ *
  * @author Baptiste Mesta
  * @author Matthieu Chaffotte
  * @author Yanyan Liu
@@ -77,893 +89,1141 @@ import org.bonitasoft.engine.session.InvalidSessionException;
  * @author Frederic Bouquet
  * @author Elias Ricken de Medeiros
  * @author Celine Souchet
+ * @author Emmanuel Duchastenier
  */
 public interface ProcessRuntimeAPI {
 
     /**
-     * Search for the hidden tasks for the specified user. Only searches for pending tasks for the current user: if a hidden task has been assigned,
-     * executed, ... it will not be retrieved.
-     * 
-     * @param userId
-     *            the ID of the user for whom to retrieve the hidden tasks
+     * List all open root process instances.
+     *
      * @param searchOptions
-     *            the search options parameters
-     * @return the list of hidden tasks for the specified user
+     *        The search criterion. See {@link org.bonitasoft.engine.bpm.process.ProcessInstanceSearchDescriptor} for valid fields for searching and sorting.
+     * @return A {@link ProcessInstance} object.
      * @throws SearchException
-     *             in case a search problem occurs
-     * @since 6.0
-     */
-    SearchResult<HumanTaskInstance> searchPendingHiddenTasks(long userId, SearchOptions searchOptions) throws SearchException;
-
-    /**
-     * List all open process instances
-     * 
-     * @param searchOptions
-     *            The criterion used to search process instance
-     * @return A processInstance object
-     * @throws SearchException
-     *             The search failed
+     *         If an exception occurs when getting the list of tasks.
      * @since 6.0
      */
     SearchResult<ProcessInstance> searchOpenProcessInstances(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * List all open process instances supervised by a user.
-     * If userId is not bound to any user, returns an empty SearchResult
-     * 
-     * @param userId
-     *            Identifier of the user
+     * List all process instances.
+     *
      * @param searchOptions
-     *            The criterion used to search process instance
-     * @return The list of process instances supervised by the user bound to userId
+     *        The search criterion. See {@link org.bonitasoft.engine.bpm.process.ProcessInstanceSearchDescriptor} for valid fields for searching and sorting.
+     * @return A {@link ProcessInstance} object.
      * @throws SearchException
-     *             The search failed
+     *         If an exception occurs when getting the list of {@link ProcessInstance}.
+     * @since 6.2
+     */
+    SearchResult<ProcessInstance> searchProcessInstances(SearchOptions searchOptions) throws SearchException;
+
+    /**
+     * List all process instances with at least one failed task or the {@link org.bonitasoft.engine.bpm.process.ProcessInstanceState#ERROR} state.
+     *
+     * @param searchOptions
+     *        The search criterion. See {@link org.bonitasoft.engine.bpm.process.ProcessInstanceSearchDescriptor} for valid fields for searching and sorting.
+     * @return A {@link ProcessInstance} object.
+     * @throws SearchException
+     *         If an exception occurs when getting the list of {@link ProcessInstance}.
+     * @since 6.4.0
+     */
+    SearchResult<ProcessInstance> searchFailedProcessInstances(SearchOptions searchOptions) throws SearchException;
+
+    /**
+     * List all process instances with at least one failed task or the {@link org.bonitasoft.engine.bpm.process.ProcessInstanceState#ERROR} state that
+     * are supervised by the given user.
+     * If the specified userId does not correspond to a user, an empty SearchResult is returned.
+     *
+     * @param userId
+     *        The identifier of the user.
+     * @param searchOptions
+     *        The search criterion. See {@link org.bonitasoft.engine.bpm.process.ProcessInstanceSearchDescriptor} for valid fields for searching and sorting.
+     * @return The list of failed process instances supervised by the specified user.
+     * @throws SearchException
+     *         If an exception occurs when getting the list of process instances.
+     * @since 7.0
+     */
+    SearchResult<ProcessInstance> searchFailedProcessInstancesSupervisedBy(long userId, SearchOptions searchOptions) throws SearchException;
+
+    /**
+     * List all open process instances supervised by a user.
+     * If the specified userId does not correspond to a user, an empty SearchResult is returned.
+     *
+     * @param userId
+     *        The identifier of the user.
+     * @param searchOptions
+     *        The search criterion. See {@link org.bonitasoft.engine.bpm.process.ProcessInstanceSearchDescriptor} for valid fields for searching and sorting.
+     * @return The list of process instances supervised by the specified user.
+     * @throws SearchException
+     *         If an exception occurs when getting the list of process instances.
      * @since 6.0
      */
     SearchResult<ProcessInstance> searchOpenProcessInstancesSupervisedBy(long userId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Get number of all process data instances by id
-     * 
+     * Get the number of process data instances by process id.
+     *
      * @param processInstanceId
-     *            Identifier of the activity instance
-     * @return The number of process data instances
+     *        The identifier of the process instance.
+     * @return The number of process data instances.
      * @throws ProcessInstanceNotFoundException
-     *             Error thrown if no ProcessInstance have an id corresponding to the parameter.
+     *         If the specified ProcessInstance does not refer to a process instance.
      * @since 6.0
      */
     long getNumberOfProcessDataInstances(long processInstanceId) throws ProcessInstanceNotFoundException;
 
     /**
-     * Get number of all activity data instances by id
-     * 
+     * Get the number of activity data instances by activity id.
+     *
      * @param activityInstanceId
-     *            Identifier of the activity instance
-     * @return Number of all activity data instances
+     *        The identifier of the activity instance.
+     * @return The number of activity data instances.
      * @throws ActivityInstanceNotFoundException
-     *             Error thrown if no activity instance have an id corresponding to the parameter.
+     *         If the specified activity instance does not refer to an activity instance.
      * @since 6.0
      */
     long getNumberOfActivityDataInstances(long activityInstanceId) throws ActivityInstanceNotFoundException;
 
     /**
-     * Get all process instances, the returned list is paginated
-     * 
+     * Get a paged list of all process instances.
+     *
      * @param startIndex
-     *            Index of the page to be returned. First page has index 0.
+     *        The index of the first result (starting from 0).
      * @param maxResults
-     *            Number of documents per page. Maximum number of documents returned.
+     *        The maximum number of results per page.
      * @param criterion
-     *            the criterion for sort result.
-     * @return The list of process instance
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The sort criterion.
+     * @return The list of process instances.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     List<ProcessInstance> getProcessInstances(int startIndex, int maxResults, ProcessInstanceCriterion criterion);
 
     /**
-     * Get all archived process instances, the returned list is paginated
-     * 
+     * Get a paged list of archived process instances.
+     *
      * @param startIndex
-     *            Index of the page to be returned. First page has index 0.
+     *        The index of the first result (starting from 0).
      * @param maxResults
-     *            Number of result per page. Maximum number of result returned.
+     *        The maximum number of results per page.
      * @param criterion
-     *            the criterion for sort result.
-     * @return The list of archived process instances
+     *        The sort criterion.
+     * @return The list of archived process instances.
      * @since 6.0
      */
     List<ArchivedProcessInstance> getArchivedProcessInstances(int startIndex, int maxResults, ProcessInstanceCriterion criterion);
 
     /**
-     * Get a list of archived activity instances, the returned list is paginated
-     * 
-     * @param processInstanceId
-     *            Identifier of the process instance
+     * Get a paged list of archived activity instances for a process instance.
+     *
+     * @param sourceProcessInstanceId
+     *        The identifier of the source process instance (used as root container id of the archived activity instances).
      * @param startIndex
-     *            Index of the page to be returned. First page has index 0.
+     *        The index of the first result (starting from 0).
      * @param maxResults
-     *            Number of result per page. Maximum number of result returned.
+     *        The maximum number of result per page.
      * @param criterion
-     *            aging criterion to sort the results
-     * @return this list of activities from the first definitive archive
+     *        The sort criterion.
+     * @return The list of archived activity instances.
      * @since 6.0
      */
-    List<ArchivedActivityInstance> getArchivedActivityInstances(long processInstanceId, int startIndex, int maxResults, ActivityInstanceCriterion criterion);
+    List<ArchivedActivityInstance> getArchivedActivityInstances(long sourceProcessInstanceId, int startIndex, int maxResults,
+            ActivityInstanceCriterion criterion);
 
     /**
-     * Retrieve a list of open activities for a given process instance, the returned list is paginated
-     * 
+     * Retrieve a paged list of open activities for a given process instance.
+     *
      * @param processInstanceId
-     *            Identifier of the process instance
+     *        The identifier of the process instance.
      * @param startIndex
-     *            Index of the page to be returned. First page has index 0.
+     *        The index of the first result (starting from 0).
      * @param maxResults
-     *            Number of result per page. Maximum number of result returned.
+     *        The maximum number of results per page.
      * @param criterion
-     *            paging criterion to sort the results
-     * @return The list of activity instances
+     *        The sort criterion.
+     * @return The list of activity instances.
      * @since 6.0
      */
     List<ActivityInstance> getOpenActivityInstances(long processInstanceId, int startIndex, int maxResults, ActivityInstanceCriterion criterion);
 
     /**
-     * Get total number of open activity instances by its id
-     * 
+     * Get the total number of open activity instances by process instance id.
+     *
      * @param processInstanceId
-     *            Identifier of the process instance
-     * @return Number of open activity instances
+     *        The identifier of the process instance.
+     * @return The number of open activity instances.
+     * @throws ProcessInstanceNotFoundException
+     *         If no matching process instance is found for parameter processInstanceId
      * @since 6.0
      */
     int getNumberOfOpenedActivityInstances(long processInstanceId) throws ProcessInstanceNotFoundException;
 
     /**
-     * Get the number of running process instances.
-     * 
-     * @return The total number of process instances, whatever the process definition.
+     * Get the number of open process instances.
+     * An open process instance is a process instance that has not been archived.
+     *
+     * @return The total number of open process instances.
      * @since 6.0
      */
     long getNumberOfProcessInstances();
 
     /**
-     * Get the number of distinct archived process instances. "Archived" means in the definitive archive.
-     * Only state Process Instances are retrieved.
-     * 
-     * @return The number of archived process instances
+     * Get the number of archived process instances.
+     * Process instances in state COMPLETED are counted.
+     *
+     * @return The number of archived process instances.
      * @since 6.0
      */
     long getNumberOfArchivedProcessInstances();
 
     /**
-     * Delete the process instance having the identifier in parameter
-     * 
+     * Delete the specified process instance.
+     *
      * @param processInstanceId
-     *            identifier of the process instance to delete
-     * @throws ProcessInstanceHierarchicalDeletionException
-     *             if a process instance can't be deleted because of a parent that is still existing.
+     *        The identifier of the process instance to delete.
+     * @throws org.bonitasoft.engine.exception.ProcessInstanceHierarchicalDeletionException
+     *         If a process instance cannot be deleted because of a parent that is still active.
+     * @throws DeletionException
+     *         If an error occurs during deletion.
      * @since 6.0
      */
     void deleteProcessInstance(long processInstanceId) throws DeletionException;
 
     /**
-     * Delete all instances of a specified process definition.
-     * If the process definition id does not match anything, no exception is thrown, but nothing is deleted.
-     * 
+     * Delete active process instances, and their elements, of process definition given as input parameter respecting the pagination parameters.
+     * Passing {@link Integer#MAX_VALUE} as maxResults is discouraged as the amount of operations may be large and may thus result in timeout operation.
+     * Instead, to delete all Process instances of a specific process definition, should you should use a loop and delete instances in bulk.
+     *
      * @param processDefinitionId
-     *            the identifier of the processDefinition.
-     * @throws ProcessInstanceHierarchicalDeletionException
-     *             if a process instance cannot be deleted because of a parent that still exists.
-     * @throws DeletionException
-     *             if other deletion problem occurs.
-     * @since 6.0
-     * @deprecated As of release 6.1, replaced by {@link #deleteProcessInstances(long, int, int, ProcessInstanceCriterion)} and
-     *             {@link #deleteArchivedProcessInstances(long, int, int)}
-     */
-    @Deprecated
-    void deleteProcessInstances(long processDefinitionId) throws DeletionException;
-
-    /**
-     * Delete active process instances, and their elements, of process definition given as input parameter respecting the pagination parameters
-     * 
-     * @param processDefinitionId
-     *            Identifier of the processDefinition
+     *        Identifier of the processDefinition
      * @param startIndex
-     *            the index
+     *        The index
      * @param maxResults
-     *            the max number of elements to retrieve per page
-     * @return the number of elements that have been deleted
+     *        The max number of elements to retrieve per page
+     * @return The number of elements that have been deleted
      * @throws DeletionException
-     *             if a process instance can't be deleted because of a parent that is still active
+     *         If a process instance can't be deleted because of a parent that is still active
      * @since 6.1
      */
     long deleteProcessInstances(long processDefinitionId, int startIndex, int maxResults) throws DeletionException;
 
     /**
-     * Delete archived process instances of process definition given as input parameter respecting the pagination parameters
-     * 
+     * Delete archived process instances of process definition given as input parameter respecting the pagination parameters.
+     * Passing {@link Integer#MAX_VALUE} as maxResults is discouraged as the amount of operations may be large and may thus result in timeout operation.
+     * Instead, to delete all archived process instances of a specific process definition, you should use a loop and delete archived instances in bulk.
+     *
      * @param processDefinitionId
-     *            Identifier of the processDefinition
+     *        Identifier of the processDefinition
      * @param startIndex
-     *            the index
+     *        The index
      * @param maxResults
-     *            the max number of elements to retrieve per page
-     * @return the number of elements that have been deleted
+     *        The max number of elements to retrieve per page
+     * @return The number of elements that have been deleted in any state. For example, process instance can be archived is several states: Cancelled,
+     *         Aborted, Completed, Failed
      * @throws DeletionException
-     *             if a process instance can't be deleted because of a parent that is still active
+     *         If a process instance can't be deleted because of a parent that is still active
      * @since 6.1
      */
     long deleteArchivedProcessInstances(long processDefinitionId, int startIndex, int maxResults) throws DeletionException;
 
     /**
-     * Start an instance of the process definition having processDefinitionId, and using the current session user
-     * 
+     * Delete all archived process instance (different states) of the source identifier list.
+     *
+     * @param sourceProcessInstanceIds
+     *        Identifiers corresponding to {@link ArchivedProcessInstance#getSourceObjectId()}.
+     * @return The number of {@link ArchivedProcessInstance}s that have been deleted in any state. For example, process instance can be archived is several
+     *         states: Cancelled, Aborted, Completed, Failed
+     * @throws DeletionException
+     *         If a process instance can't be deleted because of a parent that is still active
+     * @since 6.4.0
+     */
+    long deleteArchivedProcessInstancesInAllStates(List<Long> sourceProcessInstanceIds) throws DeletionException;
+
+    /**
+     * Delete all archived process instance (different states) corresponding to the source identifier.
+     *
+     * @param sourceProcessInstanceId
+     *        Identifier corresponding to {@link ArchivedProcessInstance#getSourceObjectId()}.
+     * @return The number of {@link ArchivedProcessInstance}s that have been deleted in any state. For example, process instance can be archived is several
+     *         states: Cancelled, Aborted, Completed, Failed
+     * @throws DeletionException
+     *         If a process instance can't be deleted because of a parent that is still active
+     * @since 6.4.0
+     */
+    long deleteArchivedProcessInstancesInAllStates(long sourceProcessInstanceId) throws DeletionException;
+
+    /**
+     * Start an instance of the process with the specified process definition, using the current session user. <b>Note</b>: If the process instantiation
+     * contract requires inputs, you must use {@link #startProcessWithInputs(long, Map)} instead.
+     *
      * @param processDefinitionId
-     *            Identifier of the process definition will be started
-     * @return an instance of the process
+     *        The identifier of the process definition for which an instance will be started.
+     * @return An instance of the process.
      * @throws ProcessDefinitionNotFoundException
-     *             No matching process definition found
+     *         If no matching process definition is found.
      * @throws ProcessActivationException
-     *             if the process is disabled
+     *         If an exception occurs during activation.
      * @throws ProcessExecutionException
-     *             The process failed to execute
+     *         If a problem occurs when starting the process.
      * @since 6.0
      */
     ProcessInstance startProcess(long processDefinitionId) throws ProcessDefinitionNotFoundException, ProcessActivationException, ProcessExecutionException;
 
     /**
-     * Instantiates a process.
-     * <b>
-     * The process variables will be initialized by the initialVariables.
-     * 
+     * Instantiates a process. <br />
+     * The process variables will be initialized by the <code>initialVariables</code> parameter. <b>Note</b>: If the process instantiation contract requires
+     * inputs, you must use {@link #startProcessWithInputs(long, Map)} instead, transforming <code>initialVariables</code> parameter as follows: in the process,
+     * define process variables initial values (expressions) with contract inputs.
+     *
      * @param processDefinitionId
-     *            the identifier of the processDefinition
+     *        The identifier of the processDefinition
      * @param initialVariables
-     *            the couples of initial variable/value
-     * @return a ProcessInstance object
+     *        The couples of initial variable/value
+     * @return A ProcessInstance object
      * @throws ProcessDefinitionNotFoundException
-     *             If the identifier of process definition does not refer to any existing process definition
+     *         If The identifier of process definition does not refer to any existing process definition
      * @throws ProcessExecutionException
-     *             If the process fails to start
+     *         If the process fails to start
      * @throws ProcessActivationException
-     *             If the process is disable
+     *         If the process is disable
      * @since 6.1
      */
     ProcessInstance startProcess(long processDefinitionId, Map<String, Serializable> initialVariables) throws ProcessDefinitionNotFoundException,
             ProcessActivationException, ProcessExecutionException;
 
     /**
-     * Start a process by process definition id
-     * 
+     * Start an instance of the process with the specified process definition id, and set the initial values of the data with the given operations. <b>Note</b>:
+     * If the process instantiation contract requires inputs, you must use {@link #startProcessWithInputs(long, Map)} instead. The best practice is to define
+     * contract inputs in the process definition, and use these contract inputs in operations, instead of providing operations at start time.
+     *
      * @param processDefinitionId
-     *            Identifier of the processDefinition
+     *        The identifier of the process definition for which an instance will be started.
      * @param operations
-     *            The operations to start process
+     *        The operations to execute to set the initial values of the data.
      * @param context
-     *            The context in which operations are executed
-     * @throws ExecutionException
-     *             The process failed to start
+     *        The context in which operations are executed.
+     * @return An instance of the process.
      * @throws ProcessDefinitionNotFoundException
-     *             The process definition corresponding to processDefinitionId is not found
-     * @return a ProcessInstance object
-     * @throws ProcessExecutionException
+     *         If no matching process definition is found.
      * @throws ProcessActivationException
-     *             if the process is disabled
+     *         If an exception occurs during activation.
+     * @throws ProcessExecutionException
+     *         If a problem occurs when starting the process.
      * @since 6.0
      */
     ProcessInstance startProcess(long processDefinitionId, List<Operation> operations, Map<String, Serializable> context)
             throws ProcessDefinitionNotFoundException, ProcessActivationException, ProcessExecutionException;
 
     /**
-     * Start an instance of the process definition on behalf of a given user
-     * If userId equals 0, the logged-in user is declared as the starter of the process.
-     * The user, who started the process on behalf of a given user, is declared as a starter delegate.
-     * 
+     * Start an instance of the process with the specified process definition id on behalf of a given user. <b>Note</b>: If the process instantiation contract
+     * requires inputs, you must use {@link #startProcessWithInputs(long, long, Map)} instead.
+     *
      * @param userId
-     *            the identifier of the user for which you want to start the process
+     *        The user id of the user.
      * @param processDefinitionId
-     *            Identifier of the processDefinition
-     * @return The ProcessInstance Objects
+     *        The identifier of the process definition for which an instance will be started.
+     * @return An instance of the process.
+     * @throws UserNotFoundException
+     *         If the given user does not exist.
+     * @throws ProcessDefinitionNotFoundException
+     *         If no matching process definition is found.
      * @throws ProcessActivationException
-     *             if the process is disabled
+     *         If a problem occurs when starting the process.
+     * @throws ProcessExecutionException
+     *         If an execution problem occurs when starting the process.
      * @since 6.0
      */
     ProcessInstance startProcess(long userId, long processDefinitionId) throws UserNotFoundException, ProcessDefinitionNotFoundException,
             ProcessActivationException, ProcessExecutionException;
 
     /**
-     * Start an instance of the process definition on behalf of a given user, and set the initial values of the data with the given operations.
-     * If userId equals 0, the logged-in user is declared as the starter of the process.
-     * The user, who started the process on behalf of a given user, is declared as a starter delegate.
-     * 
+     * Start an instance of the process with the specified process definition id on behalf of a given user, and set the initial values of the data with the
+     * given operations. <b>Note</b>: If the process instantiation contract requires inputs, you must use {@link #startProcessWithInputs(long, long, Map)}
+     * instead. The best practice is to design contract inputs in the process definition, and use these
+     * contract inputs in operations, instead of providing operations at start time.
+     *
      * @param userId
-     *            the identifier of the user for which you want to start the process
+     *        The identifier of the user.
      * @param processDefinitionId
-     *            Identifier of the process definition will be started
+     *        The identifier of the process definition for which an instance will be started.
      * @param operations
-     *            the operations to execute to set the initial values of the data
+     *        The operations to execute to set the initial values of the data.
      * @param context
-     *            TODO
-     * @return an instance of the process
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The context in which the operations are executed.
+     * @return An instance of the process.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws ProcessDefinitionNotFoundException
-     *             No matching process definition found
+     *         If no matching process definition is found.
      * @throws ProcessActivationException
-     *             a primary precondition of starting a process is the status of matching process definition should be enabled, if not,the exception occur.
+     *         If an exception occurs during activation.
      * @throws UserNotFoundException
-     *             in case this userId is not found.
+     *         If there is no user with the specified userId.
      * @throws ProcessExecutionException
-     *             if a problem occurs when starting the process
+     *         If a problem occurs when starting the process.
      * @since 6.0
      */
     ProcessInstance startProcess(long userId, long processDefinitionId, List<Operation> operations, Map<String, Serializable> context)
             throws UserNotFoundException, ProcessDefinitionNotFoundException, ProcessActivationException, ProcessExecutionException;
 
     /**
-     * Execute an flowNode that is is a non stable state
-     * Will make the flow node go in the next stable state and then continue the execution of the process
-     * 
+     * Start an instance of the process with the specified process definition id on behalf of a given user, and set the initial values of the data with the
+     * given initialVariables. <b>Note</b>: If the process instantiation contract requires inputs, you must use {@link #startProcessWithInputs(long, long, Map)}
+     * instead, using contract inputs stored in process variables, instead of using directly initialVariables.
+     *
+     * @param userId
+     *        The identifier of the user.
+     * @param processDefinitionId
+     *        The identifier of the process definition for which an instance will be started.
+     * @param initialVariables
+     *        The couples of initial variable/value
+     * @return An instance of the process.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws ProcessDefinitionNotFoundException
+     *         If no matching process definition is found.
+     * @throws ProcessActivationException
+     *         If an exception occurs during activation.
+     * @throws ProcessExecutionException
+     *         If a problem occurs when starting the process.
+     * @since 6.0
+     */
+    ProcessInstance startProcess(final long userId, final long processDefinitionId, final Map<String, Serializable> initialVariables)
+            throws ProcessDefinitionNotFoundException, ProcessActivationException, ProcessExecutionException;
+
+    /**
+     * Start an instance of the process with the specified process definition id, and provides inputs to fulfill Process Contract.
+     * See {@link org.bonitasoft.engine.bpm.contract.ContractDefinition} for details on contracts.
+     *
+     * @param processDefinitionId
+     *        The identifier of the process definition for which an instance will be started.
+     * @param instantiationInputs
+     *        The couples of input name/value that allows to start a process with an instantiation contract.
+     * @return An instance of the process.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws ProcessDefinitionNotFoundException
+     *         If no matching process definition is found.
+     * @throws ProcessActivationException
+     *         If an exception occurs during activation.
+     * @throws ProcessExecutionException
+     *         If a problem occurs when starting the process.
+     * @throws ContractViolationException
+     *         If inputs don't fit with task contract
+     * @since 7.0.0
+     */
+    ProcessInstance startProcessWithInputs(final long processDefinitionId, final Map<String, Serializable> instantiationInputs)
+            throws ProcessDefinitionNotFoundException, ProcessActivationException, ProcessExecutionException, ContractViolationException;
+
+    /**
+     * Start an instance of the process with the specified process definition id on behalf of a given user, and provides inputs to fulfill Process Contract.
+     * See {@link org.bonitasoft.engine.bpm.contract.ContractDefinition} for details on contracts.
+     *
+     * @param userId The identifier of the user in the name of whom the process is started.
+     * @param processDefinitionId
+     *        The identifier of the process definition for which an instance will be started.
+     * @param instantiationInputs
+     *        The couples of input name/value that allows to start a process with an instantiation contract.
+     * @return An instance of the process.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws ProcessDefinitionNotFoundException
+     *         If no matching process definition is found.
+     * @throws ProcessActivationException
+     *         If an exception occurs during activation.
+     * @throws ProcessExecutionException
+     *         If a problem occurs when starting the process.
+     * @throws ContractViolationException
+     *         If inputs don't fit with process contract
+     * @since 7.0.0
+     */
+    ProcessInstance startProcessWithInputs(final long userId, final long processDefinitionId, final Map<String, Serializable> instantiationInputs)
+            throws ProcessDefinitionNotFoundException, ProcessActivationException, ProcessExecutionException, ContractViolationException;
+
+    /**
+     * <p>
+     * Executes a flow node that is in a stable state.
+     * Will move the activity to the next stable state and then continue the execution of the process.
+     * </p>
+     * <p>
+     * Use this method only if you need to manually control the execution of a flownode.
+     * <b>DO NOT USE THIS TO EXECUTE HUMAN TASKS.</b> Use {@link #executeUserTask(long, Map)} instead.
+     * </p>
+     *
      * @param flownodeInstanceId
-     *            the identifier of the flow node to execute
+     *        The identifier of the flow node to execute.
      * @throws FlowNodeExecutionException
-     *             if an execution exception occurs
+     *         If an execution exception occurs.
      * @since 6.0
      */
     void executeFlowNode(long flownodeInstanceId) throws FlowNodeExecutionException;
 
     /**
-     * Start an flow node that is is a non stable state on behalf of a given user
+     * <p>
+     * Executes a flow node that is in a stable state on behalf of a given user
      * Will make the flow node go in the next stable state and then continue the execution of the process
      * If userId equals 0, the logged-in user is declared as the executer of the flow node.
      * The user, who executed the flow node on behalf of a given user, is declared as a executer delegate.
+     * </p>
+     * <p>
+     * Use this method only if you need to manually control the execution of a flownode.
+     * <b>DO NOT USE THIS TO EXECUTE HUMAN TASKS.</b> Use {@link #executeUserTask(long, long, Map)} instead.
+     * </p>
      * 
      * @param userId
-     *            the identifier of the user for which you want to execute the flow node
+     *        The identifier of the user for which you want to execute the flow node
      * @param flownodeInstanceId
-     *            the identifier of the flow node to execute
+     *        The identifier of the flow node to execute
      * @throws FlowNodeExecutionException
-     *             if an execution exception occurs
+     *         If an execution exception occurs
      * @since 6.0.1
      */
     void executeFlowNode(long userId, long flownodeInstanceId) throws FlowNodeExecutionException;
 
     /**
-     * Returns all currently active activities of a process instance.
-     * 
+     * Returns all activities (active and finished) of a process instance.
+     *
      * @param processInstanceId
-     *            Identifier of the process instance
+     *        The identifier of the process instance,
      * @param startIndex
-     *            the index
+     *        The index of the first result (starting from 0).
      * @param maxResults
-     *            the number of results to get
-     * @return the matching set of activity instances
+     *        The maximum number of results to get.
+     * @return The matching set of activity instances.
      * @since 6.0
      */
     List<ActivityInstance> getActivities(long processInstanceId, int startIndex, int maxResults);
 
     /**
-     * Get an instance of process from its processInstance ID.
-     * 
+     * Get the specified process instance.
+     *
      * @param processInstanceId
-     *            Identifier of the process instance
-     * @return the matching instance of process
+     *        The identifier of the process instance.
+     * @return The matching instance of process.
      * @throws ProcessInstanceNotFoundException
-     *             if no process instance can be found with the provided ID.
+     *         If there is no process instance with the specified identifier.
      * @since 6.0
      */
     ProcessInstance getProcessInstance(long processInstanceId) throws ProcessInstanceNotFoundException;
 
     /**
-     * Get an instance of activity using its activity instance id.
-     * 
+     * Get the specified activity instance.
+     *
      * @param activityInstanceId
-     *            Identifier of the activity instance
-     * @return the matching instance of activity
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the activity instance.
+     * @return The matching activity instance.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws ActivityInstanceNotFoundException
-     *             if the activity cannot be found
-     * @throws RetrieveException
-     *             can't retrieve an instance of activity
+     *         If the activity cannot be found.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If the activity instance cannot be retrieved.
      * @since 6.0
      */
     ActivityInstance getActivityInstance(long activityInstanceId) throws ActivityInstanceNotFoundException;
 
     /**
-     * Get an instance of flow node using its flow node instance id.
-     * 
+     * Get a specified flow node instance.
+     *
      * @param flowNodeInstanceId
-     *            Identifier of the flow node instance
-     * @return the matching instance of activity
+     *        The identifier of the flow node instance.
+     * @return The matching flow node instance.
+     * @throws FlowNodeInstanceNotFoundException
+     *         If the given flow node instance does not exist.
      * @since 6.0
      */
     FlowNodeInstance getFlowNodeInstance(final long flowNodeInstanceId) throws FlowNodeInstanceNotFoundException;
 
     /**
-     * Get an activity instance that already was archived.
-     * 
-     * @param activityInstanceId
-     *            Identifier of the activity instance
-     * @return the matching activity instance that already was archived
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     * Get an activity instance that is archived.
+     *
+     * @param sourceActivityInstanceId
+     *        The identifier of the source activity instance.
+     * @return The matching archived activity instance.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws ActivityInstanceNotFoundException
-     *             if the archived activity cannot be found
-     * @throws RetrieveException
-     *             can't retrieve an instance of activity
+     *         If the archived activity instance cannot be found.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If the archived activity instance cannot be retrieved.
      * @since 6.0
      */
-    ArchivedActivityInstance getArchivedActivityInstance(long activityInstanceId) throws ActivityInstanceNotFoundException;
+    ArchivedActivityInstance getArchivedActivityInstance(long sourceActivityInstanceId) throws ActivityInstanceNotFoundException;
 
     /**
-     * Retrieve a list of assigned human task instances related to given userId.
-     * 
+     * Get the list of human task instances assigned to the specified user.
+     *
      * @param userId
-     *            the user identifier
+     *        The identifier of the user.
      * @param startIndex
-     *            the index
+     *        The index of the first result (starting from 0).
      * @param maxResults
-     *            the max number of elements to retrieve per page
+     *        The maximum number of elements to get per page.
      * @param criterion
-     *            the sort criterion
-     * @return the matching list
-     * @throws InvalidSessionException
-     *             occurs when the session is invalid.
-     * @throws RetrieveException
-     *             can't retrieve an instance of activity
+     *        The sort criterion.
+     * @return The matching list of task instances.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         Occurs when the session is invalid.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If a task instance cannot be retrieved.
      * @since 6.0
      */
     List<HumanTaskInstance> getAssignedHumanTaskInstances(long userId, int startIndex, int maxResults, ActivityInstanceCriterion criterion);
 
     /**
-     * Retrieve a list of pending human task instances related to a given userId. A human task is pending for a given user if it is not yet assigned and if the
-     * user is a candidate either through an {@link ActorMember} or through a {@link UserFilter}. In addition, hidden tasks for this user are not retrieved (see
-     * {@link #hideTasks(long, Long...)})
-     * 
+     * Get the list of pending human task instances available to the specified user.
+     * A human task is pending for a given user if it is not yet assigned and if the
+     * user is a candidate either through an {@link org.bonitasoft.engine.bpm.actor.ActorMember} or through a {@link org.bonitasoft.engine.filter.UserFilter}.
+     *
      * @param userId
-     *            the user identifier
+     *        The identifier of the user.
      * @param startIndex
-     *            the index
+     *        The index of the first result (starting from 0).
      * @param maxResults
-     *            the max number of elements to retrieve per page
+     *        The maximum number of elements to get per page.
      * @param pagingCriterion
-     *            the Criterion is for how to separate all items gotten to many pages.
-     * @return the matching list
-     * @throws InvalidSessionException
-     *             occurs when the session is invalid.
+     *        The criterion for sorting the items over pages.
+     * @return The list of matching task instances.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         Occurs when the session is invalid.
      * @since 6.0
      */
     List<HumanTaskInstance> getPendingHumanTaskInstances(long userId, int startIndex, int maxResults, ActivityInstanceCriterion pagingCriterion);
 
     /**
-     * Count total number of human task instances assigned that is related to the given userId.
-     * 
+     * Count the total number of human task instances assigned to the specified user.
+     *
      * @param userId
-     *            Identifier of a user
-     * @return a number of human task instances assigned
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
-     * @throws RetrieveException
-     *             errors happen in while retrieving the instance of activity
+     *        The identifier of a user.
+     * @return A number of human task instances assigned.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an error occurs while retrieving an instance of an activity.
      * @since 6.0
      */
     long getNumberOfAssignedHumanTaskInstances(long userId);
 
     /**
-     * Return userIds and corresponding open task's id.
-     * 
+     * For a specified list of users, get the number of pending tasks.
+     *
      * @param userIds
-     *            a list of Identifiers for users
-     * @return a map with userId as key and task id as value
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
-     * @throws RetrieveException
-     *             can't retrieve an instance of activity
+     *        A list of user identifiers.
+     * @return A map with userId as key and number of tasks as value.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         can't retrieve an instance of activity
      * @since 6.0
      */
     Map<Long, Long> getNumberOfOpenTasks(List<Long> userIds);
 
     /**
-     * Count number of pending human task instances.
-     * 
+     * Count the number of pending human task instances available to a specified user.
+     *
      * @param userId
-     *            Identifier of a user
-     * @return a number of pending human task instances
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
-     * @throws RetrieveException
-     *             errors happen in while retrieving the instance of activity
+     *        The identifier of a user.
+     * @return A number of pending human task instances.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an error occurs while retrieving an instance of an activity.
      * @since 6.0
      */
     long getNumberOfPendingHumanTaskInstances(long userId);
 
     /**
-     * Retrieve a human task instance using corresponding activity instance id.
-     * 
+     * Retrieve a human task instance by the corresponding activity instance id.
+     *
      * @param activityInstanceId
-     *            Identifier of the activity instance
-     * @return the matching instance of human task
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the activity instance.
+     * @return The matching instance of human task.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws ActivityInstanceNotFoundException
-     *             if the human task cannot be found
-     * @throws RetrieveException
-     *             errors happen in while retrieving the instance of activity
+     *         If the human task cannot be found.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an error occurs while retrieving the instance of the activity.
      * @since 6.0
      */
     HumanTaskInstance getHumanTaskInstance(long activityInstanceId) throws ActivityInstanceNotFoundException;
 
     /**
-     * Get a event instance list according to all given conditions
-     * 
+     * Get a list of event instances related to a process instance that match the specified conditions.
+     *
      * @param rootContainerId
-     *            id of the top-level container
+     *        The identifier of the containing root process instance.
      * @param startIndex
-     *            the index
+     *        The index of the first result (starting from 0).
      * @param maxResults
-     *            the number of results to get
-     * @return the matching list of event instances
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The maximum number of results to get.
+     * @param sortingType
+     *        The criterion for sorting event instances.
+     * @return The matching list of event instances.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     List<EventInstance> getEventInstances(long rootContainerId, int startIndex, int maxResults, EventCriterion sortingType);
 
     /**
-     * Assign a task to a user with given user name.
-     * 
+     * Assign a task to a user with given user identifier.
+     *
      * @param userTaskId
-     *            Identifier of user task
+     *        The identifier of the user task.
      * @param userId
-     *            id of user
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the user.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws UpdateException
+     *         If an error occurs while updating the activity instance.
      * @since 6.0
      */
     void assignUserTask(long userTaskId, long userId) throws UpdateException;
 
     /**
      * Updates the actors of the user task. It evaluates again the eligible users for that task.
-     * 
+     *
      * @param userTaskId
-     *            the identifier of the user task
+     *        The identifier of the user task
      * @throws UpdateException
-     *             If an exception occurs during the evaluation of actors.
+     *         If an exception occurs during the evaluation of actors.
      * @since 6.1
      */
     void updateActorsOfUserTask(long userTaskId) throws UpdateException;
 
     /**
-     * Returns all data of a process instance
-     * 
+     * Returns all data of a process instance.
+     *
      * @param processInstanceId
-     *            Identifier of the process instance
+     *        The identifier of the process instance.
      * @param startIndex
-     *            the index of the page of results to get
+     *        The index of the page of results to get (starting from 0).
      * @param maxResults
-     *            the number of results to get
-     * @return the matching list of dataInstances
+     *        The maximum number of results to get.
+     * @return The matching list of dataInstances.
      * @since 6.0
      */
     List<DataInstance> getProcessDataInstances(long processInstanceId, int startIndex, int maxResults);
 
     /**
-     * Get a DataInstance by dataName, processInstanceId.
-     * 
+     * Get the value of named data item from a specified process instance.
+     * The value is returned in a DataInstance object.
+     *
      * @param dataName
-     *            name of data
+     *        The name of the data item.
      * @param processInstanceId
-     *            Identifier of the process instance
-     * @return an instance of the data
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the process instance.
+     * @return An instance of the data
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws DataNotFoundException
-     *             Error thrown if can't get the corresponding data.
+     *         If the specified data value cannot be found.
      * @since 6.0
      */
     DataInstance getProcessDataInstance(String dataName, long processInstanceId) throws DataNotFoundException;
 
     /**
-     * Update data instance with given data name, value and process instance id that the data belongs to.
-     * 
+     * Update the value of a named data item in a specified process instance.
+     *
      * @param dataName
-     *            name of data
+     *        The name of the data item.
      * @param processInstanceId
-     *            Identifier of process instance the data belongs to
+     *        The identifier of the process instance.
      * @param dataValue
-     *            the new value of data to set
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The new value for the data item.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws UpdateException
-     *             if an data update problem occurs
+     *         If a problem occurs while updating the data value.
      * @since 6.0
      */
     void updateProcessDataInstance(String dataName, long processInstanceId, Serializable dataValue) throws UpdateException;
 
     /**
-     * Get data instances under the activity with given activity id.
-     * 
+     * Update the value of a named data item in a specified process instance.
+     *
+     * @param processInstanceId
+     *        The identifier of the process instance.
+     * @param dataNameValues
+     *        The mapping between the data name and its value to update to.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws UpdateException
+     *         If a problem occurs while updating the data value.
+     * @since 6.2.3
+     */
+    void updateProcessDataInstances(final long processInstanceId, final Map<String, Serializable> dataNameValues) throws UpdateException;
+
+    /**
+     * Get a list of the data instances from a specified activity instance.
+     *
      * @param activityInstanceId
-     *            Identifier of the activity instance
+     *        The identifier of the activity instance.
      * @param startIndex
-     *            the index
+     *        The index of the first result (starting at 0).
      * @param maxResults
-     *            the number of results to get
-     * @return the matching list of dataInstances
+     *        The maximum number of results to get.
+     * @return The list of matching DataInstances.
      * @since 6.0
      */
     List<DataInstance> getActivityDataInstances(long activityInstanceId, int startIndex, int maxResults);
 
     /**
-     * Get a data instance in activity with data name and activity instance id.
-     * 
+     * Get a named data instance from a specified activity instance.
+     *
      * @param dataName
-     *            name of data
+     *        The name of the data item.
      * @param activityInstanceId
-     *            Identifier of the activity instance
-     * @return an instance of data
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the activity instance.
+     * @return An instance of data.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws DataNotFoundException
-     *             Error thrown if can't get the corresponding data.
+     *         If the specified data value cannot be found.
      * @since 6.0
      */
     DataInstance getActivityDataInstance(String dataName, long activityInstanceId) throws DataNotFoundException;
 
     /**
-     * Update a data instance's value which in activity using data name and activity instance id.
-     * 
+     * Update the value of a named data instance in a specified activity instance.<br>
+     * <br>
+     * <b>WARNING</b>: this method is not supported for updating a Custom Data Instance variable with a remote Engine API connection,
+     * because the custom data type is not present in the remote classloader that deserializes the API call parameters. <br>
+     * use {@link ProcessRuntimeAPI#updateActivityInstanceVariables(List, long, Map)} instead
+     *
      * @param dataName
-     *            name of data
+     *        The name of the data instance.
      * @param activityInstanceId
-     *            Identifier of the activity instance
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the activity instance.
+     * @param dataValue
+     *        The new value of the data to set.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws UpdateException
+     *         If an error occurs during the update.
      * @since 6.0
      */
     void updateActivityDataInstance(String dataName, long activityInstanceId, Serializable dataValue) throws UpdateException;
 
     /**
-     * Get the date when the activity with given activityInstanceId reaches the given state.
-     * 
+     * Update the value of a named transient data instance in a specified activity instance.
+     *
+     * @param dataName
+     *        The name of the data instance.
      * @param activityInstanceId
-     *            Identifier of the activity instance
+     *        The identifier of the activity instance.
+     * @param dataValue
+     *        The new value of the data to set.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws UpdateException
+     *         If an error occurs during the update.
+     * @since 6.0
+     */
+    void updateActivityTransientDataInstance(String dataName, long activityInstanceId, Serializable dataValue) throws UpdateException;
+
+    /**
+     * Get a list of the transient data instances from a specified activity instance.
+     *
+     * @param activityInstanceId
+     *        The identifier of the activity instance.
+     * @param startIndex
+     *        The index of the first result (starting at 0).
+     * @param maxResults
+     *        The maximum number of results to get.
+     * @return The list of matching DataInstances.
+     * @since 6.0
+     */
+    List<DataInstance> getActivityTransientDataInstances(long activityInstanceId, int startIndex, int maxResults);
+
+    /**
+     * Get a named transient data instance from a specified activity instance.
+     *
+     * @param dataName
+     *        The name of the data item.
+     * @param activityInstanceId
+     *        The identifier of the activity instance.
+     * @return An instance of data.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws DataNotFoundException
+     *         If the specified data value cannot be found.
+     * @since 6.0
+     */
+    DataInstance getActivityTransientDataInstance(String dataName, long activityInstanceId) throws DataNotFoundException;
+
+    /**
+     * Get the date when the specified activity instance reached the given state.
+     *
+     * @param activityInstanceId
+     *        The identifier of the activity instance.
      * @param state
-     *            representing state of the activity existed
-     * @return the matching date
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
-     * @throws RetrieveException
-     *             errors happen in while retrieving the instance of activity
+     *        The state of interest.
+     * @return The date at which the activity instance reached the state.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an error occurs while retrieving the activity instance.
      * @since 6.0
      */
     Date getActivityReachedStateDate(long activityInstanceId, String state);
 
     /**
      * Update the given variables of an activity instance.
-     * 
+     * The updates are treated as a single transaction, so if any variable update fails, none of the values is changed.
+     *
      * @param activityInstanceId
-     *            the activity identifier
+     *        The activity identifier.
      * @param variables
-     *            a map which contains several couple the variable name/value
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        A map which contains several pairs of variable name and value.
+     * @throws UpdateException
+     *         If a problem occurs while updating one of the data instance value.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     void updateActivityInstanceVariables(long activityInstanceId, Map<String, Serializable> variables) throws UpdateException;
 
     /**
-     * Update a variable data's expression in an activity instance which has left and right sides.
-     * 
+     * Update the values of variables in an activity instance using expressions.
+     *
      * @param operations
-     *            using this parameter to update expression's left and right side for different operation type.
+     *        A sequence of operations on expressions that update the values variables.
      * @param activityInstanceId
-     *            Identifier of the activity instance
+     *        The identifier of the activity instance.
      * @param expressionContexts
-     *            store all parameters that related to container which the data belongs to.
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        Store all information identifying the container that the data belongs to.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws UpdateException
+     *         If an error occurs during the update.
      * @since 6.0
      */
     void updateActivityInstanceVariables(List<Operation> operations, long activityInstanceId, Map<String, Serializable> expressionContexts)
             throws UpdateException;
 
     /**
-     * Update the due date of a task
-     * 
+     * Update the due date of a task.
+     *
      * @param userTaskId
-     *            identifier of the task to update
+     *        The identifier of the task to update.
      * @param dueDate
-     *            new due date for the task
-     * @throws InvalidSessionException
-     *             if the activity does not exists
+     *        The new due date for the task.
+     * @throws UpdateException
+     *         If the activity does not exist or the update cannot be fulfilled.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     void updateDueDateOfTask(long userTaskId, Date dueDate) throws UpdateException;
 
     /**
-     * Get an instance of userTask assigned in an instance of process.
-     * 
+     * Get an instance of a task asssigned to a given user for the specified process instance.
+     *
      * @param processInstanceId
-     *            Identifier of the process instance
+     *        The identifier of the process instance.
      * @param userId
-     *            Identifier of a user
-     * @return id of assigned userTask instance in process instance
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the user.
+     * @return The identifier of a user task from the process instance that is assigned to the user.
+     * @throws ProcessInstanceNotFoundException
+     *         If the given process instance does not exist.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws UserNotFoundException
-     *             Error thrown if no user have an id corresponding to the value of userId parameter
-     * @throws RetrieveException
-     *             errors happen in while retrieving the instance of activity
+     *         If there is no user with the specified id.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an error occurs happen while retrieving the activity instance.
      * @since 6.0
      */
     long getOneAssignedUserTaskInstanceOfProcessInstance(long processInstanceId, long userId) throws ProcessInstanceNotFoundException, UserNotFoundException;
 
     /**
-     * Get an instance of userTask assigned in a processDefinition.
-     * 
+     * Get an instance of a task asssigned to a given user for the specified process definition.
+     *
      * @param processDefinitionId
-     *            Identifier of the process definition
+     *        The identifier of the process definition.
      * @param userId
-     *            Identifier of a user
-     * @return the matching userTask id
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
-     * @throws RetrieveException
-     *             Error thrown if can't retrieve corresponding instance of process.
+     *        The identifier of a user.
+     * @return The identifier of a user task from the process definition that is assigned to the user.
+     * @throws ProcessDefinitionNotFoundException
+     *         If the given process definition does not exist.
+     * @throws UserNotFoundException
+     *         If the given user does not exist.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an error occurs happen while retrieving the activity instance.
      * @since 6.0
      */
     long getOneAssignedUserTaskInstanceOfProcessDefinition(long processDefinitionId, long userId) throws ProcessDefinitionNotFoundException,
             UserNotFoundException;
 
     /**
-     * Get an activity instance's state according to its activityInstanceId.
-     * 
+     * Get the state of a specified activity instance.
+     *
      * @param activityInstanceId
-     *            Identifier of the activity instance
-     * @return the matching activity's state
+     *        The identifier of the activity instance.
+     * @return The state of the activity instance.
      * @throws ActivityInstanceNotFoundException
-     *             if the activity cannot be found
+     *         If the activity cannot be found.
      * @since 6.0
      */
     String getActivityInstanceState(long activityInstanceId) throws ActivityInstanceNotFoundException;
 
     /**
-     * Check if the task can be executed
-     * 
+     * Check whether a specified task can be executed by a given user.
+     *
      * @param activityInstanceId
-     *            Identifier of the activity instance
+     *        The identifier of the activity instance.
      * @param userId
-     *            Identifier of a user
-     * @return a flag that indicates the task can be executed
-     * @throws InvalidSessionException
+     *        The identifier of a user.
+     * @return A flag that indicates whether task can be executed by the user.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws ActivityInstanceNotFoundException
-     *             if the activity cannot be found
+     *         If the activity cannot be found.
      * @throws UserNotFoundException
-     *             Error thrown if no user have an id corresponding to the value of userId parameter
-     * @throws RetrieveException
-     *             errors happen in while retrieving the instance of activity
+     *         If there is no user with the specified userId.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an error occurs happen while retrieving the activity instance.
      * @since 6.0
      */
     boolean canExecuteTask(long activityInstanceId, long userId) throws ActivityInstanceNotFoundException, UserNotFoundException;
 
     /**
-     * release a task (un_claim or un_assign). After the operation, the task should be in the pending task list
-     * 
+     * Release a task (unclaim or unassign). After the operation, the task is in the pending task list.
+     *
      * @param userTaskId
-     *            Identifier of user task
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the user task.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws ActivityInstanceNotFoundException
-     *             errors thrown if can't find corresponding activity
+     *         If the activity cannot be found.
+     * @throws UpdateException
+     *         If a problem occurs while release (un-assigning) the user task.
      * @since 6.0
      */
     void releaseUserTask(long userTaskId) throws ActivityInstanceNotFoundException, UpdateException;
 
     /**
+     * List the archived process instances for the specified process instance.
+     * A process instance is archived when it changes state, so there are several archived process instances for each process instance.
+     *
      * @param processInstanceId
-     *            the process instance ID to retrieve the list of archives from
+     *        The identifier of the process instance.
      * @param startIndex
-     *            the index of the page of results to get
+     *        The index of the page of results to get.
      * @param maxResults
-     *            the number of results to get
-     * @return the list found
-     * @throws InvalidSessionException
-     *             if no current valid session is found
-     * @throws RetrieveException
-     *             if search failed for a read reason
+     *        The maximum number of results to get.
+     * @return The list of archived process instances.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If no current valid session is found.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If the search fails because an archived process instance cannot be read.
      * @since 6.0
      */
     List<ArchivedProcessInstance> getArchivedProcessInstances(long processInstanceId, int startIndex, int maxResults);
 
     /**
-     * Get the last archived instance of process.
-     * 
-     * @param processInstanceId
-     *            Identifier of the process instance
-     * @return an instance of process archived
-     * @throws InvalidSessionException
-     *             if no current valid session is found
-     * @throws RetrieveException
-     *             if search failed for a read reason
+     * Get the last archived instance of a process instance.
+     * A process instance is archived when it changes state, so there are several archived process instances for each process instance.
+     * The last archived instance is returned.
+     *
+     * @param sourceProcessInstanceId
+     *        The identifier of the source process instance, i.e. not an archived version, the original process instance id.
+     * @return The archived process instance.
+     * @throws ArchivedProcessInstanceNotFoundException
+     *         If no archived process instance can be found with the provided Id.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If no current valid session is found.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If the search fails because an archived process instance cannot be read.
      * @since 6.0
      */
-    ArchivedProcessInstance getFinalArchivedProcessInstance(long processInstanceId) throws ArchivedProcessInstanceNotFoundException;
+    ArchivedProcessInstance getFinalArchivedProcessInstance(long sourceProcessInstanceId) throws ArchivedProcessInstanceNotFoundException;
 
     /**
-     * Set a activity's state with state id.
-     * 
+     * Set the state of an activity instance.
+     *
      * @param activityInstanceId
-     *            Identifier of the activity instance
+     *        The identifier of the activity instance.
      * @param stateId
-     *            Identifier of state
-     * @throws InvalidSessionException
-     *             if no current valid session is found
+     *        The identifier of the required state.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If no current valid session is found.
+     * @throws UpdateException
+     *         If an error occurs during the update.
      * @since 6.0
      */
     void setActivityStateById(long activityInstanceId, int stateId) throws UpdateException;
 
     /**
-     * Set a activity's state with state name.
-     * 
+     * Set the state of an activity instance.
+     *
      * @param activityInstanceId
-     *            Identifier of the activity instance
+     *        The identifier of the activity instance.
      * @param state
-     *            representing new state of the activity
-     * @throws InvalidSessionException
-     *             if no current valid session is found
+     *        The name of the required state.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If no current valid session is found.
+     * @throws UpdateException
+     *         If an error occurs during the update.
      * @since 6.0
      */
     void setActivityStateByName(long activityInstanceId, String state) throws UpdateException;
 
     /**
-     * Set a process instance's state.
-     * 
+     * Set a state of a process instance.
+     *
      * @param processInstance
-     *            an instance of process
+     *        The process instance.
      * @param state
-     *            representing new state of the activity
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The name of the required state.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws UpdateException
+     *         If an error occurs during the update.
      * @since 6.0
      */
     void setProcessInstanceState(ProcessInstance processInstance, String state) throws UpdateException;
 
     /**
-     * Set this userTask instance's priority.
-     * 
+     * Set the priority of a user task.
+     *
      * @param userTaskInstanceId
-     *            Identifier of user task instance
+     *        The identifier of user task instance.
      * @param priority
-     *            new priority of this task
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The new priority of this task.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws UpdateException
+     *         If an error occurs during the update.
      * @since 6.0
      */
     void setTaskPriority(long userTaskInstanceId, TaskPriority priority) throws UpdateException;
 
     /**
-     * Execute connector in given processDefinition.
-     * 
+     * Execute a connector in a specified processDefinition.
+     *
      * @param connectorDefinitionId
-     *            Identifier of connector definition
+     *        The identifier of connector definition.
      * @param connectorDefinitionVersion
-     *            version of the connector definition
+     *        The version of the connector definition.
      * @param connectorInputParameters
-     *            all expressions related with the connector
+     *        The expressions related to the connector input paramters.
      * @param inputValues
-     *            all parameters values for expression need when evaluate the connector
+     *        The parameters values for expression needed when evaluating the connector.
      * @param processDefinitionId
-     *            Identifier of the process definition
-     * @return a map with connector parameter name and parameter value object
+     *        The identifier of the process definition.
+     * @return A map with connector parameter names and parameter value objects.
      * @throws ConnectorExecutionException
-     *             TODO
+     *         If an error occurs during connector execution.
      * @throws ConnectorNotFoundException
-     *             TODO
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *         If there is no connector definition with the specified identifier or version.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     Map<String, Serializable> executeConnectorOnProcessDefinition(String connectorDefinitionId, String connectorDefinitionVersion,
@@ -971,29 +1231,29 @@ public interface ProcessRuntimeAPI {
             throws ConnectorExecutionException, ConnectorNotFoundException;
 
     /**
-     * Execute connector in given processDefinition with operations.
-     * 
+     * Execute a connector in a specified processDefinition with operations.
+     *
      * @param connectorDefinitionId
-     *            Identifier of connector definition
+     *        The identifier of connector definition.
      * @param connectorDefinitionVersion
-     *            version of the connector definition
+     *        The version of the connector definition.
      * @param connectorInputParameters
-     *            all expressions related with the connector
+     *        The expressions related to the connector input parameters.
      * @param inputValues
-     *            all parameters values for expression need when evaluate the connector
+     *        The parameters values for expression needed when evaluating the connector.
      * @param operations
-     *            map of operations having each a special context (input values)
+     *        The operations used when executing the connector.
      * @param operationInputValues
-     *            TODO
+     *        The input values for the operations.
      * @param processDefinitionId
-     *            Identifier of the process definition
-     * @return a map with new values of elements set by the operations
+     *        The identifier of the process definition.
+     * @return A map with connector parameter names and parameter value objects after operations and connector execution.
      * @throws ConnectorExecutionException
-     *             TODO
+     *         If an error occurs during connector execution.
      * @throws ConnectorNotFoundException
-     *             TODO
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *         If there is no connector definition with the specified identifier or version.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     Map<String, Serializable> executeConnectorOnProcessDefinition(String connectorDefinitionId, String connectorDefinitionVersion,
@@ -1001,767 +1261,871 @@ public interface ProcessRuntimeAPI {
             Map<String, Serializable> operationInputValues, long processDefinitionId) throws ConnectorExecutionException, ConnectorNotFoundException;
 
     /**
-     * Search task archived.
-     * 
+     * Search the archived human tasks for tasks that match the search options.
+     *
      * @param searchOptions
-     *            search conditions and set sort,paging properties.
-     * @return the number of human tasks found and the matching human tasks
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The search conditions and the options for sorting and paging the results. See
+     *        {@link org.bonitasoft.engine.bpm.flownode.HumanTaskInstanceSearchDescriptor} for valid
+     *        fields
+     *        for searching and sorting.
+     * @return The archived human tasks that match the search conditions.
+     * @throws SearchException
+     *         If the search could not be completed correctly.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     SearchResult<ArchivedHumanTaskInstance> searchArchivedHumanTasks(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Search human tasks administered by the given user.
-     * 
+     * Search the assigned human tasks for tasks that match the search options and are administered by the specified user.
+     *
      * @param managerUserId
-     *            Identifier of a user
+     *        The identifier of the user.
      * @param searchOptions
-     *            search conditions and set sort,paging properties.
-     * @return the number of human tasks found and the matching human tasks
+     *        The search conditions and the options for sorting and paging the results. See
+     *        {@link org.bonitasoft.engine.bpm.flownode.HumanTaskInstanceSearchDescriptor} for valid fields for searching and sorting.
+     * @return The assigned human tasks that match the search conditions and are supervised by the user.
      * @throws SearchException
-     *             if there's wrong search condition, error happened.e.g,set a String value to long attribute.
+     *         If there is an error in the search conditions.
      * @since 6.0
      */
     SearchResult<HumanTaskInstance> searchAssignedTasksManagedBy(long managerUserId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Search pending human tasks supervised by the given user.
-     * 
+     * Search the pending human tasks for tasks that match the search options and are supervised by the specified user.
+     *
      * @param userId
-     *            Identifier of a user
+     *        The identifier of the user.
      * @param searchOptions
-     *            search conditions and set sort,paging properties.
-     * @return the number of human tasks found and the matching human tasks
+     *        The search conditions and the options for sorting and paging the results. See
+     *        {@link org.bonitasoft.engine.bpm.flownode.HumanTaskInstanceSearchDescriptor} for valid fields for searching and sorting.
+     * @return The pending human tasks that match the search conditions and are supervised by the user.
      * @throws SearchException
-     *             if there's wrong search condition, error happened.e.g,set a String value to long attribute.
+     *         If there is an error in the search conditions.
      * @since 6.0
      */
     SearchResult<HumanTaskInstance> searchPendingTasksSupervisedBy(long userId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Search pending human tasks for the given user.
-     * 
+     * Search the pending human tasks for tasks available to the specified user.
+     *
      * @param userId
-     *            Identifier of a user
+     *        The identifier of the user.
      * @param searchOptions
-     *            search conditions and set sort,paging properties.
-     * @return the number of human tasks found and the matching human tasks
+     *        The search conditions and the options for sorting and paging the results. See
+     *        {@link org.bonitasoft.engine.bpm.flownode.HumanTaskInstanceSearchDescriptor} for valid fields for searching and sorting.
+     * @return The pending human tasks that match the search conditions and are available to the user.
      * @throws SearchException
-     *             if there's wrong search condition, error happened.e.g,set a String value to long attribute.
+     *         If there is an error in the search conditions.
      * @since 6.0
      */
     SearchResult<HumanTaskInstance> searchPendingTasksForUser(long userId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Search pending human tasks administered by the given user.
-     * 
+     * Search the pending human tasks for tasks that match the search options and are managed by the specified user.
+     *
      * @param managerUserId
-     *            same to user id
+     *        The identifier of the user.
      * @param searchOptions
-     *            search conditions and set sort,paging properties.
-     * @return the number of human tasks found and the matching human tasks
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The search conditions and the options for sorting and paging the results. See
+     *        {@link org.bonitasoft.engine.bpm.flownode.HumanTaskInstanceSearchDescriptor} for valid fields for searching and sorting.
+     * @return The pending human tasks that match the search conditions and are managed by the user.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             if there's wrong search condition, error happened.e.g,set a String value to long attribute.
+     *         If there is an error in the search conditions.
      * @since 6.0
      */
     SearchResult<HumanTaskInstance> searchPendingTasksManagedBy(long managerUserId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Get the number of both assigned and pending overdue tasks for each user
-     * 
+     * Search the assigned and pending human tasks for the specified user, on the specified root process definition, corresponding to the options.
+     *
+     * @param rootProcessDefinitionId
+     *        The identifier of the root process definition
+     * @param userId
+     *        The identifier of the user
+     * @param searchOptions
+     *        The search conditions and the options for sorting and paging the results. See
+     *        {@link org.bonitasoft.engine.bpm.flownode.HumanTaskInstanceSearchDescriptor} for valid fields for searching and sorting.
+     * @return The assigned and pending human tasks
+     * @throws SearchException
+     *         If there is an error in the search conditions.
+     * @since 6.3.3
+     */
+    SearchResult<HumanTaskInstance> searchAssignedAndPendingHumanTasksFor(final long rootProcessDefinitionId, final long userId,
+            final SearchOptions searchOptions) throws SearchException;
+
+    /**
+     * Search the assigned and pending human tasks for any user, on the specified root process definition, corresponding to the options.
+     *
+     * @param rootProcessDefinitionId
+     *        The identifier of the root process definition
+     * @param searchOptions
+     *        The search conditions and the options for sorting and paging the results. See
+     *        {@link org.bonitasoft.engine.bpm.flownode.HumanTaskInstanceSearchDescriptor} for valid fields for searching and sorting.
+     * @return The assigned and pending human tasks
+     * @throws SearchException
+     *         If there is an error in the search conditions.
+     * @since 6.3.3
+     */
+    SearchResult<HumanTaskInstance> searchAssignedAndPendingHumanTasks(final long rootProcessDefinitionId, final SearchOptions searchOptions)
+            throws SearchException;
+
+    /**
+     * Get the number of assigned and pending overdue tasks for the specified users.
+     *
      * @param userIds
-     *            a list of user identifiers
-     * @return a map with user id and relative number of overdue tasks
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        A list of user identifiers.
+     * @return A map of user identifiers and numbers of overdue tasks.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     Map<Long, Long> getNumberOfOverdueOpenTasks(List<Long> userIds);
 
     /**
-     * Cancel an instance of process with the given processInstanceId.
-     * 
+     * Cancels the process instance and all of its active flow nodes.
+     *
      * @param processInstanceId
-     *            Identifier of the process instance
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the process instance.
      * @throws ProcessInstanceNotFoundException
-     *             if no process instance have an id corresponding to the value of processInstanceId parameter.
-     * @throws RetrieveException
-     *             Error happened when can't retrieve the instance of process.
+     *         If the process instance identifier does not refer to a process instance.
+     * @throws UpdateException
+     *         If an exception occurs during the process instance canceling.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid (expired, unknown, ...)
      * @since 6.0
      */
     void cancelProcessInstance(long processInstanceId) throws ProcessInstanceNotFoundException, UpdateException;
 
     /**
-     * set state of activity to its previous state and then execute.
-     * precondition: the activity is in state FAILED
-     * 
+     * Reset the state of a failed {@link org.bonitasoft.engine.bpm.flownode.FlowNodeInstance} to its previous state and then execute it. Pre-condition: the
+     * {@code FlowNodeInstance} must be in state FAILED. If this condition is not respected, a ActivityExecutionException is thrown.
+     * <p>If the {@code FlowNodeInstance} contains failed {@link org.bonitasoft.engine.bpm.connector.ConnectorInstance}s, they will be re-executed. In the case
+     * where the connector execution fails again, the {@code FlowNodeInstance} will remain in failed state. There is not counter on the number of
+     * re-executions</p>
+     *
      * @param activityInstanceId
-     *            Identifier of the activity instance
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the {@code FlowNodeInstance} to be re-retried.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         when session is invalid, e.g. the session has expired.
      * @throws ActivityInstanceNotFoundException
-     *             errors thrown if can't find corresponding activity
+     *         when no {@code FlowNodeInstance} is found with the specified identifier.
      * @throws ActivityExecutionException
-     *             errors happened when one of the two step that re-set state of the task and execute it again failed.
+     *         occurs if the current Flownode is not in FAILED state, or while resetting the state, or while executing the {@code FlowNodeInstance}.
      * @since 6.0
+     * @see org.bonitasoft.engine.bpm.flownode.FlowNodeInstance
+     * @see org.bonitasoft.engine.bpm.connector.ConnectorInstance
      */
     void retryTask(long activityInstanceId) throws ActivityInstanceNotFoundException, ActivityExecutionException;
 
     /**
-     * Hides a list of tasks from a specified user. A task "hidden" is then not retrieved anymore by method "searchPendingTasksForUser".
-     * As soon as a task is claimed by / assigned to a user, it is not "hidden" anymore for anyone.
+     * When a matching BPM event couple messageInstance / waitingMessageEvent fails to execute and no failure handling has been successful, a log message
+     * indicates that this method can be called to try again the execution. The necessary parameters are also indicated.
      * 
-     * @param userId
-     *            the ID of the user to hide the tasks for.
-     * @param activityInstanceId
-     *            the ID of the task to hide
-     * @throws InvalidSessionException
-     *             in there is no current valid session.
-     * @throws UpdateException
-     *             in case a problem occurs when hiding one of the tasks.
-     * @see #unhideTasks(long, Long...)
-     * @since 6.0
+     * @param messageInstanceId the ID of the message instance to try to trigger again.
+     * @param waitingMessageEventId the ID of the waiting message event to try to trigger again.
+     * @throws ExecutionException if the execution failed. A more precise cause is given in the getCause() method.
      */
-    void hideTasks(long userId, Long... activityInstanceId) throws UpdateException;
+    void executeMessageCouple(long messageInstanceId, long waitingMessageEventId) throws ExecutionException;
 
     /**
-     * Un-hides a list of tasks from a specified user. Un-hiding a task makes it available for a user if the task is pending for that user.
-     * 
-     * @param userId
-     *            the ID of the user to un-hide the tasks for.
-     * @param activityInstanceId
-     *            the ID of the task to un-hide
-     * @throws InvalidSessionException
-     *             in there is no current valid session.
-     * @throws UpdateException
-     *             in case a problem occurs when un-hiding one of the tasks.
-     * @see #hideTasks(long, Long...)
-     * @since 6.0
-     */
-    void unhideTasks(long userId, Long... activityInstanceId) throws UpdateException;
-
-    /**
-     * Evaluate the expression in the context of the process having the processDefinitionId.
+     * Evaluate an expression in the context of the specified process.
      * Some context values can also be provided
-     * 
+     *
      * @param expression
-     *            the expression to evaluate
+     *        The expression to evaluate.
      * @param context
-     *            context values that is provided to evaluate the expression
+     *        The context values that are provided for evaluating the expression.
      * @param processDefinitionId
-     *            the id of the process of which the context will be used to evaluate the expression
-     * @return
-     *         the result of the evaluation
-     * @throws InvalidSessionException
+     *        The identifier of the process definition in which the expression is evaluated.
+     * @return The result of the evaluation.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If there is no current valid session.
      * @throws ExpressionEvaluationException
+     *         If an error occurs while evaluating the expression.
      * @since 6.0
      */
     Serializable evaluateExpressionOnProcessDefinition(Expression expression, Map<String, Serializable> context, long processDefinitionId)
             throws ExpressionEvaluationException;
 
     /**
-     * return true if the task have the identifier userTaskId is hidden for the logged user
-     * 
-     * @param userTaskId
-     *            id of the task to check
-     * @param userId
-     *            id of the user
-     * @return
-     *         true if it is hidden for the logged user
-     * @throws InvalidSessionException
-     * @throws RetrieveException
-     * @since 6.0
-     */
-    boolean isTaskHidden(long userTaskId, long userId);
-
-    /**
-     * Query the engine to get the number of comments depending on the search options
-     * 
+     * Get the number of comments matching the search conditions.
+     *
      * @param searchOptions
-     *            Search conditions and set sort, paging properties
-     * @return
-     *         The number of comments matching the search options
+     *        The search conditions and the options for sorting and paging the results.
+     * @return The number of comments matching the search conditions.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     long countComments(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Query the engine to get the number of attachments depending on the search options
-     * 
+     * Get the number of attachments matching the search conditions.
+     *
      * @param searchOptions
-     *            Search conditions and set sorts, paging properties
-     * @return
-     *         The number of attachments
+     *        The search conditions and the options for sorting and paging the results.
+     * @return The number of attachments matching the search conditions.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
 
     long countAttachments(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Send a BPMN signal event. Invoking this method act as executing a Throw Signal Event
-     * 
+     * Send a BPMN signal event. Invoking this method acts as executing a Throw Signal Event.
+     *
      * @param signalName
-     *            the signal name
-     * @throws InvalidSessionException
+     *        The signal name.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If there is no current valid session.
      * @throws SendEventException
-     *             if an Exception occurs while sending signal
+     *         If an exception occurs while sending signal.
      * @since 6.0
      */
     void sendSignal(String signalName) throws SendEventException;
 
     /**
-     * Send a BPMN message event. Invoking this method act as executing a Throw Message Event
-     * 
+     * Send a BPMN message event. Invoking this method acts as executing a Throw Message Event.
+     *
      * @param messageName
-     *            the message name
+     *        The message name.
      * @param targetProcess
-     *            expression representing the target process name
+     *        An expression representing the target process name.
      * @param targetFlowNode
-     *            expression representing the target flow node name
+     *        An expression representing the target flow node name.
      * @param messageContent
-     *            a map representing the message data. The key is used for the data name and the value is used for the data value
-     * @throws InvalidSessionException
+     *        A key-&gt;value map containing the message data, with the data name as key.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If there is no current valid session.
      * @throws SendEventException
-     *             if an Exception occurs while sending message
+     *         If an exception occurs while sending message.
      * @since 6.0
      */
     void sendMessage(String messageName, Expression targetProcess, Expression targetFlowNode, Map<Expression, Expression> messageContent)
             throws SendEventException;
 
     /**
-     * Send a BPMN message event. Invoking this method act as executing a Throw Message Event
-     * 
+     * Send a BPMN message event, with message correlation. Invoking this method acts as executing a Throw Message Event.
+     *
      * @param messageName
-     *            the message name
+     *        The message name.
      * @param targetProcess
-     *            expression representing the target process name
+     *        An expression representing the target process name.
      * @param targetFlowNode
-     *            expression representing the target flow node name
+     *        An expression representing the target flow node name.
      * @param messageContent
-     *            The message data. The key is used for the data name and the value is used for the data value
+     *        A key-&gt;value map containing the message data, with the data name as key.
      * @param correlations
-     *            the message correlations (five maximum).
-     * @throws InvalidSessionException
+     *        The message correlations (five maximum).
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If there is no current valid session.
      * @throws SendEventException
-     *             if there are too many correlations (more than 5) or an Exception occurs while sending message
+     *         If there are too many correlations (more than 5) or an exception occurs while sending message.
      * @since 6.0
      */
     void sendMessage(String messageName, Expression targetProcess, Expression targetFlowNode, Map<Expression, Expression> messageContent,
             Map<Expression, Expression> correlations) throws SendEventException;
 
     /**
-     * Retrieves an <code>ArchivedProcessInstance</code> from its id.
-     * 
+     * Retrieve an <code>ArchivedProcessInstance</code> specified by its identifier.
+     *
      * @param archivedProcessInstanceId
-     *            the ID of the <code>ArchivedProcessInstance</code> to retrieve.
-     * @return the found <code>ArchivedProcessInstance</code> instance.
+     *        The identifier of the <code>ArchivedProcessInstance</code> to be retrieved.
+     * @return The <code>ArchivedProcessInstance</code> instance.
      * @throws ArchivedProcessInstanceNotFoundException
-     *             if the <code>ArchivedProcessInstance</code> was not found.
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
-     * @throws RetrieveException
-     *             if a problem occurs while trying to retrieve the <code>ArchivedFlowNodeInstance</code>.
+     *         If the <code>ArchivedProcessInstance</code> was not found.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an error occurs while trying to retrieve the <code>ArchivedProcessInstance</code>.
      * @since 6.0
      */
     ArchivedProcessInstance getArchivedProcessInstance(long archivedProcessInstanceId) throws ArchivedProcessInstanceNotFoundException;
 
     /**
-     * Retrieves an <code>ArchivedFlowNodeInstance</code> from its id.
-     * 
+     * Retrieve an <code>ArchivedFlowNodeInstance</code> specified by its identifier.
+     *
      * @param archivedFlowNodeInstanceId
-     *            the ID of the <code>ArchivedFlowNodeInstance</code> to retrieve.
-     * @return the found <code>ArchivedFlowNodeInstance</code> instance.
+     *        The identifier of the <code>ArchivedFlowNodeInstance</code> to be retrieved.
+     * @return The <code>ArchivedFlowNodeInstance</code> instance.
      * @throws ArchivedFlowNodeInstanceNotFoundException
-     *             if the <code>ArchivedFlowNodeInstance</code> was not found.
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
-     * @throws RetrieveException
-     *             if a problem occurs while trying to retrieve the <code>ArchivedFlowNodeInstance</code>.
+     *         If the <code>ArchivedFlowNodeInstance</code> was not found.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an error occurs while trying to retrieve the <code>ArchivedFlowNodeInstance</code>.
      * @since 6.0
      */
     ArchivedFlowNodeInstance getArchivedFlowNodeInstance(long archivedFlowNodeInstanceId) throws ArchivedFlowNodeInstanceNotFoundException;
 
     /**
-     * Retrieves an <code>ArchivedComment</code> from its id.
-     * 
+     * Retrieve an <code>ArchivedComment</code> specified by its identifier.
+     *
      * @param archivedCommentId
-     *            the ID of the <code>ArchivedComment</code> to retrieve.
-     * @return the found <code>ArchivedComment</code> instance.
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
-     * @throws RetrieveException
-     *             if a problem occurs while trying to retrieve the <code>ArchivedComment</code>
+     *        The identifier of the <code>ArchivedComment</code> to be retrieved.
+     * @return The <code>ArchivedComment</code> instance.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an error occurs while trying to retrieve the <code>ArchivedComment</code>.
      * @throws NotFoundException
-     *             if not <code>ArchivedComment</code> was found with id archivedCommentId
+     *         If no <code>ArchivedComment</code> was found with the specified archivedCommentId.
      * @since 6.0
      */
     ArchivedComment getArchivedComment(long archivedCommentId) throws NotFoundException;
 
     /**
-     * Searches for connector instances.
-     * 
+     * Search for connector instances.
+     *
      * @param searchOptions
-     *            the search options parameters
-     * @return the {@link SearchResult} containing the <code>ConnectorInstance</code>s matching the search options
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The search conditions and the options for sorting and paging the results. See
+     *        {@link org.bonitasoft.engine.bpm.connector.ConnectorInstancesSearchDescriptor} for valid fields for searching and sorting.
+     * @return The {@link SearchResult} containing the <code>ConnectorInstance</code>s matching the search options.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<ConnectorInstance> searchConnectorInstances(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches for archived connector instances.
-     * 
+     * Search for archived connector instances.
+     *
      * @param searchOptions
-     *            the search options parameters
-     * @return the {@link SearchResult} containing the <code>ArchivedConnectorInstance</code>s matching the search options
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The search options parameters. See {@link org.bonitasoft.engine.bpm.connector.ArchiveConnectorInstancesSearchDescriptor} for valid fields for
+     *        searching and sorting.
+     * @return The {@link SearchResult} containing the <code>ArchivedConnectorInstance</code>s matching the search options.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<ArchivedConnectorInstance> searchArchivedConnectorInstances(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Get all tasks having given name and belonging to the process instance having given id
-     * 
+     * List the named human tasks belonging to the specified process instance.
+     *
      * @param processInstanceId
-     *            the ID of the process instance to look the <code>HumanTaskInstance</code>s for.
+     *        The identifier of the process instance.
      * @param taskName
-     *            the name of the tasks to search
+     *        The name of the required human tasks.
      * @param startIndex
-     *            the result start index
+     *        The result start index (strating from 0).
      * @param maxResults
-     *            the max number of results to retrieve
-     * @return The list of matching <code>HumanTaskInstance</code>s
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The maximum number of results to retrieve.
+     * @return The list of matching human task instances.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     List<HumanTaskInstance> getHumanTaskInstances(long processInstanceId, String taskName, int startIndex, int maxResults);
 
     /**
-     * Returns the last created HumanTask, in the given process instance, named taskName
-     * 
+     * Return the last created human task instance with the specified name for the given process instance.
+     *
      * @param processInstanceId
-     *            the Identifier of the process instance for which to search the <code>HumanTaskInstance</code>
+     *        The identifier of the process instance.
      * @param taskName
-     *            the task
-     * @return The HumanTaskInstance, in its last state, in the given process instance, named taskName
+     *        The name of the required human task.
+     * @return A HumanTaskInstance, in its latest state.
      * @throws NotFoundException
-     *             if no current task with provided name could be found
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *         If no current task with provided name is found.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     HumanTaskInstance getLastStateHumanTaskInstance(long processInstanceId, String taskName) throws NotFoundException;
 
     /**
-     * Searches for archived activity instances (only terminal states, intermediate states are not considered)
-     * 
+     * Search for archived activity instances in terminal states. Archived activity instances in intermediate states are not considered.
+     *
      * @param searchOptions
-     *            The criterion used to search for archived activity instances
-     * @return A {@link SearchResult} containing the search result
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The criterion used to search for archived activity instances. See
+     *        {@link org.bonitasoft.engine.bpm.flownode.ArchivedActivityInstanceSearchDescriptor} for valid fields for searching and sorting.
+     * @return A {@link SearchResult} containing the search result.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             if has exceptions during the process to search archived activity instance
+     *         If an exception occurs during the search.
      * @since 6.0
      */
     SearchResult<ArchivedActivityInstance> searchArchivedActivities(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches for activity instances
-     * 
+     * Search for activity instances.
+     *
      * @param searchOptions
-     *            The criterion used to activity instance
-     * @return A {@link SearchResult} containing the search result
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The criterion used to search for activity instances. See {@link org.bonitasoft.engine.bpm.flownode.ActivityInstanceSearchDescriptor} for valid
+     *        fields for searching and sorting.
+     * @return A {@link SearchResult} containing the search result.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<ActivityInstance> searchActivities(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches for flow node instances (activities, gateways and events)
-     * 
+     * Search for flow node instances (activities, gateways and events).
+     *
      * @param searchOptions
-     *            the search options parameters
+     *        The criterion used to search for flow node instances. See {@link org.bonitasoft.engine.bpm.flownode.FlowNodeInstanceSearchDescriptor} for valid
+     *        fields for searching and sorting.
      * @return A {@link SearchResult} containing the search result
-     * @throws InvalidSessionException
-     *             If API Session is invalid, e.g session has expired.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the ession is invalid, e.g session has expired.
      * @throws SearchException
-     *             if an exception occurs while performing the search
+     *         If an exception occurs during the search.
      * @since 6.0
      */
     SearchResult<FlowNodeInstance> searchFlowNodeInstances(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches for archived flow node instances (activities, gateways and events)
-     * 
+     * Search for archived flow node instances (activities, gateways and events)
+     *
      * @param searchOptions
-     *            the search options parameters
-     * @return A {@link SearchResult} containing the found archived flown node instances.
-     * @throws InvalidSessionException
-     *             If API Session is invalid, e.g session has expired.
+     *        The options used to search for flow node instances. See {@link org.bonitasoft.engine.bpm.flownode.ArchivedFlowNodeInstanceSearchDescriptor} for
+     *        valid fields for searching and sorting.
+     * @return A {@link SearchResult} containing the search result.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g session has expired.
      * @throws SearchException
-     *             if an exception occurs while performing the search
-     * @see {@link ArchivedFlowNodeInstance}
+     *         If an exception occurs during the search.
+     * @see ArchivedFlowNodeInstance
      * @since 6.0
      */
     SearchResult<ArchivedFlowNodeInstance> searchArchivedFlowNodeInstances(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches, for a specific user, for all tasks pending for that user, or already assigned to that user. (=Available)
-     * Hidden tasks are not retrieved.
-     * 
+     * Search for all tasks available to a specified user.
+     * A task is available to a user if is assigned to the user or it is pending for that user.
+     *
      * @param userId
-     *            the user for whom to retrieve the tasks
+     *        The identifier of the user for whom the tasks are available.
      * @param searchOptions
-     *            the search options parameters
-     * @return the list of tasks matching the provided criteria
-     * @throws InvalidSessionException
-     *             if the current session is invalid
+     *        The options used to search for tasks. See {@link org.bonitasoft.engine.bpm.flownode.HumanTaskInstanceSearchDescriptor} for valid fields for
+     *        searching and sorting.
+     * @return The list of tasks matching the search options.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the current session is invalid.
      * @throws SearchException
-     *             in case a search problem occurs
+     *         If an exception occurs during the search.
      * @since 6.0
      */
     SearchResult<HumanTaskInstance> searchMyAvailableHumanTasks(long userId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches for comments related to the specified Process Instance.
-     * 
+     * Search for comments related to the specified process instance.
+     *
      * @param searchOptions
-     *            The options used to search for Comments
-     * @return The matching comments
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The options used to search for comments. See {@link org.bonitasoft.engine.bpm.comment.SearchCommentsDescriptor} for valid fields for searching
+     *        and sorting.
+     * @return The matching comments.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             in case a search problem occurs
+     *         If an exception occurs during the search.
      * @since 6.0
      */
     SearchResult<Comment> searchComments(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Add a comment on a process instance
-     * 
+     * Add a comment on a process instance.
+     *
      * @param processInstanceId
-     *            Identifier of the processInstance
+     *        The identifier of the process instance.
      * @param comment
-     *            The content of comment
-     * @return The newly created Comment
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
-     * @since 6.0
+     *        The content of the comment.
+     * @return The newly created comment.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws CreationException
+     *         If the parameter processInstanceId does not refer to any active process instance (existing and non-archived).
+     * @since 6.1
      */
-    Comment addComment(long processInstanceId, String comment);
+    Comment addProcessComment(final long processInstanceId, final String comment) throws CreationException;
 
     /**
-     * Get all comments by its process instance id
-     * 
+     * Get the first 20 comments of the specified process instance.
+     *
      * @param processInstanceId
-     *            Identifier of the processInstance
-     * @return The list of comment
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the process instance.
+     * @return The list of comments found
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @deprecated use paginated version {@link #searchComments(SearchOptions)} instead, passing a filter on processInstanceId field.
      * @since 6.0
      */
+    @Deprecated
     List<Comment> getComments(long processInstanceId);
 
     /**
-     * Lists all comments managed by user.
-     * A comment is said to be managed by a user A if :
-     * - the author of the comment is a subordinate of user A ( or A the author's manager ).
+     * Get all the comments managed by the specified user.
+     * A comment is considered to be managed by user A if one or more of the following conditions is true:
+     * - the author of the comment is a subordinate of user A (A the author's manager).
      * - the comment belongs to a process started by a subordinate of user A.
      * - the comment belongs to a process where at least one human task is assigned to a subordinate of user A.
-     * 
+     *
      * @param managerUserId
-     *            Identifier of the user
+     *        The identifier of the user.
      * @param searchOptions
-     *            The criterion used to search Comment
-     * @return comments managed by a user, and matching the provided search options
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The options used to search for comments. See {@link org.bonitasoft.engine.bpm.comment.SearchCommentsDescriptor} for valid fields for searching and
+     *        sorting.
+     * @return The comments managed by the user that match the search options.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<Comment> searchCommentsManagedBy(long managerUserId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches the comments on process instances that the user can access
-     * 
+     * Get the comments on process instances that the specified user can access.
+     *
      * @param userId
-     *            Identifier of the user
+     *        The identifier of the user.
      * @param searchOptions
-     *            The criterion used to search Comment
-     * @return the comments on process instances that the user can access
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The options used to search for comments. See {@link org.bonitasoft.engine.bpm.comment.SearchCommentsDescriptor} for valid fields for searching and
+     *        sorting.
+     * @return The comments on process instances that the user can access.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<Comment> searchCommentsInvolvingUser(long userId, SearchOptions searchOptions) throws SearchException;
 
     /**
      * Get the children instances (sub process or call activity) of a process instance. The returned list is paginated.
-     * 
+     * It does not return the process instance of the given id (itself).
+     *
      * @param processInstanceId
-     *            Identifier of the processDefinition
+     *        The identifier of the process definition.
      * @param startIndex
-     *            Index of the page to be returned. First page has index 0.
+     *        The index of the page to be returned (starting at 0).
      * @param maxResults
-     *            Number of result per page. Maximum number of result returned.
+     *        The maximum number of results per page.
      * @param criterion
-     *            The criterion used to sort the result
-     * @return The list of children instance id
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The criterion used to sort the result.
+     * @return The list of children instance identifiers.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     List<Long> getChildrenInstanceIdsOfProcessInstance(long processInstanceId, int startIndex, int maxResults, ProcessInstanceCriterion criterion);
 
     /**
-     * Whether or not a user is involved in an instance of process (has tasks pending?)
-     * 
+     * Check whether a specific user is involved in a given process instance.<br/>
+     * User A is involved with a process instance if any of the following is true:
+     * <ul>
+     * <li>user A has started the process instance</li>
+     * <li>a task in the process instance is assigned to user A</li>
+     * <li>a task in the process instance is pending for user A</li>
+     * <li>a task in the process instance has been performed by user A</li>
+     * </ul>
+     * This method also applies to completed instances of process.
+     *
      * @param userId
-     *            Identifier of the user
+     *        The identifier of the user.
      * @param processInstanceId
-     *            Identifier of the processDefinition
-     * @return An boolean type to get if a process instance is involved with given user
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the process instance.
+     * @return True if the user is involved with the process instance.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws ProcessInstanceNotFoundException
-     *             if no processInstance have an id corresponding to the parameter.
+     *         If there is no processInstance with the specified identifier.
      * @throws UserNotFoundException
-     *             if no user have an id corresponding to the parameter.
+     *         If there is no user with the specified identifier.
      * @since 6.0
+     * @see #isManagerOfUserInvolvedInProcessInstance(long, long)
      */
     boolean isInvolvedInProcessInstance(long userId, long processInstanceId) throws ProcessInstanceNotFoundException, UserNotFoundException;
 
     /**
-     * Get process instance id from its activity instance id
-     * 
+     * Check whether a specific user is involved in a given human task instance.<br/>
+     * User A is involved with a human task instance if any of the following is true:
+     * <ul>
+     * <li>the human task instance is assigned to user A</li>
+     * <li>the human task instance is pending for user A</li>
+     * </ul>
+     *
+     * @param userId
+     *        The identifier of the user.
+     * @param humanTaskInstanceId
+     *        The identifier of the human task instance.
+     * @return True if the user is involved with the human task instance.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws ActivityInstanceNotFoundException
+     *         If there is no the human task instance with the specified identifier.
+     * @since 6.5.1
+     * @see #isManagerOfUserInvolvedInProcessInstance(long, long)
+     */
+    boolean isInvolvedInHumanTaskInstance(long userId, long humanTaskInstanceId) throws ActivityInstanceNotFoundException, UserNotFoundException;
+
+    /**
+     * Check whether a specific user has at least one subordinate (person he / she is the manager of) involved in a given process instance.<br/>
+     * User A is involved with a process instance if any of the following is true:
+     * <ul>
+     * <li>user A has started the process instance</li>
+     * <li>a task in the process instance is assigned to user A</li>
+     * <li>a task in the process instance is pending for user A</li>
+     * <li>a task in the process instance has been performed by user A</li>
+     * </ul>
+     * This method also applies to completed instances of process.
+     *
+     * @param managerUserId the ID of the manager of the user involved.
+     * @param processInstanceId the ID of the process instance we are interested in.
+     * @return true if the specified manager has subordinates involved in the given process instance.
+     * @throws ProcessInstanceNotFoundException if the process instance does not exist.
+     * @throws BonitaException if an error occurred while searching for users involved.
+     * @since 6.4.2
+     * @see #isInvolvedInProcessInstance(long, long)
+     */
+    boolean isManagerOfUserInvolvedInProcessInstance(long managerUserId, long processInstanceId) throws ProcessInstanceNotFoundException, BonitaException;
+
+    /**
+     * Get the process instance id from an activity instance id.
+     *
      * @param activityInstanceId
-     *            Identifier of the activity instance
-     * @return the found process instance id
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the activity instance.
+     * @return The corresponding process instance id.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws ProcessInstanceNotFoundException
-     *             if no processInstance have an id corresponding to the parameter.
+     *         If there is no process instance with the specified identifier.
      * @since 6.0
      */
     long getProcessInstanceIdFromActivityInstanceId(long activityInstanceId) throws ProcessInstanceNotFoundException;
 
     /**
-     * Get process definition id from its process instance id
-     * 
+     * Get the process definition id from an process instance id.
+     *
      * @param processInstanceId
-     *            Identifier of the activity instance
-     * @return the found process definition id
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the process instance.
+     * @return The corresponding process definition id.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws ProcessDefinitionNotFoundException
-     *             if no ProcessDefinition have an id corresponding to the parameter.
+     *         If there is no process definition with the specified identifier.
      * @since 6.0
      */
     long getProcessDefinitionIdFromProcessInstanceId(long processInstanceId) throws ProcessDefinitionNotFoundException;
 
     /**
-     * Get process definition id from its activity instance id
-     * 
+     * Get the process definition id from an activity instance id.
+     *
      * @param activityInstanceId
-     *            Identifier of the activity instance
-     * @return the found process definition id
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The identifier of the activity instance.
+     * @return The corresponding process definition id.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws ProcessDefinitionNotFoundException
-     *             if no ProcessDefinition have an id corresponding to the parameter.
+     *         If no ProcessDefinition have an id corresponding to the parameter.
      * @since 6.0
      */
     long getProcessDefinitionIdFromActivityInstanceId(long activityInstanceId) throws ProcessDefinitionNotFoundException;
 
     /**
-     * Searches for archived comments
-     * 
+     * Search for archived comments.
+     *
      * @param searchOptions
-     *            The ArchivedComment search options
+     *        The options used to search for comments. See {@link org.bonitasoft.engine.bpm.comment.ArchivedCommentsSearchDescriptor} for valid fields for
+     *        searching and sorting.
      * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
-     * @return the <code>ArchivedComment</code> matching the search options
+     *         If the session is invalid, e.g. the session has expired.
+     * @return The <code>ArchivedComment</code> items that match the search options.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<ArchivedComment> searchArchivedComments(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches for archived human tasks performed by users managed by a specific user
-     * 
+     * Search for archived human tasks managed by the specified user.
+     *
      * @param managerUserId
-     *            Identifier of the user manager
+     *        The identifier of the user manager,
      * @param searchOptions
-     *            The ArchivedHumanTaskInstance search options
-     * @return archived humanTask instances managed by a user, and matching the search options
+     *        The options used to search for tasks. See {@link org.bonitasoft.engine.bpm.flownode.ArchivedHumanTaskInstanceSearchDescriptor} for valid fields
+     *        for searching and sorting.
+     * @return The archived humanTask instances managed by the specified user that match the search options.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<ArchivedHumanTaskInstance> searchArchivedHumanTasksManagedBy(long managerUserId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches for open process instances that the user can access
-     * 
+     * Search for open process instances that the specified user can access.
+     *
      * @param userId
-     *            Identifier of the user
+     *        The identifier of the user.
      * @param searchOptions
-     *            The criterion used to search ProcessInstance
-     * @return the found <code>ProcessInstance</code>s matching the search options
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The options used to search for process instance. See {@link org.bonitasoft.engine.bpm.process.ProcessInstanceSearchDescriptor} for valid fields
+     *        for searching and sorting.
+     * @return The <code>ProcessInstance</code>s that match the search options.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<ProcessInstance> searchOpenProcessInstancesInvolvingUser(long userId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches for open process instances that all subordinates of the specific manager can access
-     * 
+     * Search for open process instances that all subordinates of the specified user can access.
+     *
      * @param managerUserId
-     *            the ID of the user manager
+     *        The identifier of the user manager.
      * @param searchOptions
-     *            the ProcessInstance search options (pagination, filter, order sort)
-     * @return the found <code>ProcessInstance</code>s matching the search options
+     *        The search options (pagination, filter, order sort). See {@link org.bonitasoft.engine.bpm.process.ProcessInstanceSearchDescriptor} for valid
+     *        fields for searching and sorting.
+     * @return The <code>ProcessInstance</code>s that match the search options.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *         If the search could not be completed correctly.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     SearchResult<ProcessInstance> searchOpenProcessInstancesInvolvingUsersManagedBy(long managerUserId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches for archived process instances
-     * 
+     * Search for archived root process instances. Only archived process instances in states COMPLETED, ABORTED, CANCELED and FAILED will be retrieved.
+     *
      * @param searchOptions
-     *            the ArchivedProcessInstance search options (pagination, filter, order sort)
-     * @return the matching archived process instances
+     *        The search options (pagination, filter, order sort).
+     * @return The archived process instances that match the search options. See
+     *         {@link org.bonitasoft.engine.bpm.process.ArchivedProcessInstancesSearchDescriptor} for valid fields for searching and sorting.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *         If the search could not be full filled correctly
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @since 6.0
      */
     SearchResult<ArchivedProcessInstance> searchArchivedProcessInstances(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches for archived process instances supervised by a user
-     * 
-     * @param userId
-     *            Identifier of the user
+     * Search for archived process instances (root and intermediate levels) in all states (even intermediate states). Depending on used filters several
+     * ArchivedProcessInstance will be
+     * retrieved for a single ProcessInstance (one for each reached state).
+     *
      * @param searchOptions
-     *            the ArchivedProcessInstance search options (pagination, filter, order sort)
-     * @return matching archived process instances supervised by a user
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The search options (pagination, filter, order sort). See {@link org.bonitasoft.engine.bpm.process.ArchivedProcessInstancesSearchDescriptor} for
+     *        valid fields for searching and sorting.
+     * @return The archived process instances in all states that match the search options.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
+     * @since 6.2
+     */
+    SearchResult<ArchivedProcessInstance> searchArchivedProcessInstancesInAllStates(SearchOptions searchOptions) throws SearchException;
+
+    /**
+     * Search for archived process instances supervised by the specified user.
+     *
+     * @param userId
+     *        The identifier of the user.
+     * @param searchOptions
+     *        The search options (pagination, filter, order sort). See {@link org.bonitasoft.engine.bpm.process.ArchivedProcessInstancesSearchDescriptor} for
+     *        valid fields for searching and sorting.
+     * @return The archived process instances supervised by the user that match the search options.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
+     * @throws SearchException
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<ArchivedProcessInstance> searchArchivedProcessInstancesSupervisedBy(long userId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches for the archived process instances that the user can access
-     * 
+     * Search for archived process instances that the specified user can access.
+     *
      * @param userId
-     *            Identifier of the user
+     *        The identifier of the user.
      * @param searchOptions
-     *            the ArchivedProcessInstance search options (pagination, filter, order sort)
-     * @return the archived process instances that the user can access
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The search options (pagination, filter, order sort). See {@link org.bonitasoft.engine.bpm.process.ArchivedProcessInstancesSearchDescriptor} for
+     *        valid fields for searching and sorting.
+     * @return The archived process instances that the user can access that match the search options.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<ArchivedProcessInstance> searchArchivedProcessInstancesInvolvingUser(long userId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches for humanTask instances
-     * 
+     * Search for human task instances.
+     *
      * @param searchOptions
-     *            the HumanTaskInstance search options (pagination, filter, order sort)
-     * @return the resulting <code>HumanTaskInstance</code>s matching the provided search options
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The search options (pagination, filter, order sort). See {@link org.bonitasoft.engine.bpm.flownode.HumanTaskInstanceSearchDescriptor} for valid
+     *        fields for searching and sorting.
+     * @return The human task instances that match the search options.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<HumanTaskInstance> searchHumanTaskInstances(SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches tasks assigned to users supervised by a specific user.
-     * 
+     * Search for tasks assigned to users supervised by the specified user.
+     *
      * @param supervisorId
-     *            the id of the process Supervisor user
+     *        The identifier of supervising user.
      * @param searchOptions
-     *            the HumanTaskInstance search options (pagination, filter, order sort)
-     * @return the resulting <code>HumanTaskInstance</code>s matching the provided search options
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The search options (pagination, filter, order sort). See {@link org.bonitasoft.engine.bpm.flownode.HumanTaskInstanceSearchDescriptor} for valid
+     *        fields for searching and sorting.
+     * @return The human task instances that match the search options.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<HumanTaskInstance> searchAssignedTasksSupervisedBy(long supervisorId, SearchOptions searchOptions) throws SearchException;
 
     /**
-     * Searches archived tasks assigned to users supervised by a specific user.
-     * 
+     * Search for archived tasks assigned to users supervised by the specified user.
+     *
      * @param supervisorId
-     *            the id of the process Supervisor user
+     *        The identifier of the supervising user.
      * @param searchOptions
-     *            the ArchivedHumanTaskInstance search options (pagination, filter, order sort)
-     * @return the resulting <code>ArchivedHumanTaskInstance</code>s matching the provided search options
-     * @throws InvalidSessionException
-     *             if the session is invalid, e.g. the session has expired.
+     *        The search options (pagination, filter, order sort). See {@link org.bonitasoft.engine.bpm.flownode.ArchivedHumanTaskInstanceSearchDescriptor} for
+     *        valid fields for searching and sorting.
+     * @return The archived human task instances that match the search options.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid, e.g. the session has expired.
      * @throws SearchException
-     *             if search could not be fullfilled correctly
+     *         If the search could not be completed correctly.
      * @since 6.0
      */
     SearchResult<ArchivedHumanTaskInstance> searchArchivedHumanTasksSupervisedBy(long supervisorId, SearchOptions searchOptions) throws SearchException;
 
     /**
      * Evaluate expressions with values valid at process instantiation scope.
-     * 
+     *
      * @param processInstanceId
-     *            The identifier of process instance
+     *        The identifier of the process instance.
      * @param expressions
-     *            Map of expressions to evaluate
-     * @return the result of the expression execution. Content of the resulting map depends on the incoming expression map. The returned key is the name of the
+     *        The map of expressions to evaluate.
+     * @return The result of the expression execution. Content of the resulting map depends on the incoming expression map. The returned key is The name of the
      *         expression (or its content if name is empty), the returned value is the evaluated expression result.
-     * @throws InvalidSessionException
-     *             Generic exception thrown if API Session is invalid, e.g session has expired.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         Generic exception thrown if API Session is invalid, e.g session has expired.
      * @throws ExpressionEvaluationException
-     *             occurs when an exception is thrown during expression evaluation
+     *         Occurs when an exception is thrown during expression evaluation.
      * @since 6.0
      */
     Map<String, Serializable> evaluateExpressionsAtProcessInstanciation(long processInstanceId, Map<Expression, Map<String, Serializable>> expressions)
@@ -1769,17 +2133,17 @@ public interface ProcessRuntimeAPI {
 
     /**
      * Evaluate expressions with values valid on a completed process instance scope.
-     * 
+     *
      * @param processInstanceId
-     *            The identifier of process instance
+     *        The identifier of the process instance.
      * @param expressions
-     *            Map of expressions to evaluate
-     * @return the result of the expression execution. Content of the resulting map depends on the incoming expression map. The returned key is the name of the
+     *        The map of expressions to evaluate.
+     * @return The result of the expression execution. Content of the resulting map depends on the incoming expression map. The returned key is The name of the
      *         expression (or its content if name is empty), the returned value is the evaluated expression result.
-     * @throws InvalidSessionException
-     *             Generic exception thrown if API Session is invalid, e.g session has expired.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the API session is invalid, e.g session has expired.
      * @throws ExpressionEvaluationException
-     *             occurs when an exception is thrown during expression evaluation
+     *         Occurs when an exception is thrown during expression evaluation.
      * @since 6.0
      */
     Map<String, Serializable> evaluateExpressionOnCompletedProcessInstance(long processInstanceId, Map<Expression, Map<String, Serializable>> expressions)
@@ -1787,17 +2151,17 @@ public interface ProcessRuntimeAPI {
 
     /**
      * Evaluate expressions with values valid on a process instance scope.
-     * 
+     *
      * @param processInstanceId
-     *            The identifier of process instance
+     *        The identifier of the process instance.
      * @param expressions
-     *            Map of expressions to evaluate
-     * @return the result of the expression execution. Content of the resulting map depends on the incoming expression map. The returned key is the name of the
+     *        The map of expressions to evaluate.
+     * @return The result of the expression execution. Content of the resulting map depends on the incoming expression map. The returned key is The name of the
      *         expression (or its content if name is empty), the returned value is the evaluated expression result.
-     * @throws InvalidSessionException
-     *             Generic exception thrown if API Session is invalid, e.g session has expired.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the API session is invalid, e.g session has expired.
      * @throws ExpressionEvaluationException
-     *             occurs when an exception is thrown during expression evaluation
+     *         Occurs when an exception is thrown during expression evaluation.
      * @since 6.0
      */
     Map<String, Serializable> evaluateExpressionsOnProcessInstance(long processInstanceId, Map<Expression, Map<String, Serializable>> expressions)
@@ -1805,17 +2169,17 @@ public interface ProcessRuntimeAPI {
 
     /**
      * Evaluate expressions with values valid on a process definition scope.
-     * 
+     *
      * @param processDefinitionId
-     *            The identifier of process definition
+     *        The identifier of the process definition.
      * @param expressions
-     *            Map of expressions to evaluate
-     * @return the result of the expression execution. Content of the resulting map depends on the incoming expression map. The returned key is the name of the
+     *        The map of expressions to evaluate.
+     * @return The result of the expression execution. Content of the resulting map depends on the incoming expression map. The returned key is The name of the
      *         expression (or its content if name is empty), the returned value is the evaluated expression result.
-     * @throws InvalidSessionException
-     *             Generic exception thrown if API Session is invalid, e.g session has expired.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the API session is invalid, e.g session has expired.
      * @throws ExpressionEvaluationException
-     *             occurs when an exception is thrown during expression evaluation
+     *         Occurs when an exception is thrown during expression evaluation.
      * @since 6.0
      */
     Map<String, Serializable> evaluateExpressionsOnProcessDefinition(long processDefinitionId, Map<Expression, Map<String, Serializable>> expressions)
@@ -1823,17 +2187,17 @@ public interface ProcessRuntimeAPI {
 
     /**
      * Evaluate expressions with values valid on an activity instance scope.
-     * 
+     *
      * @param activityInstanceId
-     *            The identifier of activity instance
+     *        The identifier of the activity instance.
      * @param expressions
-     *            Map of expressions to evaluate
-     * @return the result of the expression execution. Content of the resulting map depends on the incoming expression map. The returned key is the name of the
+     *        The map of expressions to evaluate.
+     * @return The result of the expression execution. Content of the resulting map depends on the incoming expression map. The returned key is The name of the
      *         expression (or its content if name is empty), the returned value is the evaluated expression result.
-     * @throws InvalidSessionException
-     *             Generic exception thrown if API Session is invalid, e.g session has expired.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the API session is invalid, e.g session has expired.
      * @throws ExpressionEvaluationException
-     *             occurs when an exception is thrown during expression evaluation
+     *         Occurs when an exception is thrown during expression evaluation.
      * @since 6.0
      */
     Map<String, Serializable> evaluateExpressionsOnActivityInstance(long activityInstanceId, Map<Expression, Map<String, Serializable>> expressions)
@@ -1841,20 +2205,425 @@ public interface ProcessRuntimeAPI {
 
     /**
      * Evaluate expressions with values valid on a completed activity instance scope.
-     * 
+     *
      * @param activityInstanceId
-     *            The identifier of activity instance
+     *        The identifier of the activity instance.
      * @param expressions
-     *            Map of expressions to evaluate
-     * @return the result of the expression execution. Content of the resulting map depends on the incoming expression map. The returned key is the name of the
+     *        The map of expressions to evaluate.
+     * @return The result of the expression execution. Content of the resulting map depends on the incoming expression map. The returned key is The name of the
      *         expression (or its content if name is empty), the returned value is the evaluated expression result.
-     * @throws InvalidSessionException
-     *             Generic exception thrown if API Session is invalid, e.g session has expired.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the API session is invalid, e.g session has expired.
      * @throws ExpressionEvaluationException
-     *             occurs when an exception is thrown during expression evaluation
+     *         Occurs when an exception is thrown during expression evaluation.
      * @since 6.0
      */
     Map<String, Serializable> evaluateExpressionsOnCompletedActivityInstance(long activityInstanceId, Map<Expression, Map<String, Serializable>> expressions)
             throws ExpressionEvaluationException;
 
+    /**
+     * Returns the list of jobs that failed.
+     *
+     * @param startIndex
+     *        The result start index (starting from 0).
+     * @param maxResults
+     *        The maximum number of results to retrieve.
+     * @return The list of failed jobs.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid (expired, unknown, ...)
+     * @since 6.1
+     */
+    List<FailedJob> getFailedJobs(int startIndex, int maxResults);
+
+    /**
+     * Replays the failed job in order to unlock it. The replay will use the stored parameters of the job.
+     *
+     * @param jobDescriptorId
+     *        The identifier of the job descriptor.
+     * @throws ExecutionException
+     *         Occurs when an exception is thrown during the job replay
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid (expired, unknown, ...)
+     * @since 6.1
+     */
+    void replayFailedJob(final long jobDescriptorId) throws ExecutionException;
+
+    /**
+     * Replays the failed job in order to unlock it. The specified parameters replace the stored parameters. If the job is launched from CRON, all job
+     * executions use the specified parameters.
+     *
+     * @param jobDescriptorId
+     *        The identifier of the job descriptor.
+     * @param parameters
+     *        The job parameters.
+     * @throws ExecutionException
+     *         Occurs when an exception is thrown during the job replay
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid (expired, unknown, ...)
+     * @since 6.1
+     */
+    void replayFailedJob(final long jobDescriptorId, Map<String, Serializable> parameters) throws ExecutionException;
+
+    /**
+     * Gets the last archived data instance of the named data of the specified process instance.
+     *
+     * @param dataName
+     *        The name of the data
+     * @param sourceProcessInstanceId
+     *        The identifier of the source process instance (used as root container id of the archived activity instances).
+     * @return An archived instance of data.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid (expired, unknown, ...)
+     * @throws ArchivedDataNotFoundException
+     *         If the specified data cannot be found.
+     * @since 6.1
+     */
+    ArchivedDataInstance getArchivedProcessDataInstance(String dataName, long sourceProcessInstanceId) throws ArchivedDataNotFoundException;
+
+    /**
+     * Gets the last archived data instance of the named data of the specified activity instance.
+     *
+     * @param dataName
+     *        The name of the data
+     * @param sourceActivityInstanceId
+     *        The identifier of the source activity instance
+     * @return An archived instance of data.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid (expired, unknown, ...)
+     * @throws ArchivedDataNotFoundException
+     *         If the specified data cannot be found
+     * @since 6.1
+     */
+    ArchivedDataInstance getArchivedActivityDataInstance(String dataName, long sourceActivityInstanceId) throws ArchivedDataNotFoundException;
+
+    /**
+     * Lists the last archived instances of data of the specified process instance.
+     *
+     * @param sourceProcessInstanceId
+     *        The identifier of the source process instance (used as root container id of the archived activity instances).
+     * @param startIndex
+     *        The start index
+     * @param maxResults
+     *        The max number of archived data instances
+     * @return The list of archived data instances.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid (expired, unknown, ...)
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an exception occurs while retrieving the archived instances of data
+     * @since 6.1
+     */
+    List<ArchivedDataInstance> getArchivedProcessDataInstances(long sourceProcessInstanceId, int startIndex, int maxResults);
+
+    /**
+     * Lists the last archived instances of data of the specified activity instance.
+     *
+     * @param sourceActivityInstanceId
+     *        The identifier of the source activity instance
+     * @param startIndex
+     *        The start index
+     * @param maxResults
+     *        The max number of archived data instances
+     * @return The list of archived data instances.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid (expired, unknown, ...)
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an exception occurs while retrieving the archived instances of data
+     * @since 6.1
+     */
+    List<ArchivedDataInstance> getArchivedActivityDataInstances(long sourceActivityInstanceId, int startIndex, int maxResults);
+
+    /**
+     * Lists the possible users (candidates) of the specified human task instance.
+     * Users are ordered by user name.
+     *
+     * @param humanTaskInstanceId
+     *        The identifier of the human task instance
+     * @param startIndex
+     *        The start index
+     * @param maxResults
+     *        The max number of users
+     * @return The list of users.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid (expired, unknown, ...)
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an exception occurs while retrieving the users
+     * @since 6.1
+     */
+    List<User> getPossibleUsersOfPendingHumanTask(long humanTaskInstanceId, int startIndex, int maxResults);
+
+    /**
+     * Lists the possible users (candidates) that can execute the specified human task instance.
+     * Users are ordered by user name.
+     *
+     * @param humanTaskInstanceId
+     *        The identifier of the human task instance
+     * @param searchOptions
+     *        the search options. See {@link org.bonitasoft.engine.identity.UserSearchDescriptor} for valid fields for searching and sorting.
+     * @return The list of users.
+     * @throws org.bonitasoft.engine.session.InvalidSessionException
+     *         If the session is invalid (expired, unknown, ...)
+     * @throws org.bonitasoft.engine.exception.RetrieveException
+     *         If an exception occurs while retrieving the users
+     * @since 6.3
+     */
+    SearchResult<User> searchUsersWhoCanExecutePendingHumanTask(final long humanTaskInstanceId, SearchOptions searchOptions);
+
+    /**
+     * Search process definitions that have instances with assigned or pending human tasks for a specific user.
+     * The tasks are in stable state, not in terminal/executing state.
+     *
+     * @param userId
+     *        The identifier of the user.
+     * @param searchOptions
+     *        The search criterion. See {@link org.bonitasoft.engine.bpm.process.ProcessDeploymentInfoSearchDescriptor} for valid fields for searching and
+     *        sorting.
+     * @return The list of process definitions
+     * @throws SearchException
+     *         if an exception occurs when getting the process deployment information.
+     * @since 6.3.3
+     */
+    SearchResult<ProcessDeploymentInfo> searchProcessDeploymentInfosWithAssignedOrPendingHumanTasksFor(long userId, SearchOptions searchOptions)
+            throws SearchException;
+
+    /**
+     * Search process definitions supervised by a specific user, that have instances with assigned or pending human tasks.
+     * The tasks are in stable state, not in terminal/executing state.
+     *
+     * @param supervisorId
+     *        The identifier of the user.
+     * @param searchOptions
+     *        The search criterion. See {@link org.bonitasoft.engine.bpm.process.ProcessDeploymentInfoSearchDescriptor} for valid fields for searching and
+     *        sorting.
+     * @return The list of process definitions
+     * @throws SearchException
+     *         if an exception occurs when getting the process deployment information.
+     * @since 6.3.3
+     */
+    SearchResult<ProcessDeploymentInfo> searchProcessDeploymentInfosWithAssignedOrPendingHumanTasksSupervisedBy(long supervisorId, SearchOptions searchOptions)
+            throws SearchException;
+
+    /**
+     * Search process definitions that have instances with assigned or pending human tasks.
+     * The tasks are in stable state, not in terminal/executing state.
+     *
+     * @param searchOptions
+     *        The search criterion. See {@link org.bonitasoft.engine.bpm.process.ProcessDeploymentInfoSearchDescriptor} for valid fields for searching and
+     *        sorting.
+     * @return The list of process definitions
+     * @throws SearchException
+     *         If an exception occurs when getting the process deployment information.
+     * @since 6.3.3
+     */
+    SearchResult<ProcessDeploymentInfo> searchProcessDeploymentInfosWithAssignedOrPendingHumanTasks(SearchOptions searchOptions) throws SearchException;
+
+    /**
+     * Retrieve, for a given process instance, the current counters on flownodes. Please note: this method does not count the flownodes of sub-process instances
+     * of the given process instance.
+     *
+     * @param processInstanceId ID of the process instance of which to retrieve the current indicators.
+     * @return A map of counters: the key is the name of the flownode, as defined at design-time. the value is the current counters for this flownode, that is,
+     *         a map of &lt;state name, number of current flownode in that state&gt;
+     *         If no results, returns an empty Map.
+     * @since 6.5.0
+     */
+    Map<String, Map<String, Long>> getFlownodeStateCounters(long processInstanceId);
+
+    /**
+     * Search the {@link TimerEventTriggerInstance} on the specific {@link ProcessInstance}.
+     *
+     * @param searchOptions
+     *        The search criterion.
+     * @return The list of the timer event triggers
+     * @throws SearchException
+     *         If an exception occurs when getting the timer event triggers.
+     * @since 6.4.0
+     */
+    SearchResult<TimerEventTriggerInstance> searchTimerEventTriggerInstances(long processInstanceId, SearchOptions searchOptions) throws SearchException;
+
+    /**
+     * Change the date of the execution of a specific {@link TimerEventTriggerInstance}.
+     *
+     * @param timerEventTriggerInstanceId
+     *        The identifier of the {@link TimerEventTriggerInstance} to update
+     * @param executionDate
+     *        The new date of the execution of the {@link TimerEventTriggerInstance}
+     * @return The first fire time of the newly scheduled trigger is returned
+     * @throws TimerEventTriggerInstanceNotFoundException
+     *         If the {@link TimerEventTriggerInstance} doesn't exist
+     * @throws UpdateException
+     *         If an exception occurs when updating the {@link TimerEventTriggerInstance}
+     * @since 6.4.0
+     */
+    Date updateExecutionDateOfTimerEventTriggerInstance(long timerEventTriggerInstanceId, Date executionDate)
+            throws TimerEventTriggerInstanceNotFoundException, UpdateException;
+
+    /**
+     * Gets the contract of the user task.
+     *
+     * @param userTaskId the identifier of the user task.
+     * @return the contract of the user task
+     * @throws UserTaskNotFoundException
+     *         if identifier does not refer to a real user task.
+     */
+    ContractDefinition getUserTaskContract(long userTaskId) throws UserTaskNotFoundException;
+
+    /**
+     * Gets the process instantiation contract for a given process definition.
+     *
+     * @param processDefinitionId the identifier of the process definition.
+     * @return the contract of the given process
+     * @throws ProcessDefinitionNotFoundException
+     *         if identifier does not refer to an existing process definition.
+     */
+    ContractDefinition getProcessContract(long processDefinitionId) throws ProcessDefinitionNotFoundException;
+
+    /**
+     * Executes a user task that is in a stable state.
+     * Will move the activity to the next stable state and then continue the execution of the process.
+     *
+     * @param userTaskInstanceId
+     *        The identifier of the user task to execute.
+     * @param inputs
+     *        the inputs used for user task execution
+     * @throws UserTaskNotFoundException
+     *         If user task to execute is not found
+     * @throws ContractViolationException
+     *         If inputs don't fit with task contract
+     * @throws FlowNodeExecutionException
+     *         If an execution exception occurs
+     * @since 7.0
+     */
+    void executeUserTask(long userTaskInstanceId, Map<String, Serializable> inputs) throws UserTaskNotFoundException, ContractViolationException,
+            FlowNodeExecutionException;
+
+    /**
+     * Executes a user task that is in a stable state on behalf of a given user
+     * Will make the task go in the next stable state and then continue the execution of the process
+     * If userId equals 0, the logged-in user is declared as the executer of the task.
+     * The user, who executed the task on behalf of a given user, is declared as a executer delegate.
+     *
+     * @param userId
+     *        The identifier of the user for which you want to execute the flow node
+     * @param userTaskInstanceId
+     *        The identifier of the user task to execute
+     * @param inputs
+     *        the input used for user task execution
+     * @throws UserTaskNotFoundException
+     *         If user task to execute is not found
+     * @throws ContractViolationException
+     *         If inputs don't fit with task contract
+     * @throws FlowNodeExecutionException
+     *         If an execution exception occurs
+     * @since 7.0
+     */
+    void executeUserTask(long userId, long userTaskInstanceId, Map<String, Serializable> inputs) throws UserTaskNotFoundException, ContractViolationException,
+            FlowNodeExecutionException;
+
+    /**
+     * Gets the value of the variable of the user task contract.
+     *
+     * @param userTaskInstanceId
+     *        The identifier of the user task
+     * @param name
+     *        The name of the variable
+     * @return The identifier of the user task
+     * @throws ContractDataNotFoundException if no data found for the given user task instance and name.
+     */
+    Serializable getUserTaskContractVariableValue(long userTaskInstanceId, String name) throws ContractDataNotFoundException;
+
+    /**
+     * Gets the value of a process instantiation input, during the phase of initializing. For instance, if a connector on_enter fails, this method can be called
+     * to check the current value.
+     *
+     * @param processInstanceId The identifier of the process instance
+     * @param name The name of the process input to retrieve
+     * @return The identifier of the user task
+     * @throws ContractDataNotFoundException if no data found for the given process instance and name.
+     */
+    Serializable getProcessInputValueDuringInitialization(long processInstanceId, String name) throws ContractDataNotFoundException;
+
+    /**
+     * Gets the value of a process instantiation input, after initialization has finished. Requires Archiving feature to be enabled (default behaviour).
+     *
+     * @param processInstanceId The identifier of the process instance
+     * @param name The name of the process input to retrieve
+     * @return The identifier of the user task
+     * @throws ContractDataNotFoundException if identifier does not refer to an existing process instance.
+     */
+    Serializable getProcessInputValueAfterInitialization(long processInstanceId, String name) throws ContractDataNotFoundException;
+
+    /**
+     * return the context defined in the process definition for this user task instance. Context includes:
+     * <ul>
+     * <li>Business data references (see {@link org.bonitasoft.engine.business.data.BusinessDataReference},
+     * {@link org.bonitasoft.engine.business.data.SimpleBusinessDataReference} and {@link org.bonitasoft.engine.business.data.MultipleBusinessDataReference}).
+     * Key of
+     * data reference is the name of the business data as declared in process definition followed by "_ref".
+     * <li>Documents reference (see {@link org.bonitasoft.engine.bpm.document.Document}). Naming convention is the same as for business data ("_ref" suffix).
+     * <li>For multi-instantiated task only: iterator name with "_ref" suffix (type of the value is
+     * {@link org.bonitasoft.engine.business.data.BusinessDataReference}). By default: multiInstanceIterator_ref. Only exist if iterator value is set using
+     * a business variable.
+     * <li>
+     * </ul>
+     *
+     * @param userTaskInstanceId the id of the user task instance
+     * @return a map containing the evaluated context
+     * @throws UserTaskNotFoundException if <code>userTaskInstanceId</code> does not reference any existing task.
+     */
+    Map<String, Serializable> getUserTaskExecutionContext(long userTaskInstanceId) throws UserTaskNotFoundException, ExpressionEvaluationException;
+
+    /**
+     * return the context defined in the process definition for this user task instance. Context includes:
+     * <ul>
+     * <li>Business data references (see {@link org.bonitasoft.engine.business.data.BusinessDataReference},
+     * {@link org.bonitasoft.engine.business.data.SimpleBusinessDataReference} and {@link org.bonitasoft.engine.business.data.MultipleBusinessDataReference}).
+     * Key of
+     * data reference is the name of the business data as declared in process definition followed by "_ref".
+     * <li>Documents reference (see {@link org.bonitasoft.engine.bpm.document.Document}). Naming convention is the same as for business data ("_ref" suffix).
+     * <li>For multi-instantiated task only: iterator name with "_ref" suffix (type of the value is
+     * {@link org.bonitasoft.engine.business.data.BusinessDataReference}). By default: multiInstanceIterator_ref. Only exist if iterator value is set using
+     * a business variable.
+     * <li>
+     * </ul>
+     *
+     * @param archivedUserTaskInstanceId the id of the archived version of the user task instance
+     * @return a map containing the evaluated context
+     * @throws UserTaskNotFoundException if <code>archivedUserTaskInstanceId</code> does not reference any existing archived task.
+     */
+    Map<String, Serializable> getArchivedUserTaskExecutionContext(long archivedUserTaskInstanceId)
+            throws UserTaskNotFoundException, ExpressionEvaluationException;
+
+    /**
+     * return the context defined in the process definition for this process instance. Context includes:
+     * <ul>
+     * <li>Business data references (see {@link org.bonitasoft.engine.business.data.BusinessDataReference},
+     * {@link org.bonitasoft.engine.business.data.SimpleBusinessDataReference} and {@link org.bonitasoft.engine.business.data.MultipleBusinessDataReference}).
+     * Key of
+     * data reference is the name of the business data as declared in process definition followed by "_ref".
+     * <li>Documents reference (see {@link org.bonitasoft.engine.bpm.document.Document}). Naming convention is the same as for business data ("_ref" suffix).
+     * </ul>
+     * 
+     * @param processInstanceId the id of the process instance
+     * @return a map containing the evaluated context
+     * @throws ProcessInstanceNotFoundException if <code>processInstanceId</code> does not reference any existing process.
+     */
+    Map<String, Serializable> getProcessInstanceExecutionContext(long processInstanceId) throws ProcessInstanceNotFoundException, ExpressionEvaluationException;
+
+    /**
+     * return the context defined in the process definition for this process instance. Context includes:
+     * <ul>
+     * <li>Business data references (see {@link org.bonitasoft.engine.business.data.BusinessDataReference},
+     * {@link org.bonitasoft.engine.business.data.SimpleBusinessDataReference} and {@link org.bonitasoft.engine.business.data.MultipleBusinessDataReference}).
+     * Key of
+     * data reference is the name of the business data as declared in process definition followed by "_ref".
+     * <li>Documents reference (see {@link org.bonitasoft.engine.bpm.document.Document}). Naming convention is the same as for business data ("_ref" suffix).
+     * </ul>
+     *
+     * @param archivedProcessInstanceId the id of the archived version of a process instance. You can use {@link #getFinalArchivedProcessInstance(long)} to get
+     *        the id of an archived instance based on the id of the same instance while it was running.
+     * @return a map containing the evaluated context
+     * @throws ProcessInstanceNotFoundException if <code>archivedProcessInstanceId</code> does not reference any existing process.
+     */
+    Map<String, Serializable> getArchivedProcessInstanceExecutionContext(long archivedProcessInstanceId)
+            throws ProcessInstanceNotFoundException, ExpressionEvaluationException;
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,26 +14,32 @@
 package org.bonitasoft.engine.scheduler.impl;
 
 import java.io.Serializable;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
-import org.bonitasoft.engine.commons.ClassReflector;
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.events.EventService;
-import org.bonitasoft.engine.events.model.FireEventException;
 import org.bonitasoft.engine.events.model.SEvent;
+import org.bonitasoft.engine.events.model.SFireEventException;
+import org.bonitasoft.engine.events.model.builders.SEventBuilderFactory;
 import org.bonitasoft.engine.log.technical.TechnicalLogSeverity;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
-import org.bonitasoft.engine.scheduler.JobExecutionException;
-import org.bonitasoft.engine.scheduler.SJobConfigurationException;
+import org.bonitasoft.engine.scheduler.JobIdentifier;
+import org.bonitasoft.engine.scheduler.JobService;
 import org.bonitasoft.engine.scheduler.StatelessJob;
-import org.bonitasoft.engine.services.QueriableLoggerService;
-import org.bonitasoft.engine.session.SSessionNotFoundException;
-import org.bonitasoft.engine.session.SessionService;
-import org.bonitasoft.engine.session.model.SSession;
+import org.bonitasoft.engine.scheduler.exception.SJobConfigurationException;
+import org.bonitasoft.engine.scheduler.exception.SJobExecutionException;
+import org.bonitasoft.engine.services.PersistenceService;
 import org.bonitasoft.engine.sessionaccessor.SessionAccessor;
+import org.bonitasoft.engine.transaction.BonitaTransactionSynchronization;
+import org.bonitasoft.engine.transaction.STransactionException;
+import org.bonitasoft.engine.transaction.STransactionNotFoundException;
+import org.bonitasoft.engine.transaction.TransactionService;
+import org.bonitasoft.engine.transaction.TransactionState;
 
 /**
  * @author Matthieu Chaffotte
+ * @author Celine Souchet
  */
 public class JobWrapper implements StatelessJob {
 
@@ -51,44 +57,36 @@ public class JobWrapper implements StatelessJob {
 
     private final EventService eventService;
 
-    private final String name;
+    private final JobIdentifier jobIdentifier;
 
     private final SessionAccessor sessionAccessor;
 
-    private final SessionService sessionService;
+    private final TransactionService transactionService;
 
-    public JobWrapper(final String name, final QueriableLoggerService logService, final StatelessJob statelessJob, final TechnicalLoggerService logger,
-            final long tenantId, final EventService eventService, final JobTruster jobTruster, final SessionService sessionService,
-            final SessionAccessor sessionAccessor) {
-        this.name = name;
-        this.sessionService = sessionService;
+    private final PersistenceService persistenceService;
+
+    private final JobService jobService;
+
+    public JobWrapper(final JobIdentifier jobIdentifier, final StatelessJob statelessJob, final TechnicalLoggerService logger, final long tenantId,
+                      final EventService eventService, final SessionAccessor sessionAccessor, final TransactionService transactionService, PersistenceService persistenceService, JobService jobService) {
+        this.jobIdentifier = jobIdentifier;
         this.sessionAccessor = sessionAccessor;
         this.statelessJob = statelessJob;
         this.logger = logger;
+
         this.tenantId = tenantId;
         this.eventService = eventService;
-        jobExecuting = eventService.getEventBuilder().createNewInstance(JOB_EXECUTING).done();
-        jobCompleted = eventService.getEventBuilder().createNewInstance(JOB_COMPLETED).done();
-        if (jobTruster.isTrusted(statelessJob)) {// FIXME
-            try {
-                ClassReflector.invokeMethod(statelessJob, "setQueriableLoggerService", QueriableLoggerService.class, logService);
-            } catch (final IllegalArgumentException e) {
-                e.printStackTrace();
-            } catch (final IllegalAccessException e) {
-                e.printStackTrace();
-            } catch (final InvocationTargetException e) {
-                e.printStackTrace();
-            } catch (final SecurityException e) {
-                e.printStackTrace();
-            } catch (final NoSuchMethodException e) {
-                e.printStackTrace();
-            }
-        }
+        this.transactionService = transactionService;
+        this.persistenceService = persistenceService;
+        this.jobService = jobService;
+        jobExecuting = BuilderFactory.get(SEventBuilderFactory.class).createNewInstance(JOB_EXECUTING).done();
+        jobCompleted = BuilderFactory.get(SEventBuilderFactory.class).createNewInstance(JOB_COMPLETED).done();
     }
+
 
     @Override
     public String getName() {
-        return name;
+        return jobIdentifier.getJobName();
     }
 
     @Override
@@ -97,52 +95,99 @@ public class JobWrapper implements StatelessJob {
     }
 
     @Override
-    public void execute() throws JobExecutionException, FireEventException {
-        SSession session = null;
+    public void execute() throws SJobExecutionException, SFireEventException {
         try {
-            session = createSession();// FIXME get the technical user of the tenant
-            sessionAccessor.setSessionInfo(session.getId(), session.getTenantId());// FIXME do that in the session service?
-
+            sessionAccessor.setTenantId(tenantId);
             if (eventService.hasHandlers(JOB_EXECUTING, null)) {
                 jobExecuting.setObject(this);
                 eventService.fireEvent(jobExecuting);
             }
             if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.DEBUG)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.DEBUG, "start execution of " + statelessJob.getName());
+                logger.log(this.getClass(), TechnicalLogSeverity.DEBUG, "Start execution of " + statelessJob.getName());
             }
             statelessJob.execute();
+            //make sure hibernate flush everything we did before going back to quartz code
+            persistenceService.flushStatements();
             if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.DEBUG)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.DEBUG, "finished execution of " + statelessJob.getName());
+                logger.log(this.getClass(), TechnicalLogSeverity.DEBUG, "Finished execution of " + statelessJob.getName());
             }
-        } catch (final Exception e) {
-            logger.log(this.getClass(), TechnicalLogSeverity.ERROR, "Error executing job " + name + " exception was thrown:" + e.getMessage(), e);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.DEBUG)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.DEBUG, e);
-            }
-            throw new JobExecutionException(e);
+
+        } catch (final SFireEventException | SJobExecutionException e) {
+            handleFailure(e);
+            throw e;
+        } catch (Exception e) {
+            handleFailure(e);
+            throw new SJobExecutionException(e);
         } finally {
             if (eventService.hasHandlers(JOB_COMPLETED, null)) {
                 jobCompleted.setObject(this);
                 eventService.fireEvent(jobCompleted);
             }
-            if (session != null) {
-                try {
-                    sessionAccessor.deleteSessionId();
-                    sessionService.deleteSession(session.getId());
-                } catch (final SSessionNotFoundException e) {
-                    logger.log(this.getClass(), TechnicalLogSeverity.ERROR, e);// FIXME
-                }
-            }
         }
     }
 
-    private SSession createSession() throws Exception {
-        return sessionService.createSession(tenantId, "scheduler");
+    void handleFailure(Exception e) {
+        logFailedJob(e);
+        try {
+            registerFailInAnOtherThread(e, jobIdentifier);
+            transactionService.setRollbackOnly();
+        } catch (STransactionException | STransactionNotFoundException e1) {
+            logger.log(getClass(), TechnicalLogSeverity.ERROR, "Unable to rollback transaction after fail on job  " + jobIdentifier.getId(), e);
+        }
+    }
+
+    private void registerFailInAnOtherThread(final Exception jobException, final JobIdentifier jobIdentifier) throws STransactionNotFoundException {
+        transactionService.registerBonitaSynchronization(new BonitaTransactionSynchronization() {
+            @Override
+            public void beforeCommit() {
+
+            }
+
+            @Override
+            public void afterCompletion(TransactionState txState) {
+                Thread thread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            sessionAccessor.setTenantId(jobIdentifier.getTenantId());
+                            transactionService.executeInTransaction(new Callable<Object>() {
+                                @Override
+                                public Object call() throws Exception {
+                                    jobService.logJobError(jobException, jobIdentifier.getId());
+                                    return null;
+                                }
+                            });
+                        } catch (Exception e) {
+                            logger.log(getClass(), TechnicalLogSeverity.ERROR, "Error while registering the error for the job " + jobIdentifier.getId(), e);
+                            logger.log(getClass(), TechnicalLogSeverity.ERROR, "job exception was ", jobException);
+                        }
+                        sessionAccessor.deleteTenantId();
+                    }
+                }, "Job error handler");
+                thread.start();
+                try {
+                    thread.join();
+                } catch (InterruptedException e) {
+                    logger.log(getClass(), TechnicalLogSeverity.ERROR, "Thread to log error on job " + jobIdentifier.getId() + " interrupted", e);
+                }
+
+            }
+        });
+    }
+
+    private void logFailedJob(final Exception e) {
+        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.ERROR)) {
+            logger.log(this.getClass(), TechnicalLogSeverity.ERROR, "Error while executing job " + jobIdentifier + " : " + e.getMessage(), e);
+        }
     }
 
     @Override
     public void setAttributes(final Map<String, Serializable> attributes) throws SJobConfigurationException {
         statelessJob.setAttributes(attributes);
+    }
+
+    public StatelessJob getStatelessJob() {
+        return statelessJob;
     }
 
 }

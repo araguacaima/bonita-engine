@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -23,13 +23,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.bonitasoft.engine.expression.ContainerState;
 import org.bonitasoft.engine.expression.exception.SExpressionDependencyMissingException;
-import org.bonitasoft.engine.expression.exception.SExpressionEvaluationException;
 import org.bonitasoft.engine.expression.model.SExpression;
 import org.bonitasoft.engine.expression.model.SExpressionType;
 import org.bonitasoft.engine.expression.model.impl.SExpressionImpl;
-import org.bonitasoft.engine.test.annotation.Cover;
-import org.bonitasoft.engine.test.annotation.Cover.BPMNConcept;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -46,33 +44,33 @@ public class PatternExpressionExecutorStrategyTest {
     }
 
     private void patternTest(final String expressionContent, final String result, final List<String> dependencyNames, final List<Integer> dependencyContent)
-            throws SExpressionEvaluationException, SExpressionDependencyMissingException {
+            throws SExpressionDependencyMissingException {
         final SExpressionImpl expression = new SExpressionImpl("pattern", expressionContent, SExpressionType.TYPE_PATTERN.name(), String.class.getName(), null,
                 getIntegerExpressions(dependencyNames, dependencyContent));
         final Map<Integer, Object> resolvedExpressions = getResolvedExpressionMap(expression);
         final HashMap<String, Object> dependencyValues = new HashMap<String, Object>(1);
-        assertEquals(result, strategy.evaluate(expression, dependencyValues, resolvedExpressions));
+        assertEquals(result, strategy.evaluate(expression, dependencyValues, resolvedExpressions, ContainerState.ACTIVE));
     }
 
     @Test
-    public void patternTestWithMultipleExpressions() throws SExpressionEvaluationException, SExpressionDependencyMissingException {
+    public void patternTestWithMultipleExpressions() throws SExpressionDependencyMissingException {
         final SExpression expression1 = new SExpressionImpl("pattern1", "${bla} ${bla} test", SExpressionType.TYPE_PATTERN.name(), String.class.getName(),
                 null, getIntegerExpressions(Arrays.asList("bla"), Arrays.asList(12)));
         final SExpression expression2 = new SExpressionImpl("pattern1", "${bla} ${bli} test", SExpressionType.TYPE_PATTERN.name(), String.class.getName(),
                 null, getIntegerExpressions(Arrays.asList("bla", "bli"), Arrays.asList(12, 13)));
         final Map<Integer, Object> resolvedExpressions = getResolvedExpressionMap(expression1, expression2);
         final HashMap<String, Object> dependencyValues = new HashMap<String, Object>(1);
-        final List<Object> evaluate = strategy.evaluate(Arrays.asList(expression1, expression2), dependencyValues, resolvedExpressions);
+        final List<Object> evaluate = strategy.evaluate(Arrays.asList(expression1, expression2), dependencyValues, resolvedExpressions, ContainerState.ACTIVE);
         assertArrayEquals(new Object[] { "12 12 test", "12 13 test" }, evaluate.toArray());
     }
 
     @Test(expected = SExpressionDependencyMissingException.class)
-    public void patternTestWithMissingValue() throws SExpressionEvaluationException, SExpressionDependencyMissingException {
+    public void patternTestWithMissingValue() throws SExpressionDependencyMissingException {
         final SExpression expression1 = new SExpressionImpl("pattern1", "${bla} ${bla} test", SExpressionType.TYPE_PATTERN.name(), String.class.getName(),
                 null, getIntegerExpressions(Arrays.asList("bla"), Arrays.asList(12)));
         final Map<Integer, Object> resolvedExpressions = new HashMap<Integer, Object>(1);
         final HashMap<String, Object> dependencyValues = new HashMap<String, Object>(1);
-        strategy.evaluate(Arrays.asList(expression1), dependencyValues, resolvedExpressions);
+        strategy.evaluate(Arrays.asList(expression1), dependencyValues, resolvedExpressions, ContainerState.ACTIVE);
     }
 
     /**
@@ -108,32 +106,26 @@ public class PatternExpressionExecutorStrategyTest {
         return new SExpressionImpl(name, String.valueOf(content), SExpression.TYPE_CONSTANT, Integer.class.getName(), null, null);
     }
 
-    @Cover(classes = PatternExpressionExecutorStrategy.class, concept = BPMNConcept.EXPRESSIONS, keywords = { "Expression", "Command", "Pattern", "Escape" }, story = "Test pattern with escape.")
     @Test
     public void testPatternWithEscape() throws Exception {
         patternTest("ahah bla ${bla}", "ahah bla 12", Arrays.asList("bla"), Arrays.asList(12));
     }
 
-    @Cover(classes = PatternExpressionExecutorStrategy.class, concept = BPMNConcept.EXPRESSIONS, keywords = { "Expression", "Command", "Pattern", "Escape" }, story = "Test pattern with escape.")
     @Test
     public void testPatternWithNotInDependencies() throws Exception {
         patternTest("ahah bla bla", "ahah bla bla", Arrays.asList("blo"), Arrays.asList(12));
     }
 
-    @Cover(classes = PatternExpressionExecutorStrategy.class, concept = BPMNConcept.EXPRESSIONS, keywords = { "Expression", "Command", "Pattern", "Space" }, story = "Test pattern with spaces.")
     @Test
     public void testPatternWithSpaces() throws Exception {
         patternTest("${bla} ${blablabla}  ${bla} ${bla}a bla${bla} bla", "12 ${blablabla}  12 12a bla12 bla", Arrays.asList("bla"), Arrays.asList(12));
     }
 
-    @Cover(classes = PatternExpressionExecutorStrategy.class, concept = BPMNConcept.EXPRESSIONS, keywords = { "Expression", "Command", "Pattern", "Space",
-            "Line break" }, story = "Test pattern with spaces and line breaks.")
     @Test
     public void testPatternWithSpacesAndLineBreak() throws Exception {
         patternTest("${bla} ${bla}${bla}${bla}  ${bla} ${bla}a ${bla}\n${bla} ${bla}", "12 121212  12 12a 12\n12 12", Arrays.asList("bla"), Arrays.asList(12));
     }
 
-    @Cover(classes = PatternExpressionExecutorStrategy.class, concept = BPMNConcept.EXPRESSIONS, keywords = { "Expression", "Command", "Pattern", "Replacement" }, story = "Test pattern with multiple replacements.")
     @Test
     public void testPatternMultipleReplacements() throws Exception {
         patternTest("${bla} ${blo} ${blu}${bla}${bla}", "1 2 311", Arrays.asList("bla", "blo", "blu"), Arrays.asList(1, 2, 3));

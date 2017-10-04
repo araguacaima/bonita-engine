@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,6 +14,7 @@
 package org.bonitasoft.engine.bpm.flownode;
 
 import java.util.List;
+import java.util.Map;
 
 import org.bonitasoft.engine.expression.Expression;
 import org.bonitasoft.engine.operation.Operation;
@@ -34,4 +35,5 @@ public interface CallActivityDefinition extends ActivityDefinition {
 
     CallableElementType getCallableElementType();
 
+    Map<String, Expression> getProcessStartContractInputs();
 }

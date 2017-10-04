@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,5 +17,5 @@ package org.bonitasoft.engine.search;
  * @author Emmanuel Duchastenier
  */
 public enum SearchFilterOperation {
-    EQUALS, GREATER_THAN, LESS_THAN, GREATER_OR_EQUAL, LESS_OR_EQUAL, DIFFERENT, BETWEEN, OR, AND
+    EQUALS, GREATER_THAN, LESS_THAN, GREATER_OR_EQUAL, LESS_OR_EQUAL, DIFFERENT, BETWEEN, OR, AND, L_PARENTHESIS, R_PARENTHESIS
 }

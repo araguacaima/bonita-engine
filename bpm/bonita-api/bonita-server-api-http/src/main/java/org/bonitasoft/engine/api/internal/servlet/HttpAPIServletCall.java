@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -29,9 +29,11 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.fileupload.FileUploadException;
-import org.bonitasoft.engine.api.impl.ServerAPIImpl;
+import org.bonitasoft.engine.api.impl.ServerAPIFactory;
+import org.bonitasoft.engine.api.internal.ServerAPI;
 import org.bonitasoft.engine.api.internal.ServerWrappedException;
 import org.bonitasoft.engine.exception.BonitaRuntimeException;
+import org.bonitasoft.engine.exception.StackTraceTransformer;
 
 import com.thoughtworks.xstream.XStream;
 
@@ -54,6 +56,8 @@ public class HttpAPIServletCall extends ServletCall {
     private static final String PARAMETERS_VALUES = "parametersValues";
 
     private static final String OPTIONS = "options";
+
+    private static final XStream XSTREAM = new XStream();
 
     public HttpAPIServletCall(final HttpServletRequest request, final HttpServletResponse response) throws FileUploadException, IOException {
         super(request, response);
@@ -78,19 +82,18 @@ public class HttpAPIServletCall extends ServletCall {
             final String options = this.getParameter(OPTIONS);
             final String parametersValues = this.getParameter(PARAMETERS_VALUES);
             final String parametersClasses = this.getParameter(CLASS_NAME_PARAMETERS);
-            final XStream xstream = new XStream();
 
             Map<String, Serializable> myOptions = new HashMap<String, Serializable>();
             if (options != null && !options.isEmpty()) {
-                myOptions = fromXML(options, xstream);
+                myOptions = fromXML(options, XSTREAM);
             }
             List<String> myClassNameParameters = new ArrayList<String>();
             if (parametersClasses != null && !parametersClasses.isEmpty() && !parametersClasses.equals(ARRAY)) {
-                myClassNameParameters = fromXML(parametersClasses, xstream);
+                myClassNameParameters = fromXML(parametersClasses, XSTREAM);
             }
             Object[] myParametersValues = new Object[0];
             if (parametersValues != null && !parametersValues.isEmpty() && !parametersValues.equals(NULL)) {
-                myParametersValues = fromXML(parametersValues, xstream);
+                myParametersValues = fromXML(parametersValues, XSTREAM);
                 if (myParametersValues != null && !(myParametersValues.length == 0)) {
                     final Iterator<byte[]> binaryParameters = getBinaryParameters().iterator();
                     for (int i = 0; i < myParametersValues.length; i++) {
@@ -102,13 +105,19 @@ public class HttpAPIServletCall extends ServletCall {
                 }
             }
 
-            final ServerAPIImpl serverAPI = new ServerAPIImpl();
+            final ServerAPI serverAPI = ServerAPIFactory.getServerAPI();
 
-            final Object invokeMethod = serverAPI.invokeMethod(myOptions, apiInterfaceName, methodName, myClassNameParameters, myParametersValues);
+            final Object invokeMethod;
+            try {
+                invokeMethod = serverAPI.invokeMethod(myOptions, apiInterfaceName, methodName, myClassNameParameters, myParametersValues);
+            } catch (ServerWrappedException e) {
+                // merge stack trace of the server exception
+                throw StackTraceTransformer.mergeStackTraces(e);
+            }
 
             String invokeMethodSerialized = null;
             if (invokeMethod != null) {
-                invokeMethodSerialized = toXML(invokeMethod, xstream);
+                invokeMethodSerialized = toXML(invokeMethod, XSTREAM);
             }
 
             // add charset avoid encoding problems
@@ -151,7 +160,6 @@ public class HttpAPIServletCall extends ServletCall {
     }
 
     private String toResponse(final Exception exception) {
-        final XStream xstream = new XStream();
         Throwable result = null;
         if (exception instanceof ServerWrappedException) {
             result = exception.getCause();
@@ -159,9 +167,9 @@ public class HttpAPIServletCall extends ServletCall {
             result = exception;
         }
         // ignore fields suppressedExceptions and stackTrance causing exceptions in some cases
-        xstream.omitField(Throwable.class, "suppressedExceptions");
-        xstream.omitField(Throwable.class, "stackTrace");
-        return toXML(result, xstream);
+        XSTREAM.omitField(Throwable.class, "suppressedExceptions");
+        // xstream.omitField(Throwable.class, "stackTrace");
+        return toXML(result, XSTREAM);
     }
 
     private String toXML(final Object object, final XStream xstream) {

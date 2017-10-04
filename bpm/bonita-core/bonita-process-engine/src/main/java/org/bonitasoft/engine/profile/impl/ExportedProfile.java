@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -15,29 +15,43 @@ package org.bonitasoft.engine.profile.impl;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
+import javax.xml.bind.annotation.XmlType;
 
 /**
  * @author Zhao Na
  * @author Celine Souchet
  */
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(propOrder = {})
 public class ExportedProfile {
 
-    private final String name;
-
+    @XmlAttribute
+    private String name;
+    @XmlAttribute
     private boolean isDefault;
-
+    @XmlElement
     private String description;
-
-    private String iconPath;
-
+    @XmlElementWrapper(name = "profileEntries")
+    @XmlElement(name = "parentProfileEntry")
     private List<ExportedParentProfileEntry> parentProfileEntries;
-
+    @XmlElement(name = "profileMapping")
     private ExportedProfileMapping profileMapping;
+
+    public ExportedProfile() {
+        parentProfileEntries = new ArrayList<>();
+    }
 
     public ExportedProfile(final String name, final boolean isDefault) {
         this.name = name;
         this.isDefault = isDefault;
-        parentProfileEntries = new ArrayList<ExportedParentProfileEntry>();
+        parentProfileEntries = new ArrayList<>();
         profileMapping = new ExportedProfileMapping();
     }
 
@@ -55,14 +69,6 @@ public class ExportedProfile {
 
     public void setDescription(final String description) {
         this.description = description;
-    }
-
-    public String getIconPath() {
-        return iconPath;
-    }
-
-    public void setIconPath(final String iconPath) {
-        this.iconPath = iconPath;
     }
 
     public List<ExportedParentProfileEntry> getParentProfileEntries() {
@@ -85,54 +91,44 @@ public class ExportedProfile {
         return name;
     }
 
+    public boolean hasCustomPages() {
+        if (parentProfileEntries != null) {
+            for (final ExportedParentProfileEntry parentProfileEntry : parentProfileEntries) {
+                if (parentProfileEntry.hasCustomPages()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        ExportedProfile that = (ExportedProfile) o;
+        return isDefault == that.isDefault &&
+                Objects.equals(name, that.name) &&
+                Objects.equals(description, that.description) &&
+                Objects.equals(parentProfileEntries, that.parentProfileEntries) &&
+                Objects.equals(profileMapping, that.profileMapping);
+    }
+
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + (name == null ? 0 : name.hashCode());
-        result = prime * result + (isDefault ? 1231 : 1237);
-        result = prime * result + (description == null ? 0 : description.hashCode());
-        result = prime * result + (iconPath == null ? 0 : iconPath.hashCode());
-        return result;
+        return Objects.hash(name, isDefault, description, parentProfileEntries, profileMapping);
     }
 
     @Override
-    public boolean equals(final Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        final ExportedProfile other = (ExportedProfile) obj;
-        if (isDefault != other.isDefault) {
-            return false;
-        }
-        if (description == null) {
-            if (other.description != null) {
-                return false;
-            }
-        } else if (!description.equals(other.description)) {
-            return false;
-        }
-        if (iconPath == null) {
-            if (other.iconPath != null) {
-                return false;
-            }
-        } else if (!iconPath.equals(other.iconPath)) {
-            return false;
-        }
-        if (name == null) {
-            if (other.name != null) {
-                return false;
-            }
-        } else if (!name.equals(other.name)) {
-            return false;
-        }
-        return true;
+    public String toString() {
+        return "ExportedProfile{" +
+                "name='" + name + '\'' +
+                ", isDefault=" + isDefault +
+                ", description='" + description + '\'' +
+                ", parentProfileEntries=" + parentProfileEntries +
+                ", profileMapping=" + profileMapping +
+                '}';
     }
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,23 +17,39 @@ import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 
 /**
  * Exception related to the identity module
- * 
+ *
  * @author Baptiste Mesta
  */
 public class SIdentityException extends SBonitaException {
 
     private static final long serialVersionUID = 7615655279956204016L;
 
+    /**
+     * @see SBonitaException#SBonitaException(Object...)
+     */
     public SIdentityException(final Object... parameters) {
         super(parameters);
     }
 
+    /**
+     * @see SBonitaException#SBonitaException(Throwable)
+     */
     public SIdentityException(final Throwable cause) {
         super(cause);
     }
 
+    /**
+     * @see SBonitaException#SBonitaException(String, Throwable)
+     */
     public SIdentityException(final String message, final Throwable cause) {
         super(message, cause);
+    }
+
+    /**
+     * @see SBonitaException#SBonitaException(String)
+     */
+    public SIdentityException(final String message) {
+        super(message);
     }
 
 }

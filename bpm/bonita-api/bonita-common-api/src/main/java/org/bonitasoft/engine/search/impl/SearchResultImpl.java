@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -43,6 +43,40 @@ public class SearchResultImpl<T extends Serializable> implements SearchResult<T>
     @Override
     public List<T> getResult() {
         return list;
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + (int) (count ^ count >>> 32);
+        result = prime * result + (list == null ? 0 : list.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final SearchResultImpl<?> other = (SearchResultImpl<?>) obj;
+        if (count != other.count) {
+            return false;
+        }
+        if (list == null) {
+            if (other.list != null) {
+                return false;
+            }
+        } else if (!list.equals(other.list)) {
+            return false;
+        }
+        return true;
     }
 
 }

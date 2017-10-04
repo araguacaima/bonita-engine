@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -21,24 +21,6 @@ import org.bonitasoft.engine.profile.model.SProfileMember;
  */
 public interface SProfileMemberBuilder {
 
-    String DISPLAY_NAME_PART3 = "displayNamePart3";
-
-    String DISPLAY_NAME_PART2 = "displayNamePart2";
-
-    String DISPLAY_NAME_PART1 = "displayNamePart1";
-
-    String ROLE_ID = "roleId";
-
-    String GROUP_ID = "groupId";
-
-    String USER_ID = "userId";
-
-    String PROFILE_ID = "profileId";
-
-    String ID = "id";
-
-    SProfileMemberBuilder createNewInstance(long profileId);
-
     SProfileMemberBuilder setId(long id);
 
     SProfileMemberBuilder setGroupId(long groupId);
@@ -54,7 +36,5 @@ public interface SProfileMemberBuilder {
     SProfileMemberBuilder setDisplayNamePart3(String displayNamePart3);
 
     SProfileMember done();
-
-    String getIdKey();
 
 }

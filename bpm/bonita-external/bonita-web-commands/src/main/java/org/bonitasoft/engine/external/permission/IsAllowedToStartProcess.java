@@ -1,17 +1,16 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2.0 of the License, or
- * (at your option) any later version.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
+ * This library is free software; you can redistribute it and/or modify it under the terms
+ * of the GNU Lesser General Public License as published by the Free Software Foundation
+ * version 2.1 of the License.
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Lesser General Public License for more details.
+ * You should have received a copy of the GNU Lesser General Public License along with this
+ * program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+ * Floor, Boston, MA 02110-1301, USA.
+ **/
 package org.bonitasoft.engine.external.permission;
 
 import java.io.Serializable;
@@ -20,31 +19,28 @@ import java.util.Set;
 
 import org.bonitasoft.engine.actor.mapping.ActorMappingService;
 import org.bonitasoft.engine.actor.mapping.model.SActor;
-import org.bonitasoft.engine.api.impl.transaction.actor.GetActor;
-import org.bonitasoft.engine.api.impl.transaction.process.GetProcessDefinition;
 import org.bonitasoft.engine.command.SCommandExecutionException;
 import org.bonitasoft.engine.command.SCommandParameterizationException;
-import org.bonitasoft.engine.command.TenantCommand;
+import org.bonitasoft.engine.command.system.CommandWithParameters;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.core.process.definition.ProcessDefinitionService;
-import org.bonitasoft.engine.core.process.definition.model.SActorDefinition;
 import org.bonitasoft.engine.core.process.definition.model.SProcessDefinition;
 import org.bonitasoft.engine.service.TenantServiceAccessor;
 
 /**
  * Specific Command to access the actor Id list for a specific Process Definition and a specific actor ids.
  * The mandatory keys to set as parameters are "PROCESS_DEFINITION_ID_KEY" and "ACTOR_IDS_KEY".
- * 
+ *
  * @author Zhao Na
+ * @author Celine Souchet
  */
-public class IsAllowedToStartProcess extends TenantCommand {
+public class IsAllowedToStartProcess extends CommandWithParameters {
 
     private TenantServiceAccessor serviceAccessor;
-    
+
     private static final String PROCESS_DEFINITION_ID_KEY = "PROCESS_DEFINITION_ID_KEY";
 
     private static final String ACTOR_IDS_KEY = "ACTOR_IDS_KEY";
-
 
     /**
      * @return true if the given Set contains the actor that is allowed to start the given process.
@@ -53,39 +49,26 @@ public class IsAllowedToStartProcess extends TenantCommand {
     public Serializable execute(final Map<String, Serializable> parameters, final TenantServiceAccessor serviceAccessor)
             throws SCommandParameterizationException, SCommandExecutionException {
         this.serviceAccessor = serviceAccessor;
-        ActorMappingService actorMappingService = this.serviceAccessor.getActorMappingService();
+        final ActorMappingService actorMappingService = this.serviceAccessor.getActorMappingService();
         final ProcessDefinitionService processDefinitionService = this.serviceAccessor.getProcessDefinitionService();
-        
-        Set<Long> actorIds = (Set<Long>) parameters.get(ACTOR_IDS_KEY);
-        if(actorIds==null){
-            throw new SCommandParameterizationException("Mandatory parameter " + ACTOR_IDS_KEY + " is missing or not convertible to Set<Long>.");
-        }
-        long processDefinitionId = (Long) parameters.get(PROCESS_DEFINITION_ID_KEY);
-        if(processDefinitionId==0){
-            throw new SCommandParameterizationException("Mandatory parameter " + PROCESS_DEFINITION_ID_KEY + " is missing or not convertible to Long.");
-        }
-        final GetProcessDefinition getProcessDefinition = new GetProcessDefinition(processDefinitionId, processDefinitionService);
-        boolean isAllowedToStartProcess = false;
-        try{
-            getProcessDefinition.execute();
-            final SProcessDefinition definition = getProcessDefinition.getResult();
-            SActorDefinition sActorDefinition = definition.getActorInitiator();
 
-            final String name = sActorDefinition.getName();
-            final GetActor getActor = new GetActor(actorMappingService, name, processDefinitionId);
-            getActor.execute();
-            final SActor sActor = getActor.getResult();
-            if(sActor!=null){
-                for(long actorId : actorIds){
-                    if(sActor.getId()==actorId){
-                        isAllowedToStartProcess = true;
-                        break;
+        final Set<Long> actorIds = getMandatoryParameter(parameters, ACTOR_IDS_KEY, "Mandatory parameter " + ACTOR_IDS_KEY
+                + " is missing or not convertible to Set<Long>.");
+        final long processDefinitionId = getLongMandadoryParameter(parameters, PROCESS_DEFINITION_ID_KEY);
+
+        try {
+            final SProcessDefinition definition = processDefinitionService.getProcessDefinition(processDefinitionId);
+            final SActor sActor = actorMappingService.getActor(definition.getActorInitiator().getName(), processDefinitionId);
+            if (sActor != null) {
+                for (final long actorId : actorIds) {
+                    if (sActor.getId() == actorId) {
+                        return true;
                     }
                 }
-            }            
-        } catch(final SBonitaException e) {
-            throw new SCommandExecutionException("Can't get actors For Initiator."+e);
+            }
+        } catch (final SBonitaException e) {
+            throw new SCommandExecutionException("Can't get actors For Initiator." + e);
         }
-        return isAllowedToStartProcess;
+        return false;
     }
 }

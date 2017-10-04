@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,16 +13,15 @@
  **/
 package org.bonitasoft.engine.cache.ehcache;
 
-import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-import org.bonitasoft.engine.cache.CacheConfigurations;
-import org.bonitasoft.engine.cache.CacheException;
+import org.bonitasoft.engine.cache.CacheConfiguration;
 import org.bonitasoft.engine.cache.CacheService;
+import org.bonitasoft.engine.cache.SCacheException;
+import org.bonitasoft.engine.commons.exceptions.SBonitaRuntimeException;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
-import org.bonitasoft.engine.sessionaccessor.ReadSessionAccessor;
-import org.bonitasoft.engine.sessionaccessor.TenantIdNotSetException;
 
 /**
  * @author Baptiste Mesta
@@ -31,53 +30,67 @@ import org.bonitasoft.engine.sessionaccessor.TenantIdNotSetException;
  */
 public class EhCacheCacheService extends CommonEhCacheCacheService implements CacheService {
 
-    public EhCacheCacheService(final TechnicalLoggerService logger, final ReadSessionAccessor sessionAccessor, final CacheConfigurations cacheConfigurations,
-            final URL configFile) {
-        super(logger, sessionAccessor, cacheConfigurations, configFile);
+    private final long tenantId;
+
+    public EhCacheCacheService(final TechnicalLoggerService logger, final List<CacheConfiguration> cacheConfigurations,
+            final CacheConfiguration defaultCacheConfiguration, final String diskStorePath, long tenantId) {
+        super(logger, cacheConfigurations, defaultCacheConfiguration, diskStorePath);
+        this.tenantId = tenantId;
     }
 
-    public EhCacheCacheService(final TechnicalLoggerService logger, final ReadSessionAccessor sessionAccessor, final CacheConfigurations cacheConfigurations) {
-        super(logger, sessionAccessor, cacheConfigurations);
-    }
-
-    /**
-     * @param cacheName
-     * @return
-     * @throws CacheException
-     */
     @Override
-    protected String getKeyFromCacheName(final String cacheName) throws CacheException {
-        try {
-            return String.valueOf(sessionAccessor.getTenantId()) + '_' + cacheName;
-        } catch (final TenantIdNotSetException e) {
-            throw new CacheException(e);
-        }
+    protected String getKeyFromCacheName(final String cacheName) throws SCacheException {
+        return String.valueOf(tenantId) + '_' + cacheName;
     }
 
     @Override
     public List<String> getCachesNames() {
+        if (cacheManager == null) {
+            return Collections.emptyList();
+        }
         final String[] cacheNames = cacheManager.getCacheNames();
-        final ArrayList<String> cacheNamesList = new ArrayList<String>(cacheNames.length);
-        String prefix;
-        try {
-            prefix = String.valueOf(sessionAccessor.getTenantId()) + '_';
-            for (final String cacheName : cacheNames) {
-                if (cacheName.startsWith(prefix)) {
-                    cacheNamesList.add(getCacheNameFromKey(cacheName));
-                }
+        final List<String> cacheNamesList = new ArrayList<>(cacheNames.length);
+        String prefix = String.valueOf(tenantId) + '_';
+        for (final String cacheName : cacheNames) {
+            if (cacheName.startsWith(prefix)) {
+                cacheNamesList.add(getCacheNameFromKey(cacheName));
             }
-        } catch (final TenantIdNotSetException e) {
-            throw new RuntimeException(e);
         }
         return cacheNamesList;
     }
 
-    /**
-     * @param cacheName
-     * @return
-     */
     private String getCacheNameFromKey(final String cacheNameKey) {
         return cacheNameKey.substring(cacheNameKey.indexOf('_') + 1);
     }
 
+    @Override
+    public synchronized void start() throws SCacheException {
+        buildCacheManagerWithDefaultConfiguration();
+    }
+
+    @Override
+    public synchronized void stop() {
+        shutdownCacheManager();
+    }
+
+    @Override
+    public void pause() {
+        try {
+            clearAll();
+        } catch (final SCacheException sce) {
+            throw new SBonitaRuntimeException(sce);
+        }
+    }
+
+    @Override
+    public void resume() throws SCacheException {
+        if (cacheManager == null) {
+            start();
+        }
+    }
+
+    @Override
+    protected String getCacheManagerIdentifier() {
+        return "tenant " + tenantId;
+    }
 }

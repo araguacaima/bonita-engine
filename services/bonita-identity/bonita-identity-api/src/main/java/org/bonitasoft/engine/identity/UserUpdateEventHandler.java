@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -18,11 +18,7 @@ import org.bonitasoft.engine.events.model.SUpdateEvent;
 
 public abstract class UserUpdateEventHandler implements SHandler<SUpdateEvent> {
 
-    @Override
-    public abstract void execute(SUpdateEvent updateEvent);
-
-    @Override
-    public abstract boolean isInterested(SUpdateEvent updateEvent);
+    private static final long serialVersionUID = 1L;
 
     public abstract String getPassword(String userName);
 

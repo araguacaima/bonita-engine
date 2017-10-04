@@ -1,17 +1,16 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
- * BonitaSoft, 31 rue Gustave Eiffel - 38000 Grenoble
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2.0 of the License, or
- * (at your option) any later version.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
+ * Copyright (C) 2015 BonitaSoft S.A.
+ * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
+ * This library is free software; you can redistribute it and/or modify it under the terms
+ * of the GNU Lesser General Public License as published by the Free Software Foundation
+ * version 2.1 of the License.
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Lesser General Public License for more details.
+ * You should have received a copy of the GNU Lesser General Public License along with this
+ * program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+ * Floor, Boston, MA 02110-1301, USA.
+ **/
 package org.bonitasoft.engine.search.descriptor;
 
 import java.util.HashMap;
@@ -19,11 +18,12 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.identity.model.SRole;
-import org.bonitasoft.engine.identity.model.builder.RoleBuilder;
+import org.bonitasoft.engine.identity.model.builder.SRoleBuilderFactory;
 import org.bonitasoft.engine.persistence.PersistentObject;
 import org.bonitasoft.engine.profile.ProfileMemberSearchDescriptor;
-import org.bonitasoft.engine.profile.builder.SProfileMemberBuilder;
+import org.bonitasoft.engine.profile.builder.SProfileMemberBuilderFactory;
 import org.bonitasoft.engine.profile.model.SProfileMember;
 
 /**
@@ -37,15 +37,18 @@ public class SearchProfileMemberRoleDescriptor extends SearchEntityDescriptor {
 
     private final Map<Class<? extends PersistentObject>, Set<String>> profileMemberAllFields;
 
-    public SearchProfileMemberRoleDescriptor(final RoleBuilder roleBuilder) {
-        searchEntityKeys = new HashMap<String, FieldDescriptor>(3);
-        searchEntityKeys.put(ProfileMemberSearchDescriptor.ID, new FieldDescriptor(SProfileMember.class, SProfileMemberBuilder.ID));
-        searchEntityKeys.put(ProfileMemberSearchDescriptor.PROFILE_ID, new FieldDescriptor(SProfileMember.class, SProfileMemberBuilder.PROFILE_ID));
-        searchEntityKeys.put(ProfileMemberSearchDescriptor.DISPLAY_NAME_PART1, new FieldDescriptor(SRole.class, roleBuilder.getNameKey()));
+    public SearchProfileMemberRoleDescriptor() {
+        searchEntityKeys = new HashMap<String, FieldDescriptor>(6);
+        searchEntityKeys.put(ProfileMemberSearchDescriptor.ID, new FieldDescriptor(SProfileMember.class, SProfileMemberBuilderFactory.ID));
+        searchEntityKeys.put(ProfileMemberSearchDescriptor.PROFILE_ID, new FieldDescriptor(SProfileMember.class, SProfileMemberBuilderFactory.PROFILE_ID));
+        searchEntityKeys.put(ProfileMemberSearchDescriptor.ROLE_ID, new FieldDescriptor(SProfileMember.class, SProfileMemberBuilderFactory.ROLE_ID));
+        searchEntityKeys.put(ProfileMemberSearchDescriptor.USER_ID, new FieldDescriptor(SProfileMember.class, SProfileMemberBuilderFactory.USER_ID));
+        searchEntityKeys.put(ProfileMemberSearchDescriptor.GROUP_ID, new FieldDescriptor(SProfileMember.class, SProfileMemberBuilderFactory.GROUP_ID));
+        searchEntityKeys.put(ProfileMemberSearchDescriptor.DISPLAY_NAME_PART1, new FieldDescriptor(SRole.class, BuilderFactory.get(SRoleBuilderFactory.class).getNameKey()));
 
         profileMemberAllFields = new HashMap<Class<? extends PersistentObject>, Set<String>>(1);
         final Set<String> roleFields = new HashSet<String>(1);
-        roleFields.add(roleBuilder.getNameKey());
+        roleFields.add(BuilderFactory.get(SRoleBuilderFactory.class).getNameKey());
         profileMemberAllFields.put(SRole.class, roleFields);
     }
 

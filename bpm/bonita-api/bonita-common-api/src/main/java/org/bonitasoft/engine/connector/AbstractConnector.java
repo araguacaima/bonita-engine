@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -53,8 +53,11 @@ public abstract class AbstractConnector implements Connector {
      * get the input parameter or the default value if the parameter is not set
      * 
      * @param parameterKey
+     *      name of the parameter
      * @param defaultValue
+     *      value of the parameter if not set
      * @return
+     *      the value of the parameter
      */
     protected Object getInputParameter(final String parameterKey, final Serializable defaultValue) {
         final Object param = getInputParameter(parameterKey);
@@ -76,12 +79,12 @@ public abstract class AbstractConnector implements Connector {
     }
 
     @Override
-    public void connect() {
+    public void connect() throws ConnectorException {
         // default implementation do nothing
     }
 
     @Override
-    public void disconnect() {
+    public void disconnect() throws ConnectorException {
         // default implementation do nothing
     }
 

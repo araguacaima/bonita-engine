@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
- * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
+ * Copyright (C) 2017 Bonitasoft S.A.
+ * Bonitasoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
  * version 2.1 of the License.
@@ -11,184 +11,134 @@
  * program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
  * Floor, Boston, MA 02110-1301, USA.
  **/
+
 package org.bonitasoft.engine.execution;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.bonitasoft.engine.core.process.instance.model.SStateCategory.ABORTING;
+import static org.mockito.Mockito.*;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.bonitasoft.engine.archive.ArchiveService;
+import org.bonitasoft.engine.core.process.definition.ProcessDefinitionService;
+import org.bonitasoft.engine.core.process.definition.model.impl.SProcessDefinitionImpl;
+import org.bonitasoft.engine.core.process.instance.api.ActivityInstanceService;
+import org.bonitasoft.engine.core.process.instance.api.exceptions.SFlowNodeNotFoundException;
+import org.bonitasoft.engine.core.process.instance.api.exceptions.SFlowNodeReadException;
+import org.bonitasoft.engine.core.process.instance.model.SActivityInstance;
+import org.bonitasoft.engine.core.process.instance.model.impl.SUserTaskInstanceImpl;
+import org.bonitasoft.engine.execution.state.FlowNodeStateManager;
+import org.bonitasoft.engine.execution.state.SkippedFlowNodeStateImpl;
+import org.bonitasoft.engine.execution.work.WrappingBonitaWork;
+import org.bonitasoft.engine.persistence.QueryOptions;
+import org.bonitasoft.engine.work.BonitaWork;
+import org.bonitasoft.engine.work.WorkService;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.runners.MockitoJUnitRunner;
 
 /**
- * @author Celine Souchet
- * 
+ * @author Baptiste Mesta.
  */
+@RunWith(MockitoJUnitRunner.class)
 public class FlowNodeExecutorImplTest {
 
+    private static final long PROCESS_DEFINITION_ID = 302332L;
+    private static final long PROCESS_INSTANCE_ID = 343332L;
+    @Mock
+    private WorkService workService;
+    @Mock
+    private ActivityInstanceService activityInstanceService;
+    @Mock
+    private ContainerRegistry containerRegistry;
+    @Mock
+    private FlowNodeStateManager flowNodeStateManager;
+    @Mock
+    private ProcessDefinitionService processDefinitionService;
+    @Mock
+    private ArchiveService archiveService;
+    @Captor
+    private ArgumentCaptor<BonitaWork> workArgumentCaptor;
+    @InjectMocks
+    private FlowNodeExecutorImpl flowNodeExecutor;
+    private SkippedFlowNodeStateImpl skippedFlowNodeState;
+
     @Before
-    public void setUp() {
+    public void before() throws Exception {
+
+        skippedFlowNodeState = new SkippedFlowNodeStateImpl();
+        doReturn(skippedFlowNodeState).when(flowNodeStateManager).getState(SkippedFlowNodeStateImpl.ID);
+        doReturn(new SProcessDefinitionImpl("process", "1.0")).when(processDefinitionService).getProcessDefinition(PROCESS_DEFINITION_ID);
     }
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#FlowNodeExecutorImpl(org.bonitasoft.engine.execution.state.FlowNodeStateManager, org.bonitasoft.engine.core.process.instance.api.ActivityInstanceService, org.bonitasoft.engine.commons.transaction.TransactionExecutor, org.bonitasoft.engine.core.operation.OperationService, org.bonitasoft.engine.archive.ArchiveService, org.bonitasoft.engine.data.instance.api.DataInstanceService, org.bonitasoft.engine.data.instance.model.builder.SDataInstanceBuilders, org.bonitasoft.engine.core.process.instance.model.builder.BPMInstanceBuilders, org.bonitasoft.engine.log.technical.TechnicalLoggerService, org.bonitasoft.engine.execution.ContainerRegistry, org.bonitasoft.engine.core.process.definition.ProcessDefinitionService, org.bonitasoft.engine.core.process.comment.api.SCommentService, org.bonitasoft.engine.core.process.instance.api.ProcessInstanceService, org.bonitasoft.engine.lock.LockService, org.bonitasoft.engine.core.process.instance.api.event.EventInstanceService, org.bonitasoft.engine.core.connector.ConnectorInstanceService, org.bonitasoft.engine.classloader.ClassLoaderService)}
-     * .
-     */
     @Test
-    public final void flowNodeExecutorImplFlowNodeStateManagerActivityInstanceServiceTransactionExecutorOperationServiceArchiveServiceDataInstanceServiceSDataInstanceBuildersBPMInstanceBuildersTechnicalLoggerServiceContainerRegistryProcessDefinitionServiceSCommentServiceProcessInstanceServiceLockServiceEventInstanceServiceConnectorInstanceServiceClassLoaderService() {
-        // TODO : Not yet implemented
+    public void should_interrupt_children_when_setting_activity_to_a_terminal_state() throws Exception {
+        SUserTaskInstanceImpl flowNodeInstance = aTask(1L, true);
+        flowNodeInstance.setTokenCount(2);
+        SUserTaskInstanceImpl task1 = aTask(2L, true);
+        SUserTaskInstanceImpl task2 = aTask(3L, true);
+        doReturn(Arrays.asList(task1, task2)).when(activityInstanceService).searchActivityInstances(eq(SActivityInstance.class), any(QueryOptions.class));
+
+        flowNodeExecutor.setStateByStateId(1L, SkippedFlowNodeStateImpl.ID);
+
+        verify(activityInstanceService).setStateCategory(task1, ABORTING);
+        verify(activityInstanceService).setStateCategory(task2, ABORTING);
+        verify(workService, times(2)).registerWork(workArgumentCaptor.capture());
+        assertThat(getRootWorks(workArgumentCaptor.getAllValues())).extracting("description").containsOnly("ExecuteFlowNodeWork: flowNodeInstanceId: 2",
+                "ExecuteFlowNodeWork: flowNodeInstanceId: 3");
     }
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#FlowNodeExecutorImpl(org.bonitasoft.engine.execution.state.FlowNodeStateManager, org.bonitasoft.engine.core.process.instance.api.ActivityInstanceService, org.bonitasoft.engine.commons.transaction.TransactionExecutor, org.bonitasoft.engine.core.operation.OperationService, org.bonitasoft.engine.archive.ArchiveService, org.bonitasoft.engine.data.instance.api.DataInstanceService, org.bonitasoft.engine.data.instance.model.builder.SDataInstanceBuilders, org.bonitasoft.engine.core.process.instance.model.builder.BPMInstanceBuilders, org.bonitasoft.engine.log.technical.TechnicalLoggerService, org.bonitasoft.engine.execution.ContainerRegistry, org.bonitasoft.engine.core.process.definition.ProcessDefinitionService, org.bonitasoft.engine.core.process.comment.api.SCommentService, org.bonitasoft.engine.core.process.instance.api.ProcessInstanceService, org.bonitasoft.engine.lock.LockService, org.bonitasoft.engine.core.process.instance.api.event.EventInstanceService, org.bonitasoft.engine.core.connector.ConnectorInstanceService, org.bonitasoft.engine.classloader.ClassLoaderService, int)}
-     * .
-     */
     @Test
-    public final void flowNodeExecutorImplFlowNodeStateManagerActivityInstanceServiceTransactionExecutorOperationServiceArchiveServiceDataInstanceServiceSDataInstanceBuildersBPMInstanceBuildersTechnicalLoggerServiceContainerRegistryProcessDefinitionServiceSCommentServiceProcessInstanceServiceLockServiceEventInstanceServiceConnectorInstanceServiceClassLoaderServiceInt() {
-        // TODO : Not yet implemented
+    public void should_register_notifyFinish_when_setting_activity_to_a_terminal_state_with_no_children() throws Exception {
+        aTask(1L, true);
+
+        flowNodeExecutor.setStateByStateId(1L, SkippedFlowNodeStateImpl.ID);
+
+        verify(workService).registerWork(workArgumentCaptor.capture());
+        assertThat(unwrap(workArgumentCaptor.getValue()).getDescription())
+                .isEqualTo("NotifyChildFinishedWork: processInstanceId:" + PROCESS_INSTANCE_ID + ", flowNodeInstanceId: 1");
     }
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#executeState(org.bonitasoft.engine.core.process.definition.model.SProcessDefinition, org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance, org.bonitasoft.engine.core.process.instance.api.states.FlowNodeState)}
-     * .
-     */
     @Test
-    public final void executeState() {
-        // TODO : Not yet implemented
+    public void should_set_the_state_on_the_activity() throws Exception {
+        SUserTaskInstanceImpl aTask = aTask(1L, true);
+
+        flowNodeExecutor.setStateByStateId(1L, SkippedFlowNodeStateImpl.ID);
+
+        verify(activityInstanceService).setState(aTask, skippedFlowNodeState);
     }
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#stepForward(long, org.bonitasoft.engine.core.expression.control.model.SExpressionContext, java.util.List, java.lang.Long, java.lang.Long)}
-     * .
-     */
-    @Test
-    public final void stepForward() {
-        // TODO : Not yet implemented
+    private List<BonitaWork> getRootWorks(List<BonitaWork> bonitaWorkList) {
+        ArrayList<BonitaWork> bonitaWorks = new ArrayList<>();
+        for (BonitaWork bonitaWork : bonitaWorkList) {
+            bonitaWorks.add(unwrap(bonitaWork));
+        }
+        return bonitaWorks;
     }
 
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#handleExecutionException(org.bonitasoft.engine.commons.exceptions.SBonitaException)}.
-     */
-    @Test
-    public final void handleExecutionException() {
-        // TODO : Not yet implemented
+    private BonitaWork unwrap(BonitaWork work) {
+        while (work instanceof WrappingBonitaWork) {
+            work = ((WrappingBonitaWork) work).getWrappedWork();
+        }
+        return work;
     }
 
-    /**
-     * Test method for {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#releaseSharedLock(java.lang.String, boolean, java.lang.Long)}.
-     */
-    @Test
-    public final void releaseSharedLock() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#gotoNextStableState(long, org.bonitasoft.engine.core.expression.control.model.SExpressionContext, java.util.List, java.lang.Long, java.lang.Long)}
-     * .
-     */
-    @Test
-    public final void gotoNextStableState() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#initializeLogBuilder(org.bonitasoft.engine.queriablelogger.model.builder.SLogBuilder, java.lang.String)}
-     * .
-     */
-    @Test
-    public final void initializeLogBuilder() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#updateLog(org.bonitasoft.engine.queriablelogger.model.builder.HasCRUDEAction.ActionType, org.bonitasoft.engine.queriablelogger.model.builder.HasCRUDEAction)}
-     * .
-     */
-    @Test
-    public final void updateLog() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#getQueriableLog(org.bonitasoft.engine.queriablelogger.model.builder.HasCRUDEAction.ActionType, java.lang.String)}
-     * .
-     */
-    @Test
-    public final void getQueriableLog() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#setStateByStateId(org.bonitasoft.engine.core.process.definition.model.SProcessDefinition, org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance, int)}
-     * .
-     */
-    @Test
-    public final void setStateByStateId() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#childFinished(org.bonitasoft.engine.core.process.definition.model.SProcessDefinition, org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance, int, long)}
-     * .
-     */
-    @Test
-    public final void childReachedStateSProcessDefinitionSFlowNodeInstanceFlowNodeStateLong() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#childReachedState(org.bonitasoft.engine.core.process.definition.model.SProcessDefinition, org.bonitasoft.engine.core.process.instance.model.SProcessInstance, org.bonitasoft.engine.bpm.process.ProcessInstanceState, boolean)}
-     * .
-     */
-    @Test
-    public final void childReachedStateSProcessDefinitionSProcessInstanceProcessInstanceStateBoolean() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#executeTransition(org.bonitasoft.engine.core.process.definition.model.SProcessDefinition, org.bonitasoft.engine.core.process.instance.model.STransitionInstance)}
-     * .
-     */
-    @Test
-    public final void executeTransition() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#getHandledType()}.
-     */
-    @Test
-    public final void getHandledType() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#executeFlowNode(long, org.bonitasoft.engine.core.expression.control.model.SExpressionContext, java.util.List, java.lang.Long)}
-     * .
-     */
-    @Test
-    public final void executeFlowNode() {
-        // TODO : Not yet implemented
-    }
-
-    /**
-     * Test method for
-     * {@link org.bonitasoft.engine.execution.FlowNodeExecutorImpl#archiveFlowNodeInstance(org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance, boolean, org.bonitasoft.engine.core.process.definition.model.SProcessDefinition)}
-     * .
-     */
-    @Test
-    public final void archiveFlowNodeInstance() {
-        // TODO : Not yet implemented
+    private SUserTaskInstanceImpl aTask(long id, boolean stable) throws SFlowNodeReadException, SFlowNodeNotFoundException {
+        SUserTaskInstanceImpl sUserTaskInstance = new SUserTaskInstanceImpl();
+        sUserTaskInstance.setId(id);
+        sUserTaskInstance.setParentContainerId(PROCESS_INSTANCE_ID);
+        sUserTaskInstance.setLogicalGroup(3, PROCESS_INSTANCE_ID);
+        sUserTaskInstance.setStable(stable);
+        doReturn(sUserTaskInstance).when(activityInstanceService).getFlowNodeInstance(id);
+        return sUserTaskInstance;
     }
 
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,13 +16,22 @@ package org.bonitasoft.engine.identity;
 import org.bonitasoft.engine.exception.NotFoundException;
 
 /**
+ * thrown when a {@link Group} is not found in the organization
+ *
  * @author Kai Lu
  * @author Matthieu Chaffotte
+ * @see Group
+ * @since 6.0.0
  */
 public class GroupNotFoundException extends NotFoundException {
 
     private static final long serialVersionUID = -3825194748072808390L;
 
+    /**
+     * creates a new instance with the cause of the exception
+     *
+     * @param cause the cause that raised this exception
+     */
     public GroupNotFoundException(final Throwable cause) {
         super(cause);
     }

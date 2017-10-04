@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,6 +16,8 @@ package org.bonitasoft.engine.core.operation.model;
 /**
  * @author Elias Ricken de Medeiros
  * @author Baptiste Mesta
+ * @author Matthieu Chaffotte
+ * @author Emmanuel Duchastenier
  */
 public enum SOperatorType {
 
@@ -25,8 +27,6 @@ public enum SOperatorType {
 
     XPATH_UPDATE_QUERY,
 
-    DOCUMENT_CREATE_UPDATE,
-
-    STRING_INDEX
+    DELETION
 
 }

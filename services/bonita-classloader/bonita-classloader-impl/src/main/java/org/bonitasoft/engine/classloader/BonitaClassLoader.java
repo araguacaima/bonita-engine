@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -15,16 +15,20 @@ package org.bonitasoft.engine.classloader;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
-import org.bonitasoft.engine.commons.IOUtil;
+import org.apache.commons.io.FileUtils;
 import org.bonitasoft.engine.commons.NullCheckingUtil;
+import org.bonitasoft.engine.commons.io.IOUtil;
+import org.bonitasoft.engine.exception.BonitaRuntimeException;
 
 /**
  * @author Elias Ricken de Medeiros
@@ -42,51 +46,77 @@ public class BonitaClassLoader extends MonoParentJarFileClassLoader {
 
     protected Set<URL> urls;
 
-    private final File temporaryFolder;
+    private File temporaryDirectory;
 
-    /**
-     * Logger
-     */
-    // TODO logger
+    private boolean isActive = true;
 
-    BonitaClassLoader(final Map<String, byte[]> resources, final String type, final long id, final String temporaryFolder, final ClassLoader parent) {
+    private final long creationTime;
+
+    private String uuid;
+
+    BonitaClassLoader(final Map<String, byte[]> resources, final String type, final long id, final URI temporaryDirectoryUri, final ClassLoader parent) {
         super(type + "__" + id, new URL[] {}, parent);
-        NullCheckingUtil.checkArgsNotNull(resources, type, id, temporaryFolder, parent);
+        this.creationTime = System.currentTimeMillis();
+        NullCheckingUtil.checkArgsNotNull(resources, type, id, temporaryDirectoryUri, parent);
         this.type = type;
         this.id = id;
+        this.uuid = generateUUID();
 
-        this.nonJarResources = new HashMap<String, byte[]>();
-        this.urls = new HashSet<URL>();
-        this.temporaryFolder = new File(temporaryFolder);
-        if (!this.temporaryFolder.exists()) {
-            this.temporaryFolder.mkdirs();
-        }
+        nonJarResources = new HashMap<>();
+        urls = new HashSet<>();
+        this.temporaryDirectory = createTemporaryDirectory(temporaryDirectoryUri);
         addResources(resources);
-        addURLs(this.urls.toArray(new URL[this.urls.size()]));
+        addURLs(urls.toArray(new URL[urls.size()]));
+    }
+
+    private File createTemporaryDirectory(URI temporaryDirectoryUri) {
+        File temporaryDirectory = new File(temporaryDirectoryUri);
+        if (!temporaryDirectory.exists()) {
+            temporaryDirectory.mkdirs();
+        }
+        temporaryDirectory = createFolderFromUUID(temporaryDirectory, uuid);
+        if (temporaryDirectory.exists()) {
+            uuid = generateUUID();
+            //retry
+            return createTemporaryDirectory(temporaryDirectoryUri);
+        }
+        temporaryDirectory.mkdir();
+        return temporaryDirectory;
+    }
+
+    private File createFolderFromUUID(File temporaryDirectory, String uuid) {
+        return new File(temporaryDirectory, uuid.substring(0, 5));
+    }
+
+    String generateUUID() {
+        return UUID.randomUUID().toString();
     }
 
     protected void addResources(final Map<String, byte[]> resources) {
-        if (resources != null) {
-            for (final Map.Entry<String, byte[]> resource : resources.entrySet()) {
-                if (resource.getKey().matches(".*\\.jar")) {
-                    final byte[] data = resource.getValue();
-                    try {
-                        final File file = IOUtil.createTempFile(resource.getKey(), null, this.temporaryFolder);
-                        IOUtil.write(file, data);
-                        final String path = file.getAbsolutePath();
-                        final URL url = new File(path).toURI().toURL();
-                        this.urls.add(url);
-                        file.deleteOnExit();
-                    } catch (final MalformedURLException e) {
-                        e.printStackTrace();
-                    } catch (final Exception e) {
-                        e.printStackTrace();
-                    }
-                } else {
-                    this.nonJarResources.put(resource.getKey(), resource.getValue());
+        if (resources == null) {
+            return;
+        }
+        for (final Map.Entry<String, byte[]> resource : resources.entrySet()) {
+            if (resource.getKey().matches(".*\\.jar")) {
+                final byte[] data = resource.getValue();
+                try {
+                    final File file = writeResource(resource, data);
+                    final String path = file.getAbsolutePath();
+                    final URL url = new File(path).toURI().toURL();
+                    urls.add(url);
+                } catch (final IOException e) {
+                    throw new BonitaRuntimeException(e);
                 }
+            } else {
+                nonJarResources.put(resource.getKey(), resource.getValue());
             }
         }
+    }
+
+    File writeResource(Map.Entry<String, byte[]> resource, byte[] data) throws IOException {
+        final File file = File.createTempFile(resource.getKey(), ".jar", temporaryDirectory);
+        IOUtil.write(file, data);
+        return file;
     }
 
     @Override
@@ -111,26 +141,30 @@ public class BonitaClassLoader extends MonoParentJarFileClassLoader {
     }
 
     private byte[] loadProcessResource(final String resourceName) {
-        if (this.nonJarResources == null) {
-            return null;
+        if (nonJarResources == null) {
+            return new byte[0];
         }
-        return this.nonJarResources.get(resourceName);
+        return nonJarResources.get(resourceName);
     }
 
     @Override
-    protected synchronized Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
+    protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
         Class<?> c = null;
-        //me
-        if (c == null) {
-            c = findLoadedClass(name);
-        }
+        c = findLoadedClass(name);
         if (c == null) {
             try {
                 c = findClass(name);
-            } catch (ClassNotFoundException e) {
-                //ignore
+            } catch (final ClassNotFoundException e) {
+                // ignore
+            } catch (final LinkageError le) {
+                // might be because of a duplicate loading (concurrency loading), retry to find it one time See BS-2483
+                c = findLoadedClass(name);
+                if (c == null) {
+                    // was not because of duplicate loading: throw the exception
+                    throw le;
+                }
             }
-        }    
+        }
 
         if (c == null) {
             c = getParent().loadClass(name);
@@ -139,30 +173,31 @@ public class BonitaClassLoader extends MonoParentJarFileClassLoader {
         if (resolve) {
             resolveClass(c);
         }
-        // TODO FIXME logger LOG.fine("loadClass: " + name + ", result: " + c);
         return c;
     }
 
-    public void release() {
-        if (this.temporaryFolder.exists()) {
-            this.temporaryFolder.delete();
-        }
+    @Override
+    public void destroy() {
+        super.destroy();
+        FileUtils.deleteQuietly(temporaryDirectory);
+        isActive = false;
     }
 
     public long getId() {
-        return this.id;
+        return id;
     }
 
     public String getType() {
-        return this.type;
+        return type;
     }
 
     public File getTemporaryFolder() {
-        return this.temporaryFolder;
+        return temporaryDirectory;
     }
 
     @Override
     public String toString() {
-        return super.toString() + ", type=" + this.type + ", id=" + this.id;
+        return super.toString() + ", uuid=" + uuid + ", creationTime=" + creationTime + ", type=" + type + ", id=" + id + ", isActive: " + isActive
+                + ", parent= " + getParent();
     }
 }

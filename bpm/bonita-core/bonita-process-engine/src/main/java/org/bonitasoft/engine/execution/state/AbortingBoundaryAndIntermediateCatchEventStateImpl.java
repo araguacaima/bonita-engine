@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -15,15 +15,15 @@ package org.bonitasoft.engine.execution.state;
 
 import org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance;
 import org.bonitasoft.engine.core.process.instance.model.SStateCategory;
-import org.bonitasoft.engine.execution.StateBehaviors;
+import org.bonitasoft.engine.execution.WaitingEventsInterrupter;
 
 /**
  * @author Elias Ricken de Medeiros
  */
 public class AbortingBoundaryAndIntermediateCatchEventStateImpl extends EndingIntermediateCatchEventExceptionStateImpl {
 
-    public AbortingBoundaryAndIntermediateCatchEventStateImpl(final StateBehaviors stateBehaviors) {
-        super(stateBehaviors);
+    public AbortingBoundaryAndIntermediateCatchEventStateImpl(WaitingEventsInterrupter waitingEventsInterrupter) {
+        super(waitingEventsInterrupter);
     }
 
     @Override

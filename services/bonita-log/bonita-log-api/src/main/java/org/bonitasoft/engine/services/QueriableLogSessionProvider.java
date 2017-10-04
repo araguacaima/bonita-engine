@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,6 +16,7 @@ package org.bonitasoft.engine.services;
 /**
  * @author Elias Ricken de Medeiros
  * @author Matthieu Chaffotte
+ * @author Celine Souchet
  */
 public interface QueriableLogSessionProvider {
 
@@ -32,12 +33,5 @@ public interface QueriableLogSessionProvider {
      * @return the cluster node
      */
     String getClusterNode();
-
-    /**
-     * Get the product's version
-     * 
-     * @return the product's version
-     */
-    String getProductVersion();
 
 }

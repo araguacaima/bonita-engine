@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,9 +19,7 @@ import java.util.Map;
 import org.bonitasoft.engine.command.SCommandExecutionException;
 import org.bonitasoft.engine.command.SCommandParameterizationException;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
-import org.bonitasoft.engine.external.identity.mapping.model.SExternalIdentityMappingBuilders;
 import org.bonitasoft.engine.identity.MemberType;
-import org.bonitasoft.engine.identity.model.builder.IdentityModelBuilder;
 import org.bonitasoft.engine.search.SearchOptions;
 import org.bonitasoft.engine.search.descriptor.SearchEntityMemberDescriptor;
 import org.bonitasoft.engine.search.descriptor.SearchEntityMemberGroupDescriptor;
@@ -52,37 +50,37 @@ public class SearchEntityMembersCommand extends EntityMemberCommand {
                 + " with a MemberType value (USER, GROUP, ROLE, MEMBERSHIP)");
 
         final String querySuffix = getQuerySuffix(memberType);
-        final IdentityModelBuilder identityModelBuilder = serviceAccessor.getIdentityModelBuilder();
-        final SExternalIdentityMappingBuilders builders = serviceAccessor.getExternalIdentityMappingBuilders();
-        final SearchEntityMemberDescriptor searchDescriptor = getSearchDescriptor(builders, identityModelBuilder, memberType);
+        final SearchEntityMemberDescriptor searchDescriptor = getSearchDescriptor(memberType);
 
         try {
             return searchEntityMembers(searchDescriptor, kind, searchOptions, querySuffix);
+        } catch (SCommandExecutionException e) {
+            throw e;
         } catch (final SBonitaException e) {
             throw new SCommandExecutionException("Error executing command 'SearchEntityMembersCommand'", e);
         }
     }
 
-    private SearchEntityMemberDescriptor getSearchDescriptor(final SExternalIdentityMappingBuilders builders, final IdentityModelBuilder identityModelBuilder,
-            final MemberType memberType) {
+    private SearchEntityMemberDescriptor getSearchDescriptor(final MemberType memberType) {
         SearchEntityMemberDescriptor searchDescriptor = null;
         switch (memberType) {
             case USER:
-                searchDescriptor = new SearchEntityMemberUserDescriptor(builders, identityModelBuilder);
+                searchDescriptor = new SearchEntityMemberUserDescriptor();
                 break;
 
             case GROUP:
-                searchDescriptor = new SearchEntityMemberGroupDescriptor(builders, identityModelBuilder);
+                searchDescriptor = new SearchEntityMemberGroupDescriptor();
                 break;
 
             case ROLE:
-                searchDescriptor = new SearchEntityMemberRoleDescriptor(builders, identityModelBuilder);
+                searchDescriptor = new SearchEntityMemberRoleDescriptor();
                 break;
 
             case MEMBERSHIP:
-                searchDescriptor = new SearchEntityMemberRoleAndGroupDescriptor(builders, identityModelBuilder);
+                searchDescriptor = new SearchEntityMemberRoleAndGroupDescriptor();
                 break;
-
+            default:
+                throw new IllegalStateException();
         }
         return searchDescriptor;
     }

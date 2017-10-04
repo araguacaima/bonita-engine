@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,7 +14,6 @@
 package org.bonitasoft.engine.connector;
 
 import java.util.Map;
-
 
 /**
  * @author Feng Hui
@@ -32,7 +31,8 @@ public interface Connector {
     /**
      * Validate the input parameters. Check the parameters types and boundaries.
      * 
-     * @throws SConnectorValidationException
+     * @throws ConnectorValidationException
+     *      when the input parameters are not valid
      */
     void validateInputParameters() throws ConnectorValidationException;
 
@@ -41,6 +41,7 @@ public interface Connector {
      * 
      * @return the connector outputs map corresponding to the output definition.
      * @throws ConnectorException
+     *      when something went wrong during connector execution
      */
     Map<String, Object> execute() throws ConnectorException;
 
@@ -49,6 +50,7 @@ public interface Connector {
      * This method can be implemented by connectors to handle here opening of connections like database connection
      * 
      * @throws ConnectorException
+     *      when something went wrong during connector connection
      */
     void connect() throws ConnectorException;
 
@@ -58,6 +60,7 @@ public interface Connector {
      * The typical use of this is to be able to return connected objects that will be used in output operation and then disconnect them.
      * 
      * @throws ConnectorException
+     *      when something went wrong during connector disconnection
      */
     void disconnect() throws ConnectorException;
 }

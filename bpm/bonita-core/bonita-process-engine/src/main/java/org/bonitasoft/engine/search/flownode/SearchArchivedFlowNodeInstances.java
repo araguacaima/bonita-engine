@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -20,7 +20,7 @@ import org.bonitasoft.engine.core.process.instance.api.FlowNodeInstanceService;
 import org.bonitasoft.engine.core.process.instance.model.archive.SAFlowNodeInstance;
 import org.bonitasoft.engine.execution.state.FlowNodeStateManager;
 import org.bonitasoft.engine.persistence.QueryOptions;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
 import org.bonitasoft.engine.search.AbstractSearchEntity;
 import org.bonitasoft.engine.search.SearchOptions;
 import org.bonitasoft.engine.search.descriptor.SearchArchivedFlowNodeInstanceDescriptor;
@@ -43,12 +43,12 @@ public class SearchArchivedFlowNodeInstances extends AbstractSearchEntity<Archiv
     }
 
     @Override
-    public long executeCount(final QueryOptions searchOptions) throws SBonitaSearchException {
+    public long executeCount(final QueryOptions searchOptions) throws SBonitaReadException {
         return flowNodeInstanceService.getNumberOfArchivedFlowNodeInstances(SAFlowNodeInstance.class, searchOptions);
     }
 
     @Override
-    public List<SAFlowNodeInstance> executeSearch(final QueryOptions searchOptions) throws SBonitaSearchException {
+    public List<SAFlowNodeInstance> executeSearch(final QueryOptions searchOptions) throws SBonitaReadException {
         return flowNodeInstanceService.searchArchivedFlowNodeInstances(SAFlowNodeInstance.class, searchOptions);
     }
 

@@ -5,7 +5,7 @@
 	<parent>
 		<artifactId>bonita-external</artifactId>
 		<groupId>org.bonitasoft.engine.external</groupId>
-		<version>6.1.0-SNAPSHOT</version>
+		<version>7.5.3-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>bonita-web-commands</artifactId>
@@ -15,12 +15,12 @@
 	<dependencies>
 		<dependency>
 			<groupId>org.bonitasoft.engine.command</groupId>
-			<artifactId>bonita-command-model</artifactId>
+			<artifactId>bonita-command-api</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.bonitasoft.engine.core.process.definition</groupId>
-			<artifactId>bonita-process-definition-model</artifactId>
+			<artifactId>bonita-process-definition-impl</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
@@ -33,5 +33,20 @@
 			<artifactId>bonita-expression-resolver-api</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+        
+        <!-- Tests -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-all</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+        </dependency>
 	</dependencies>
 </project>

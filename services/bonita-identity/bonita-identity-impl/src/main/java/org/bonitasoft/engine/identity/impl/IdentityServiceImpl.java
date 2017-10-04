@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,19 +16,27 @@ package org.bonitasoft.engine.identity.impl;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import org.bonitasoft.engine.commons.CollectionUtil;
-import org.bonitasoft.engine.commons.LogUtil;
+import javax.activation.MimetypesFileTypeMap;
+
+import org.bonitasoft.engine.builder.BuilderFactory;
+import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.events.EventActionType;
 import org.bonitasoft.engine.events.EventService;
 import org.bonitasoft.engine.events.model.SDeleteEvent;
 import org.bonitasoft.engine.events.model.SInsertEvent;
 import org.bonitasoft.engine.events.model.SUpdateEvent;
-import org.bonitasoft.engine.events.model.builders.SEventBuilder;
+import org.bonitasoft.engine.events.model.builders.SEventBuilderFactory;
 import org.bonitasoft.engine.identity.IdentityService;
+import org.bonitasoft.engine.identity.SCustomUserInfoDefinitionAlreadyExistsException;
+import org.bonitasoft.engine.identity.SCustomUserInfoDefinitionCreationException;
+import org.bonitasoft.engine.identity.SCustomUserInfoDefinitionNotFoundException;
+import org.bonitasoft.engine.identity.SCustomUserInfoDefinitionReadException;
+import org.bonitasoft.engine.identity.SCustomUserInfoValueNotFoundException;
+import org.bonitasoft.engine.identity.SCustomUserInfoValueReadException;
 import org.bonitasoft.engine.identity.SGroupCreationException;
 import org.bonitasoft.engine.identity.SGroupDeletionException;
 import org.bonitasoft.engine.identity.SGroupNotFoundException;
@@ -42,36 +50,48 @@ import org.bonitasoft.engine.identity.SUserMembershipCreationException;
 import org.bonitasoft.engine.identity.SUserNotFoundException;
 import org.bonitasoft.engine.identity.SUserUpdateException;
 import org.bonitasoft.engine.identity.model.SContactInfo;
+import org.bonitasoft.engine.identity.model.SCustomUserInfoDefinition;
+import org.bonitasoft.engine.identity.model.SCustomUserInfoValue;
 import org.bonitasoft.engine.identity.model.SGroup;
-import org.bonitasoft.engine.identity.model.SProfileMetadataDefinition;
-import org.bonitasoft.engine.identity.model.SProfileMetadataValue;
+import org.bonitasoft.engine.identity.model.SHavingIcon;
+import org.bonitasoft.engine.identity.model.SIcon;
 import org.bonitasoft.engine.identity.model.SRole;
 import org.bonitasoft.engine.identity.model.SUser;
+import org.bonitasoft.engine.identity.model.SUserLogin;
 import org.bonitasoft.engine.identity.model.SUserMembership;
-import org.bonitasoft.engine.identity.model.builder.IdentityModelBuilder;
-import org.bonitasoft.engine.identity.model.builder.SContactInfoBuilder;
+import org.bonitasoft.engine.identity.model.builder.SContactInfoBuilderFactory;
 import org.bonitasoft.engine.identity.model.builder.SContactInfoLogBuilder;
+import org.bonitasoft.engine.identity.model.builder.SContactInfoLogBuilderFactory;
+import org.bonitasoft.engine.identity.model.builder.SCustomUserInfoDefinitionLogBuilder;
+import org.bonitasoft.engine.identity.model.builder.SCustomUserInfoDefinitionLogBuilderFactory;
 import org.bonitasoft.engine.identity.model.builder.SGroupLogBuilder;
-import org.bonitasoft.engine.identity.model.builder.SProfileMetadataDefinitionLogBuilder;
+import org.bonitasoft.engine.identity.model.builder.SGroupLogBuilderFactory;
 import org.bonitasoft.engine.identity.model.builder.SRoleLogBuilder;
-import org.bonitasoft.engine.identity.model.builder.SUserBuilder;
+import org.bonitasoft.engine.identity.model.builder.SRoleLogBuilderFactory;
+import org.bonitasoft.engine.identity.model.builder.SUserBuilderFactory;
 import org.bonitasoft.engine.identity.model.builder.SUserLogBuilder;
+import org.bonitasoft.engine.identity.model.builder.SUserLogBuilderFactory;
 import org.bonitasoft.engine.identity.model.builder.SUserMembershipLogBuilder;
+import org.bonitasoft.engine.identity.model.builder.SUserMembershipLogBuilderFactory;
+import org.bonitasoft.engine.identity.model.impl.SGroupImpl;
+import org.bonitasoft.engine.identity.model.impl.SIconImpl;
+import org.bonitasoft.engine.identity.model.impl.SRoleImpl;
+import org.bonitasoft.engine.identity.model.impl.SUserImpl;
+import org.bonitasoft.engine.identity.model.impl.SUserLoginImpl;
 import org.bonitasoft.engine.identity.recorder.SelectDescriptorBuilder;
-import org.bonitasoft.engine.log.technical.TechnicalLogSeverity;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
 import org.bonitasoft.engine.persistence.OrderByOption;
 import org.bonitasoft.engine.persistence.OrderByType;
 import org.bonitasoft.engine.persistence.QueryOptions;
 import org.bonitasoft.engine.persistence.ReadPersistenceService;
 import org.bonitasoft.engine.persistence.SBonitaReadException;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
+import org.bonitasoft.engine.persistence.SelectByIdDescriptor;
 import org.bonitasoft.engine.persistence.SelectListDescriptor;
 import org.bonitasoft.engine.persistence.SelectOneDescriptor;
 import org.bonitasoft.engine.queriablelogger.model.SQueriableLog;
 import org.bonitasoft.engine.queriablelogger.model.SQueriableLogSeverity;
+import org.bonitasoft.engine.queriablelogger.model.builder.ActionType;
 import org.bonitasoft.engine.queriablelogger.model.builder.HasCRUDEAction;
-import org.bonitasoft.engine.queriablelogger.model.builder.HasCRUDEAction.ActionType;
 import org.bonitasoft.engine.queriablelogger.model.builder.SLogBuilder;
 import org.bonitasoft.engine.queriablelogger.model.builder.SPersistenceLogBuilder;
 import org.bonitasoft.engine.recorder.Recorder;
@@ -94,13 +114,10 @@ import org.bonitasoft.engine.services.QueriableLoggerService;
  */
 public class IdentityServiceImpl implements IdentityService {
 
+    private static final MimetypesFileTypeMap MIMETYPES_FILE_TYPE_MAP = new MimetypesFileTypeMap();
     private final ReadPersistenceService persistenceService;
 
     private final Recorder recorder;
-
-    private final SEventBuilder eventBuilder;
-
-    private final IdentityModelBuilder identityModelBuilder;
 
     private final TechnicalLoggerService logger;
 
@@ -110,189 +127,190 @@ public class IdentityServiceImpl implements IdentityService {
 
     private final CredentialsEncrypter encrypter;
 
+    static {
+        //on jdk 8 there is no png by default in mime types
+        MIMETYPES_FILE_TYPE_MAP.addMimeTypes("image/png\t\tpng PNG");
+        MIMETYPES_FILE_TYPE_MAP.addMimeTypes("image/gif\t\tgif GIF");
+        MIMETYPES_FILE_TYPE_MAP.addMimeTypes("image/jpeg\t\tjpeg jpg jpe JPG");
+    }
+
     public IdentityServiceImpl(final ReadPersistenceService persistenceService, final Recorder recorder, final EventService eventService,
-            final IdentityModelBuilder identityModelBuilder, final TechnicalLoggerService logger, final QueriableLoggerService queriableLoggerService,
-            final CredentialsEncrypter encrypter) {
+            final TechnicalLoggerService logger, final QueriableLoggerService queriableLoggerService, final CredentialsEncrypter encrypter) {
         this.persistenceService = persistenceService;
         this.recorder = recorder;
         this.eventService = eventService;
-        eventBuilder = eventService.getEventBuilder();
-        this.identityModelBuilder = identityModelBuilder;
         this.logger = logger;
         this.queriableLoggerService = queriableLoggerService;
         this.encrypter = encrypter;
     }
 
     @Override
-    public void createGroup(final SGroup group) throws SGroupCreationException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "createGroup"));
-        }
-
+    public void createGroup(final SGroup group, String iconFileName, byte[] iconContent) throws SGroupCreationException {
+        final String methodName = "createGroup";
         final long objectId = group.getId();
         final SGroupLogBuilder logBuilder = getGroupLog(ActionType.CREATED, "Adding a new group with name " + group.getName());
         try {
-
+            if (iconFileName != null && iconContent != null) {
+                SIcon icon = createIcon(iconFileName, iconContent);
+                ((SGroupImpl) group).setIconId(icon.getId());
+            }
             final InsertRecord insertRecord = new InsertRecord(group);
             final SInsertEvent insertEvent = getInsertEvent(group, GROUP);
             recorder.recordInsert(insertRecord, insertEvent);
             final int status = SQueriableLog.STATUS_OK;
-            initiateLogBuilder(insertRecord.getEntity().getId(), status, logBuilder, "createGroup");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "createGroup"));
-            }
+            log(insertRecord.getEntity().getId(), status, logBuilder, methodName);
         } catch (final SRecorderException re) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "createGroup", re));
-            }
             final int status = SQueriableLog.STATUS_FAIL;
-            initiateLogBuilder(objectId, status, logBuilder, "createGroup");
+            log(objectId, status, logBuilder, methodName);
             throw new SGroupCreationException(re);
         }
     }
 
     private SInsertEvent getInsertEvent(final Object object, final String type) {
         if (eventService.hasHandlers(type, EventActionType.CREATED)) {
-            return (SInsertEvent) eventBuilder.createInsertEvent(type).setObject(object).done();
-        } else {
-            return null;
+            return (SInsertEvent) BuilderFactory.get(SEventBuilderFactory.class).createInsertEvent(type).setObject(object).done();
         }
+        return null;
     }
 
     private SDeleteEvent getDeleteEvent(final Object object, final String type) {
         if (eventService.hasHandlers(type, EventActionType.DELETED)) {
-            return (SDeleteEvent) eventBuilder.createDeleteEvent(type).setObject(object).done();
-        } else {
-            return null;
+            return (SDeleteEvent) BuilderFactory.get(SEventBuilderFactory.class).createDeleteEvent(type).setObject(object).done();
         }
+        return null;
     }
 
     @Override
-    public void createProfileMetadataDefinition(final SProfileMetadataDefinition metadata) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "createProfileMetadataDefinition"));
-        }
-        final SProfileMetadataDefinitionLogBuilder logBuilder = getSProfileMetadataDefinitionLog(ActionType.CREATED, "Adding a profile metadata with name "
-                + metadata.getName());
+    public SCustomUserInfoDefinition createCustomUserInfoDefinition(final SCustomUserInfoDefinition customUserInfo)
+            throws SCustomUserInfoDefinitionAlreadyExistsException, SCustomUserInfoDefinitionCreationException {
+        final String methodName = "createCustomUserInfoDefinition";
+        final SCustomUserInfoDefinitionLogBuilder logBuilder = getSCustomUserInfoDefinitionLog(ActionType.CREATED, "Adding a custom user info with name "
+                + customUserInfo.getName());
         try {
-            final InsertRecord insertRecord = new InsertRecord(metadata);
-            final SInsertEvent insertEvent = getInsertEvent(metadata, METADATA);
+            throwExceptionIfAlreadyExists(customUserInfo);
+            final InsertRecord insertRecord = new InsertRecord(customUserInfo);
+            final SInsertEvent insertEvent = getInsertEvent(customUserInfo, CUSTOM_USER_INFO_DEFINITION);
             recorder.recordInsert(insertRecord, insertEvent);
-            initiateLogBuilder(metadata.getId(), SQueriableLog.STATUS_OK, logBuilder, "createProfileMetadataDefinition");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "createProfileMetadataDefinition"));
-            }
-        } catch (final SRecorderException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "createProfileMetadataDefinition", e));
-            }
-            initiateLogBuilder(metadata.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "createProfileMetadataDefinition");
-            throw new SIdentityException("Can't add profile metadata " + metadata, e);
+            log(customUserInfo.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
+            return customUserInfo;
+        } catch (final SRecorderException | SBonitaReadException e) {
+            throw handleCustomUserInfoDefinitionCreationFailure(customUserInfo, methodName, logBuilder, e);
         }
     }
 
-    @Override
-    public void createProfileMetadataValue(final SProfileMetadataValue metadataValue) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "createProfileMetadataValue"));
+    private void throwExceptionIfAlreadyExists(final SCustomUserInfoDefinition customUserInfo) throws SBonitaReadException,
+            SCustomUserInfoDefinitionAlreadyExistsException {
+        final SCustomUserInfoDefinition storedDef = getCustomUserInfoDefinitionWithoutCheck(customUserInfo.getName());
+        if (storedDef != null) {
+            throw new SCustomUserInfoDefinitionAlreadyExistsException(customUserInfo.getName());
         }
+    }
+
+    private SCustomUserInfoDefinitionCreationException handleCustomUserInfoDefinitionCreationFailure(final SCustomUserInfoDefinition customUserInfo,
+            final String methodName, final SCustomUserInfoDefinitionLogBuilder logBuilder, final SBonitaException exception) {
+        log(customUserInfo.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
+        return new SCustomUserInfoDefinitionCreationException(customUserInfo.getName(), exception);
+    }
+
+    @Override
+    public SCustomUserInfoValue createCustomUserInfoValue(final SCustomUserInfoValue customUserInfo) throws SIdentityException {
         try {
-            final InsertRecord insertRecord = new InsertRecord(metadataValue);
-            final SInsertEvent insertEvent = getInsertEvent(metadataValue, METADATAVALUE);
+            final InsertRecord insertRecord = new InsertRecord(customUserInfo);
+            final SInsertEvent insertEvent = getInsertEvent(customUserInfo, CUSTOM_USER_INFO_VALUE);
             recorder.recordInsert(insertRecord, insertEvent);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "createProfileMetadataValue"));
-            }
+            return customUserInfo;
         } catch (final SRecorderException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "createProfileMetadataValue", e));
-            }
-            throw new SIdentityException("Can't add metadata value " + metadataValue, e);
+            throw new SIdentityException("Can't add custom user info value " + customUserInfo, e);
         }
     }
 
     @Override
-    public void createRole(final SRole role) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "createRole"));
-        }
+    public void createRole(final SRole role, String iconFilename, byte[] iconContent) throws SIdentityException {
+        final String methodName = "createRole";
         final SRoleLogBuilder logBuilder = getRoleLog(ActionType.CREATED, "Adding a new role with name " + role.getName());
         try {
+            if (iconFilename != null && iconContent != null) {
+                SIcon icon = createIcon(iconFilename, iconContent);
+                (((SRoleImpl) role)).setIconId(icon.getId());
+            }
             final InsertRecord insertRecord = new InsertRecord(role);
             final SInsertEvent insertEvent = getInsertEvent(role, ROLE);
             recorder.recordInsert(insertRecord, insertEvent);
-            initiateLogBuilder(role.getId(), SQueriableLog.STATUS_OK, logBuilder, "createRole");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "createRole"));
-            }
+            log(role.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
         } catch (final SRecorderException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "createRole", e));
-            }
-            initiateLogBuilder(role.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "createRole");
+            log(role.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
             throw new SIdentityException("Can't add role " + role, e);
         }
     }
 
     @Override
     public SUser createUser(final SUser user) throws SUserCreationException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "createUser"));
-        }
+        final String methodName = "createUser";
+        final String hash = encrypter.hash(user.getPassword());
+        final SUser hashedUser = BuilderFactory.get(SUserBuilderFactory.class).createNewInstance(user).setPassword(hash).done();
+        return createUser(user, methodName, hashedUser);
+    }
+
+    @Override
+    @Deprecated
+    public SUser createUserWithoutEncryptingPassword(final SUser user) throws SUserCreationException {
+        final String methodName = "createUserWithoutEncryptingPassword";
+        final SUser hashedUser = BuilderFactory.get(SUserBuilderFactory.class).createNewInstance(user).done();
+        return createUser(user, methodName, hashedUser);
+    }
+
+    private SUser createUser(final SUser user, final String methodName, final SUser hashedUser) throws SUserCreationException {
         final String message = "Adding a new user with user name " + user.getUserName() + ", first name " + user.getFirstName() + ", last name "
                 + user.getLastName();
         final SUserLogBuilder logBuilder = getUserLog(ActionType.CREATED, message);
-
-        final String hash = encrypter.hash(user.getPassword());
-        final SUser hashedUser = identityModelBuilder.getUserBuilder().createNewInstance(user).setPassword(hash).done();
         try {
-            final InsertRecord insertRecord = new InsertRecord(hashedUser);
-            final SInsertEvent insertEvent = getInsertEvent(hashedUser, USER);
-            recorder.recordInsert(insertRecord, insertEvent);
-            initiateLogBuilder(hashedUser.getId(), SQueriableLog.STATUS_OK, logBuilder, "createUser");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "createUser"));
-            }
+            //no insert event for user login objects
+            SUserLoginImpl sUserLogin = insertUserLogin(hashedUser);
+            insertUser(methodName, hashedUser, logBuilder, sUserLogin);
             return hashedUser;
         } catch (final SRecorderException re) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "createUser", re));
-            }
-            initiateLogBuilder(hashedUser.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "createUser");
+            log(hashedUser.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
             throw new SUserCreationException(re);
         }
     }
 
+    private void insertUser(String methodName, SUser hashedUser, SUserLogBuilder logBuilder, SUserLoginImpl sUserLogin) throws SRecorderException {
+        ((SUserImpl) hashedUser).setsUserLogin(sUserLogin);
+        sUserLogin.setsUser(hashedUser);
+        sUserLogin.setId(hashedUser.getId());
+        sUserLogin.setTenantId(((SUserImpl) hashedUser).getTenantId());
+        recorder.recordInsert(new InsertRecord(sUserLogin), null);
+        log(hashedUser.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
+    }
+
+    private SUserLoginImpl insertUserLogin(SUser hashedUser) throws SRecorderException {
+        final InsertRecord insertRecord = new InsertRecord(hashedUser);
+        final SInsertEvent insertEvent = getInsertEvent(hashedUser, USER);
+        SUserLoginImpl sUserLogin = new SUserLoginImpl();
+        recorder.recordInsert(insertRecord, insertEvent);
+        return sUserLogin;
+    }
+
     @Override
     public SContactInfo createUserContactInfo(final SContactInfo contactInfo) throws SUserCreationException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "createUserContactInfo"));
-        }
+        final String methodName = "createUserContactInfo";
         final String message = "Adding a new user contact information for user with id " + contactInfo.getUserId();
         final SContactInfoLogBuilder logBuilder = getUserContactInfoLog(ActionType.CREATED, message, contactInfo);
         try {
             final InsertRecord insertRecord = new InsertRecord(contactInfo);
             final SInsertEvent insertEvent = getInsertEvent(contactInfo, USER_CONTACT_INFO);
             recorder.recordInsert(insertRecord, insertEvent);
-            initiateLogBuilder(contactInfo.getId(), SQueriableLog.STATUS_OK, logBuilder, "createUserContactInfo");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "createUserContactInfo"));
-            }
+            log(contactInfo.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
             return contactInfo;
         } catch (final SRecorderException re) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "createUserContactInfo", re));
-            }
-            initiateLogBuilder(contactInfo.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "createUserContactInfo");
+            log(contactInfo.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
             throw new SUserCreationException(re);
         }
     }
 
     @Override
     public void createUserMembership(final SUserMembership userMembership) throws SUserMembershipCreationException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "createUserMembership"));
-        }
+        final String methodName = "createUserMembership";
         final String message = "Adding a new user membership for user " + userMembership.getUsername() + " with role " + userMembership.getRoleName()
                 + " in group " + userMembership.getGroupName();
 
@@ -301,15 +319,9 @@ public class IdentityServiceImpl implements IdentityService {
             final InsertRecord insertRecord = new InsertRecord(userMembership);
             final SInsertEvent insertEvent = getInsertEvent(userMembership, USERMEMBERSHIP);
             recorder.recordInsert(insertRecord, insertEvent);
-            initiateLogBuilder(userMembership.getId(), SQueriableLog.STATUS_OK, logBuilder, "createUserMembership");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "createUserMembership"));
-            }
+            log(userMembership.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
         } catch (final SRecorderException re) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "createUserMembership", re));
-            }
-            initiateLogBuilder(userMembership.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "createUserMembership");
+            log(userMembership.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
             throw new SUserMembershipCreationException(re);
         }
     }
@@ -322,23 +334,17 @@ public class IdentityServiceImpl implements IdentityService {
 
     @Override
     public void deleteGroup(final SGroup group) throws SGroupDeletionException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "deleteGroup"));
-        }
         final SGroupLogBuilder logBuilder = getGroupLog(ActionType.DELETED, "Deleting group " + group.getName());
         try {
+            if (group.getIconId() != null) {
+                deleteIcon(group.getIconId());
+            }
             final DeleteRecord deleteRecord = new DeleteRecord(group);
             final SDeleteEvent deleteEvent = getDeleteEvent(group, GROUP);
             recorder.recordDelete(deleteRecord, deleteEvent);
-            initiateLogBuilder(group.getId(), SQueriableLog.STATUS_OK, logBuilder, "deleteGroup");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "deleteGroup"));
-            }
-        } catch (final SRecorderException re) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "deleteGroup", re));
-            }
-            initiateLogBuilder(group.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "deleteGroup");
+            log(group.getId(), SQueriableLog.STATUS_OK, logBuilder, "deleteGroup");
+        } catch (final SRecorderException | SBonitaReadException re) {
+            log(group.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "deleteGroup");
             throw new SGroupDeletionException(re);
         }
     }
@@ -355,10 +361,7 @@ public class IdentityServiceImpl implements IdentityService {
 
     @Override
     public List<Long> deleteChildrenGroup(final long groupId) throws SGroupDeletionException, SGroupNotFoundException {
-        final ArrayList<Long> deletedGroups = new ArrayList<Long>();
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "deleteChildrenGroup"));
-        }
+        final ArrayList<Long> deletedGroups = new ArrayList<>();
         try {
             List<SGroup> childrenGroup;
             final int nbGroup = 20;
@@ -369,22 +372,16 @@ public class IdentityServiceImpl implements IdentityService {
                     deleteGroup(sGroup);
                 }
             }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "deleteChildrenGroup"));
-            }
         } catch (final SGroupNotFoundException e) {
             throw e;
         } catch (final SIdentityException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "deleteChildrenGroup", e));
-            }
             throw new SGroupDeletionException(e);
         }
         return deletedGroups;
     }
 
     private <T extends SLogBuilder> void initializeLogBuilder(final T logBuilder, final String message) {
-        logBuilder.createNewInstance().actionStatus(SQueriableLog.STATUS_FAIL).severity(SQueriableLogSeverity.INTERNAL).rawMessage(message);
+        logBuilder.actionStatus(SQueriableLog.STATUS_FAIL).severity(SQueriableLogSeverity.INTERNAL).rawMessage(message);
     }
 
     private <T extends HasCRUDEAction> void updateLog(final ActionType actionType, final T logBuilder) {
@@ -392,35 +389,35 @@ public class IdentityServiceImpl implements IdentityService {
     }
 
     private SGroupLogBuilder getGroupLog(final ActionType actionType, final String message) {
-        final SGroupLogBuilder logBuilder = identityModelBuilder.getSIdentityGroupLogBuilder();
+        final SGroupLogBuilder logBuilder = BuilderFactory.get(SGroupLogBuilderFactory.class).createNewInstance();
         this.initializeLogBuilder(logBuilder, message);
         this.updateLog(actionType, logBuilder);
         return logBuilder;
     }
 
     private SRoleLogBuilder getRoleLog(final ActionType actionType, final String message) {
-        final SRoleLogBuilder logBuilder = identityModelBuilder.getSIdentityRoleLogBuilder();
+        final SRoleLogBuilder logBuilder = BuilderFactory.get(SRoleLogBuilderFactory.class).createNewInstance();
         this.initializeLogBuilder(logBuilder, message);
         this.updateLog(actionType, logBuilder);
         return logBuilder;
     }
 
-    private SProfileMetadataDefinitionLogBuilder getSProfileMetadataDefinitionLog(final ActionType actionType, final String message) {
-        final SProfileMetadataDefinitionLogBuilder logBuilder = identityModelBuilder.getSIdentitySProfileMetadataDefinitionLogBuilder();
+    private SCustomUserInfoDefinitionLogBuilder getSCustomUserInfoDefinitionLog(final ActionType actionType, final String message) {
+        final SCustomUserInfoDefinitionLogBuilder logBuilder = BuilderFactory.get(SCustomUserInfoDefinitionLogBuilderFactory.class).createNewInstance();
         this.initializeLogBuilder(logBuilder, message);
         this.updateLog(actionType, logBuilder);
         return logBuilder;
     }
 
-    private SUserLogBuilder getUserLog(final ActionType actionType, final String message) {
-        final SUserLogBuilder logBuilder = identityModelBuilder.getSIdentityUserLogBuilder();
+    SUserLogBuilder getUserLog(final ActionType actionType, final String message) {
+        final SUserLogBuilder logBuilder = BuilderFactory.get(SUserLogBuilderFactory.class).createNewInstance();
         this.initializeLogBuilder(logBuilder, message);
         this.updateLog(actionType, logBuilder);
         return logBuilder;
     }
 
     private SContactInfoLogBuilder getUserContactInfoLog(final ActionType actionType, final String message, final SContactInfo contactInfo) {
-        final SContactInfoLogBuilder logBuilder = identityModelBuilder.getSIdentityUserContactInfoLogBuilder();
+        final SContactInfoLogBuilder logBuilder = BuilderFactory.get(SContactInfoLogBuilderFactory.class).createNewInstance();
         this.initializeLogBuilder(logBuilder, message);
         this.updateLog(actionType, logBuilder);
         logBuilder.setContactInfoUserId(contactInfo.getUserId());
@@ -428,7 +425,7 @@ public class IdentityServiceImpl implements IdentityService {
     }
 
     private SUserMembershipLogBuilder getUserMembershipLog(final ActionType actionType, final String message, final SUserMembership userMemberShip) {
-        final SUserMembershipLogBuilder logBuilder = identityModelBuilder.getSIdentityUserMembershipLogBuilder();
+        final SUserMembershipLogBuilder logBuilder = BuilderFactory.get(SUserMembershipLogBuilderFactory.class).createNewInstance();
         this.initializeLogBuilder(logBuilder, message);
         this.updateLog(actionType, logBuilder);
         logBuilder.identityUserId(userMemberShip.getUserId());
@@ -438,56 +435,39 @@ public class IdentityServiceImpl implements IdentityService {
     }
 
     @Override
-    public void deleteProfileMetadataDefinition(final long metadataDefinitionId) throws SIdentityException {
-        this.deleteProfileMetadataDefinition(this.getProfileMetadataDefinition(metadataDefinitionId));
+    public void deleteCustomUserInfoDefinition(final long customUserInfoDefinitionId) throws SIdentityException {
+        this.deleteCustomUserInfoDefinition(getCustomUserInfoDefinition(customUserInfoDefinitionId));
     }
 
     @Override
-    public void deleteProfileMetadataDefinition(final SProfileMetadataDefinition metadata) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "deleteProfileMetadataDefinition"));
-        }
-        final SProfileMetadataDefinitionLogBuilder logBuilder = getSProfileMetadataDefinitionLog(ActionType.DELETED, "Deleting profile metadata with name "
-                + metadata.getName());
+    public void deleteCustomUserInfoDefinition(final SCustomUserInfoDefinition info) throws SIdentityException {
+        final String methodName = "deleteCustomUserInfoDefinition";
+        final SCustomUserInfoDefinitionLogBuilder logBuilder = getSCustomUserInfoDefinitionLog(ActionType.DELETED,
+                "Deleting profile custom user info definition with name " + info.getName());
         try {
-            final DeleteRecord deleteRecord = new DeleteRecord(metadata);
-            final SDeleteEvent deleteEvent = getDeleteEvent(metadata, METADATA);
+            final DeleteRecord deleteRecord = new DeleteRecord(info);
+            final SDeleteEvent deleteEvent = getDeleteEvent(info, CUSTOM_USER_INFO_DEFINITION);
             recorder.recordDelete(deleteRecord, deleteEvent);
-            initiateLogBuilder(metadata.getId(), SQueriableLog.STATUS_OK, logBuilder, "deleteProfileMetadataDefinition");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "deleteProfileMetadataDefinition"));
-            }
+            log(info.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
         } catch (final SRecorderException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "deleteProfileMetadataDefinition", e));
-            }
-            initiateLogBuilder(metadata.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "deleteProfileMetadataDefinition");
-            throw new SIdentityException("Can't delete profile metadata " + metadata, e);
+            log(info.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
+            throw new SIdentityException("Can't delete profile custom user info definition " + info, e);
         }
     }
 
     @Override
-    public void deleteProfileMetadataValue(final long metadataValueId) throws SIdentityException {
-        this.deleteProfileMetadataValue(getProfileMetadataValue(metadataValueId));
+    public void deleteCustomUserInfoValue(final long customUserInfoValueId) throws SIdentityException {
+        this.deleteCustomUserInfoValue(getCustomUserInfoValue(customUserInfoValueId));
     }
 
     @Override
-    public void deleteProfileMetadataValue(final SProfileMetadataValue metadataValue) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "deleteProfileMetadataValue"));
-        }
+    public void deleteCustomUserInfoValue(final SCustomUserInfoValue customUserInfo) throws SIdentityException {
         try {
-            final DeleteRecord deleteRecord = new DeleteRecord(metadataValue);
-            final SDeleteEvent deleteEvent = getDeleteEvent(metadataValue, METADATAVALUE);
+            final DeleteRecord deleteRecord = new DeleteRecord(customUserInfo);
+            final SDeleteEvent deleteEvent = getDeleteEvent(customUserInfo, CUSTOM_USER_INFO_VALUE);
             recorder.recordDelete(deleteRecord, deleteEvent);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "deleteProfileMetadataDefinition"));
-            }
         } catch (final SRecorderException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "deleteProfileMetadataValue", e));
-            }
-            throw new SIdentityException("Can't delete membership " + metadataValue, e);
+            throw new SIdentityException("Can't delete custom user info value" + customUserInfo, e);
         }
     }
 
@@ -499,23 +479,18 @@ public class IdentityServiceImpl implements IdentityService {
 
     @Override
     public void deleteRole(final SRole role) throws SRoleDeletionException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "deleteRole"));
-        }
+        final String methodName = "deleteRole";
         final SRoleLogBuilder logBuilder = getRoleLog(ActionType.DELETED, "Deleting role with name " + role.getName());
         try {
+            if (role.getIconId() != null) {
+                deleteIcon(role.getIconId());
+            }
             final DeleteRecord deleteRecord = new DeleteRecord(role);
             final SDeleteEvent deleteEvent = getDeleteEvent(role, ROLE);
             recorder.recordDelete(deleteRecord, deleteEvent);
-            initiateLogBuilder(role.getId(), SQueriableLog.STATUS_OK, logBuilder, "deleteRole");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "deleteRole"));
-            }
-        } catch (final SRecorderException re) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "deleteRole", re));
-            }
-            initiateLogBuilder(role.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "deleteRole");
+            log(role.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
+        } catch (final SRecorderException | SBonitaReadException re) {
+            log(role.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
             throw new SRoleDeletionException(re);
         }
     }
@@ -535,31 +510,36 @@ public class IdentityServiceImpl implements IdentityService {
         SUser user;
         try {
             user = getUser(userId);
+            if (user.getIconId() != null) {
+                deleteIcon(user.getIconId());
+            }
             deleteUser(user);
         } catch (final SUserNotFoundException e) {
             // ignored, let's switch to the next one
+        } catch (SRecorderException | SBonitaReadException e) {
+            throw new SUserDeletionException(e);
         }
+    }
+
+    private void deleteIcon(Long iconId) throws SBonitaReadException, SRecorderException {
+        SIcon icon = getIcon(iconId);
+        if (icon == null) {
+            return;
+        }
+        recorder.recordDelete(new DeleteRecord(icon), null);
     }
 
     @Override
     public void deleteUser(final SUser user) throws SUserDeletionException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "deleteUser"));
-        }
+        final String methodName = "deleteUser";
         final SUserLogBuilder logBuilder = getUserLog(ActionType.DELETED, "Deleting user with username " + user.getUserName());
         try {
             final DeleteRecord deleteRecord = new DeleteRecord(user);
             final SDeleteEvent deleteEvent = getDeleteEvent(user, USER);
             recorder.recordDelete(deleteRecord, deleteEvent);
-            initiateLogBuilder(user.getId(), SQueriableLog.STATUS_OK, logBuilder, "deleteUser");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "deleteUser"));
-            }
+            log(user.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
         } catch (final SRecorderException re) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "deleteUser", re));
-            }
-            initiateLogBuilder(user.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "deleteUser");
+            log(user.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
             throw new SUserDeletionException(re);
         }
     }
@@ -569,6 +549,8 @@ public class IdentityServiceImpl implements IdentityService {
         try {
             final DeleteAllRecord record = new DeleteAllRecord(SUser.class, null);
             recorder.recordDeleteAll(record);
+            final DeleteAllRecord record2 = new DeleteAllRecord(SUserLogin.class, null);
+            recorder.recordDeleteAll(record2);
         } catch (final SRecorderException e) {
             throw new SUserDeletionException("Can't delete all users.", e);
         }
@@ -576,23 +558,14 @@ public class IdentityServiceImpl implements IdentityService {
 
     @Override
     public SUserMembership getLightUserMembership(final long userMembershipId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getLightUserMembership"));
-        }
         try {
             final SUserMembership selectOne = persistenceService.selectById(SelectDescriptorBuilder.getLightElementById(SUserMembership.class,
                     "SUserMembership", userMembershipId));
             if (selectOne == null) {
                 throw new SIdentityException("Can't get the userMembership with id " + userMembershipId, null);
             }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getLightUserMembership"));
-            }
             return selectOne;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getLightUserMembership", e));
-            }
             throw new SIdentityException("Can't get the user membership with id " + userMembershipId, e);
         }
     }
@@ -605,7 +578,7 @@ public class IdentityServiceImpl implements IdentityService {
                 userMembership = getLightUserMembership(userMembership.getId());
             }
             deleteLightUserMembership(userMembership);
-        } catch (SIdentityException e) {
+        } catch (final SIdentityException e) {
             throw new SMembershipDeletionException("Can't delete membership " + userMembership, e);
         }
     }
@@ -615,16 +588,14 @@ public class IdentityServiceImpl implements IdentityService {
         try {
             final SUserMembership userMembership = getLightUserMembership(id);
             deleteLightUserMembership(userMembership);
-        } catch (SIdentityException e) {
+        } catch (final SIdentityException e) {
             throw new SMembershipDeletionException("Can't delete membership with id " + id, e);
         }
     }
 
     @Override
     public void deleteLightUserMembership(final SUserMembership userMembership) throws SMembershipDeletionException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "deleteUserMembership"));
-        }
+        final String methodName = "deleteLightUserMembership";
         final String message = "Deleting user membership for user " + userMembership.getUsername() + " with role " + userMembership.getRoleName()
                 + " in group " + userMembership.getGroupName();
         final SUserMembershipLogBuilder logBuilder = getUserMembershipLog(ActionType.DELETED, message, userMembership);
@@ -632,15 +603,9 @@ public class IdentityServiceImpl implements IdentityService {
             final DeleteRecord deleteRecord = new DeleteRecord(userMembership);
             final SDeleteEvent deleteEvent = getDeleteEvent(userMembership, USERMEMBERSHIP);
             recorder.recordDelete(deleteRecord, deleteEvent);
-            initiateLogBuilder(userMembership.getId(), SQueriableLog.STATUS_OK, logBuilder, "deleteUserMembership");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "deleteUserMembership"));
-            }
+            log(userMembership.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
         } catch (final SRecorderException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "deleteUserMembership", e));
-            }
-            initiateLogBuilder(userMembership.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "deleteUserMembership");
+            log(userMembership.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
             throw new SMembershipDeletionException("Can't delete membership " + userMembership, e);
         }
     }
@@ -657,62 +622,23 @@ public class IdentityServiceImpl implements IdentityService {
 
     @Override
     public SGroup getGroup(final long groupId) throws SGroupNotFoundException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getGroup"));
-        }
         try {
             final SGroup group = persistenceService.selectById(SelectDescriptorBuilder.getElementById(SGroup.class, "Group", groupId));
             if (group == null) {
                 throw new SGroupNotFoundException("No group exists with id: " + groupId);
             }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getGroup"));
-            }
             return group;
         } catch (final SBonitaReadException bre) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getGroup", bre));
-            }
             throw new SGroupNotFoundException(bre);
         }
     }
 
     @Override
-    public List<SGroup> getGroupChildren(final long groupId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getGroupChildren"));
-        }
-        try {
-            final SGroup group = getGroup(groupId);
-            final List<SGroup> listGroups = persistenceService.selectList(SelectDescriptorBuilder.getChildrenOfGroup(group));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getGroupChildren"));
-            }
-            return listGroups;
-        } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getGroupChildren", e));
-            }
-            throw new SIdentityException("Can't get the children of the group", e);
-        }
-    }
-
-    @Override
     public List<SGroup> getGroupChildren(final long groupId, final int fromIndex, final int numberOfGroups) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getGroupChildren"));
-        }
         try {
             final SGroup group = getGroup(groupId);
-            final List<SGroup> listGroups = persistenceService.selectList(SelectDescriptorBuilder.getChildrenOfGroup(group, fromIndex, numberOfGroups));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getGroupChildren"));
-            }
-            return listGroups;
+            return persistenceService.selectList(SelectDescriptorBuilder.getChildrenOfGroup(group, fromIndex, numberOfGroups));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getGroupChildren", e));
-            }
             throw new SIdentityException("Can't get the children of the group", e);
         }
     }
@@ -720,112 +646,50 @@ public class IdentityServiceImpl implements IdentityService {
     @Override
     public List<SGroup> getGroupChildren(final long groupId, final int fromIndex, final int numberOfGroups, final String field, final OrderByType order)
             throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getGroupChildren"));
-        }
         try {
             final SGroup group = getGroup(groupId);
-            final List<SGroup> listGroups = persistenceService.selectList(SelectDescriptorBuilder.getChildrenOfGroup(group, field, order, fromIndex,
+            return persistenceService.selectList(SelectDescriptorBuilder.getChildrenOfGroup(group, field, order, fromIndex,
                     numberOfGroups));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getGroupChildren"));
-            }
-            return listGroups;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getGroupChildren", e));
-            }
             throw new SIdentityException("Can't get the children of the group", e);
         }
     }
 
     @Override
     public List<SGroup> getGroups(final int fromIndex, final int numberOfGroups) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getGroups"));
-        }
         try {
-            final List<SGroup> listGroups = persistenceService
+            return persistenceService
                     .selectList(SelectDescriptorBuilder.getElements(SGroup.class, "Group", fromIndex, numberOfGroups));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getGroups"));
-            }
-            return listGroups;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getGroups", e));
-            }
             throw new SIdentityException("Can't get the groups", e);
         }
     }
 
     @Override
     public List<SGroup> getGroups(final int fromIndex, final int numberOfGroups, final String field, final OrderByType order) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getGroups"));
-        }
         try {
-            final List<SGroup> listGroups = persistenceService.selectList(SelectDescriptorBuilder.getElements(SGroup.class, "Group", field, order, fromIndex,
+            return persistenceService.selectList(SelectDescriptorBuilder.getElements(SGroup.class, "Group", field, order, fromIndex,
                     numberOfGroups));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getGroups"));
-            }
-            return listGroups;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getGroups", e));
-            }
             throw new SIdentityException("Can't get the groups", e);
         }
     }
 
     @Override
     public List<SGroup> getGroups(final List<Long> groupIds) throws SGroupNotFoundException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getGroups"));
-        }
         if (groupIds == null || groupIds.isEmpty()) {
             return Collections.emptyList();
         }
         try {
-            final List<SGroup> listGroups = persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(SGroup.class, "Group", groupIds));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getGroups"));
-            }
-            return listGroups;
+            return persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(SGroup.class, "Group", groupIds));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getGroups", e));
-            }
             throw new SGroupNotFoundException(e);
         }
     }
 
     @Override
-    public Set<SGroup> getGroupsByName(final String groupName) throws SGroupNotFoundException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getGroupsByName"));
-        }
-        try {
-            final Set<SGroup> setGroups = CollectionUtil.buildHashSetFromList(SGroup.class,
-                    persistenceService.selectList(SelectDescriptorBuilder.getGroupsByName(groupName)));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getGroupsByName"));
-            }
-            return setGroups;
-        } catch (final SBonitaReadException bre) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getGroupsByName", bre));
-            }
-            throw new SGroupNotFoundException(bre);
-        }
-    }
-
-    @Override
-    public List<SUserMembership> getUserMemberships(final int fromIndex, final int numberOfResult, final OrderByOption orderByOption) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserMemberships"));
-        }
+    public List<SUserMembership> getUserMemberships(final int fromIndex, final int numberOfResult, final OrderByOption orderByOption)
+            throws SIdentityException {
         try {
             List<SUserMembership> listSUserMembership;
             if (orderByOption.getClazz() == SRole.class) {
@@ -838,410 +702,269 @@ public class IdentityServiceImpl implements IdentityService {
                 listSUserMembership = persistenceService.selectList(SelectDescriptorBuilder.getElements(SUserMembership.class, "UserMembership",
                         new QueryOptions(fromIndex, numberOfResult, Collections.singletonList(orderByOption))));
             }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserMemberships"));
-            }
             return listSUserMembership;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserMemberships", e));
-            }
             throw new SIdentityException("Can't get the memberships", e);
         }
     }
 
     @Override
     public List<SUserMembership> getUserMembershipsOfGroup(final long groupId, final int startIndex, final int maxResults) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserMembershipsOfGroup"));
-        }
         try {
-            final List<SUserMembership> selectList = persistenceService.selectList(SelectDescriptorBuilder.getUserMembershipsByGroup(groupId, startIndex,
+            return persistenceService.selectList(SelectDescriptorBuilder.getUserMembershipsByGroup(groupId, startIndex,
                     maxResults));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserMembershipsOfGroup"));
-            }
-            return selectList;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserMembershipsOfGroup", e));
-            }
             throw new SIdentityException("Can't get the users memberships the group " + groupId, e);
         }
     }
 
     @Override
     public List<SUserMembership> getUserMembershipsOfRole(final long roleId, final int startIndex, final int maxResults) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserMembershipsOfRole"));
-        }
         try {
-            final List<SUserMembership> memberships = persistenceService.selectList(SelectDescriptorBuilder.getUserMembershipsByRole(roleId, startIndex,
+            return persistenceService.selectList(SelectDescriptorBuilder.getUserMembershipsByRole(roleId, startIndex,
                     maxResults));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserMembershipsOfRole"));
-            }
-            return memberships;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserMembershipsOfRole", e));
-            }
             throw new SIdentityException("Can't get the memberships having the role " + roleId, e);
         }
     }
 
     @Override
     public long getNumberOfGroupChildren(final long parentGroupId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfGroupChildren"));
-        }
         try {
             final SGroup parentGroup = getGroup(parentGroupId);
-            final long number = persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfGroupChildren(parentGroup.getPath()));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfGroupChildren"));
-            }
-            return number;
+            return persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfGroupChildren(parentGroup.getPath()));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfGroupChildren", e));
-            }
             throw new SIdentityException("Can't get the number children of group", e);
         }
     }
 
     @Override
     public long getNumberOfGroups() throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfGroups"));
-        }
         try {
-            final long number = persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfElement("SGroup", SGroup.class));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfGroups"));
-            }
-            return number;
+            return persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfElement("SGroup", SGroup.class));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfGroups", e));
-            }
             throw new SIdentityException("Can't get the number of group", e);
         }
     }
 
     @Override
-    public long getNumberOfProfileMetadataDefinition() throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfProfileMetadataDefinition"));
-        }
+    public long getNumberOfCustomUserInfoDefinition() throws SIdentityException {
         try {
-            final long number = persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfElement("ProfileMetadata", SProfileMetadataDefinition.class));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfProfileMetadataDefinition"));
-            }
-            return number;
+            return persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfElement("CustomUserInfoDefinition",
+                    SCustomUserInfoDefinition.class));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE,
-                        LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfProfileMetadataDefinition", e));
-            }
-            throw new SIdentityException("Can't get the number of profile metadata", e);
+            throw new SIdentityException("Can't get the number of custom user info", e);
+        }
+    }
+
+    @Override
+    public long getNumberOfCustomUserInfoValue(final QueryOptions options) throws SBonitaReadException {
+        try {
+            return persistenceService.getNumberOfEntities(SCustomUserInfoValue.class, options, null);
+        } catch (final SBonitaReadException e) {
+            throw new SBonitaReadException(e);
         }
     }
 
     @Override
     public long getNumberOfRoles() throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfRoles"));
-        }
         try {
-            final long number = persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfElement("SRole", SRole.class));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfRoles"));
-            }
-            return number;
+            return persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfElement("SRole", SRole.class));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfRoles", e));
-            }
             throw new SIdentityException("Can't get the number of role", e);
         }
     }
 
     @Override
     public long getNumberOfUsers() throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfUsers"));
-        }
         try {
-            final long number = persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfElement("SUser", SUser.class));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfUsers"));
-            }
-            return number;
+            return persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfElement("SUser", SUser.class));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfUsers", e));
-            }
             throw new SIdentityException("Can't get the number of user", e);
         }
     }
 
     @Override
     public long getNumberOfUserMembershipsOfUser(final long userId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfUserMembershipsOfUser"));
-        }
         try {
-            final long number = persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfUserMembershipsOfUser(userId));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfUserMembershipsOfUser"));
-            }
-            return number;
+            return persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfUserMembershipsOfUser(userId));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfUserMembershipsOfUser", e));
-            }
             throw new SIdentityException("Can't get the number of usermemberships having the user " + userId, e);
         }
     }
 
     @Override
     public long getNumberOfUsersByGroup(final long groupId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfUsersByGroup"));
-        }
         try {
-            final long number = persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfUsersByGroup(groupId));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfUsersByGroup"));
-            }
-            return number;
+            return persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfUsersByGroup(groupId));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfUsersByGroup", e));
-            }
             throw new SIdentityException("Can't get the number of users having the group " + groupId, e);
         }
     }
 
     @Override
     public long getNumberOfUsersByRole(final long roleId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfUsersByRole"));
-        }
         try {
-            final long number = persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfUsersByRole(roleId));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfUsersByRole"));
-            }
-            return number;
+            return persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfUsersByRole(roleId));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfUsersByRole", e));
-            }
             throw new SIdentityException("Can't get the number of users having the role " + roleId, e);
         }
     }
 
     @Override
     public long getNumberOfUsersByMembership(final long groupId, final long roleId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfUsersByMembership"));
-        }
         try {
-            final long number = persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfUsersByMembership(groupId, roleId));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfUsersByMembership"));
-            }
-            return number;
+            return persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfUsersByMembership(groupId, roleId));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfUsersByMembership", e));
-            }
             throw new SIdentityException("Can't get the number of users having the membership with group:" + groupId + " and role:" + roleId, e);
         }
     }
 
     @Override
-    public SProfileMetadataDefinition getProfileMetadataByName(final String metadataName) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getProfileMetadataByName"));
-        }
+    public SCustomUserInfoDefinition getCustomUserInfoDefinitionByName(final String name) throws SCustomUserInfoDefinitionNotFoundException,
+            SCustomUserInfoDefinitionReadException {
+        SCustomUserInfoDefinition definition;
         try {
-            final SProfileMetadataDefinition sProfileMetadataDefinition = persistenceService.selectOne(SelectDescriptorBuilder.getMetadataByName(metadataName));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getProfileMetadataByName"));
-            }
-            return sProfileMetadataDefinition;
+            definition = getCustomUserInfoDefinitionWithoutCheck(name);
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getProfileMetadataByName", e));
-            }
-            throw new SIdentityException("Can't get the metadata with name " + metadataName, e);
+            throw new SCustomUserInfoDefinitionReadException(name, e);
+        }
+        if (definition == null) {
+            throw new SCustomUserInfoDefinitionNotFoundException(name);
+        }
+        return definition;
+    }
+
+    @Override
+    public boolean hasCustomUserInfoDefinition(final String name) throws SCustomUserInfoDefinitionReadException {
+        SCustomUserInfoDefinition definition;
+        try {
+            definition = getCustomUserInfoDefinitionWithoutCheck(name);
+        } catch (final SBonitaReadException e) {
+            throw new SCustomUserInfoDefinitionReadException(name, e);
+        }
+        return definition != null;
+    }
+
+    private SCustomUserInfoDefinition getCustomUserInfoDefinitionWithoutCheck(final String name) throws SBonitaReadException {
+        return persistenceService.selectOne(SelectDescriptorBuilder.getCustomUserInfoDefinitionByName(name));
+    }
+
+    @Override
+    public List<SCustomUserInfoDefinition> getCustomUserInfoDefinitions(final int fromIndex, final int maxResults) throws SIdentityException {
+        try {
+            return persistenceService.selectList(SelectDescriptorBuilder.getElements(
+                    SCustomUserInfoDefinition.class, "CustomUserInfoDefinition", fromIndex, maxResults));
+        } catch (final SBonitaReadException e) {
+            throw new SIdentityException("Can't get the custom user info definitions", e);
         }
     }
 
     @Override
-    public List<SProfileMetadataDefinition> getProfileMetadataDefinition(final int fromIndex, final int numberOfMetadata) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getProfileMetadataDefinition"));
-        }
+    public List<Long> getUserIdsWithCustomUserInfo(final String userInfoName, String userInfoValue, final boolean usePartialMatch, final int fromIndex,
+            final int maxResults) throws SIdentityException {
         try {
-            final List<SProfileMetadataDefinition> listSProfileMetadataDefinition = persistenceService.selectList(SelectDescriptorBuilder.getElements(
-                    SProfileMetadataDefinition.class, "ProfileMetadata", fromIndex, numberOfMetadata));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getProfileMetadataDefinition"));
+            String queryName;
+            if (usePartialMatch) {
+                queryName = "getUserIdsWithCustomUserInfoContains";
+                userInfoValue = "%" + userInfoValue + "%";
+            } else {
+                queryName = "getUserIdsWithCustomUserInfo";
             }
-            return listSProfileMetadataDefinition;
+            final Map<String, Object> parameters = new HashMap<>(2);
+            parameters.put("userInfoName", userInfoName);
+            parameters.put("userInfoValue", userInfoValue);
+            final SelectListDescriptor<Long> descriptor = new SelectListDescriptor<>(queryName, parameters, SUser.class, Long.class,
+                    new QueryOptions(fromIndex, maxResults));
+            return persistenceService.selectList(descriptor);
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getProfileMetadataDefinition", e));
-            }
-            throw new SIdentityException("Can't get the profile metadata", e);
+            throw new SIdentityException("Can't get the custom user info definitions", e);
         }
     }
 
     @Override
-    public SProfileMetadataDefinition getProfileMetadataDefinition(final long profileMetadataId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getProfileMetadataDefinition"));
-        }
+    public SCustomUserInfoDefinition getCustomUserInfoDefinition(final long customUserInfoDefinitionId) throws SIdentityException {
         try {
-            final SProfileMetadataDefinition selectOne = persistenceService.selectById(SelectDescriptorBuilder.getElementById(SProfileMetadataDefinition.class,
-                    "ProfileMetadata", profileMetadataId));
+            final SCustomUserInfoDefinition selectOne = persistenceService.selectById(SelectDescriptorBuilder.getElementById(SCustomUserInfoDefinition.class,
+                    "CustomUserInfoDefinition", customUserInfoDefinitionId));
             if (selectOne == null) {
-                throw new SIdentityException("Can't get the profile metadata with id " + profileMetadataId, null);
-            }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getProfileMetadataDefinition"));
+                throw new SIdentityException("Can't get the custom user info definition with id " + customUserInfoDefinitionId, null);
             }
             return selectOne;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getProfileMetadataDefinition", e));
-            }
-            throw new SIdentityException("Can't get the profile metadata with id " + profileMetadataId, e);
+            throw new SIdentityException("Can't get the custom user info definition with id " + customUserInfoDefinitionId, e);
         }
     }
 
     @Override
-    public List<SProfileMetadataDefinition> getProfileMetadataDefinitions(final List<Long> profileMetadataDefinitionIds) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getProfileMetadataDefinitions"));
-        }
-        if (profileMetadataDefinitionIds == null || profileMetadataDefinitionIds.isEmpty()) {
+    public List<SCustomUserInfoDefinition> getCustomUserInfoDefinitions(final List<Long> customUserInfoDefinitionIds) throws SIdentityException {
+        if (customUserInfoDefinitionIds == null || customUserInfoDefinitionIds.isEmpty()) {
             return Collections.emptyList();
         }
         try {
-            final List<SProfileMetadataDefinition> listSProfileMetadataDefinition = persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(
-                    SProfileMetadataDefinition.class, "SProfileMetadataDefinition", profileMetadataDefinitionIds));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getProfileMetadataDefinitions"));
-            }
-            return listSProfileMetadataDefinition;
+            return persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(
+                    SCustomUserInfoDefinition.class, "SCustomUserInfoDefinition", customUserInfoDefinitionIds));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getProfileMetadataDefinitions", e));
-            }
-            throw new SIdentityException("Can't get profiles metadata with ids " + Arrays.toString(profileMetadataDefinitionIds.toArray()), e);
+            throw new SIdentityException("Can't get custom user info definitions with ids " + Arrays.toString(customUserInfoDefinitionIds.toArray()), e);
         }
     }
 
     @Override
-    public SProfileMetadataValue getProfileMetadataValue(final long profileMetadataValueId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getProfileMetadataValue"));
-        }
+    public SCustomUserInfoValue getCustomUserInfoValue(final long customUserInfoValueId) throws SCustomUserInfoValueNotFoundException,
+            SCustomUserInfoValueReadException {
         try {
-            final SProfileMetadataValue selectOne = persistenceService.selectById(SelectDescriptorBuilder.getElementById(SProfileMetadataValue.class,
-                    "SProfileMetadataValue", profileMetadataValueId));
+            final SCustomUserInfoValue selectOne = persistenceService.selectById(SelectDescriptorBuilder.getElementById(SCustomUserInfoValue.class,
+                    "SCustomUserInfoValue", customUserInfoValueId));
             if (selectOne == null) {
-                throw new SIdentityException("Can't get the profile metadata value with id " + profileMetadataValueId, null);
-            }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getProfileMetadataValue"));
+                throw new SCustomUserInfoValueNotFoundException(customUserInfoValueId);
             }
             return selectOne;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getProfileMetadataValue", e));
-            }
-            throw new SIdentityException("Can't get the profile metadata value with id " + profileMetadataValueId, e);
+            throw new SCustomUserInfoValueReadException(e);
         }
     }
 
     @Override
-    public List<SProfileMetadataValue> getProfileMetadataValues(final List<Long> profileMetadataValueIds) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getProfileMetadataValues"));
-        }
-        if (profileMetadataValueIds == null || profileMetadataValueIds.isEmpty()) {
+    public List<SCustomUserInfoValue> getCustomUserInfoValues(final List<Long> customUserInfoValueIds) throws SIdentityException {
+        if (customUserInfoValueIds == null || customUserInfoValueIds.isEmpty()) {
             return Collections.emptyList();
         }
         try {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getProfileMetadataValues"));
-            }
-            return persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(SProfileMetadataValue.class, "SProfileMetadataValue",
-                    profileMetadataValueIds));
+            return persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(SCustomUserInfoValue.class, "SCustomUserInfoValue",
+                    customUserInfoValueIds));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getProfileMetadataValues", e));
-            }
-            throw new SIdentityException("Can't get profiles metadata values with ids " + Arrays.toString(profileMetadataValueIds.toArray()), e);
+            throw new SIdentityException("Can't get custom user info values with ids " + Arrays.toString(customUserInfoValueIds.toArray()), e);
         }
     }
 
     @Override
     public SRole getRole(final long roleId) throws SRoleNotFoundException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getRole"));
-        }
         try {
             final SRole selectOne = persistenceService.selectById(SelectDescriptorBuilder.getElementById(SRole.class, "Role", roleId));
             if (selectOne == null) {
                 throw new SRoleNotFoundException("The role with id= " + roleId + " does not exist");
             }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getRole"));
-            }
             return selectOne;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getRole", e));
-            }
             throw new SRoleNotFoundException(e);
         }
     }
 
     @Override
     public SRole getRoleByName(final String roleName) throws SRoleNotFoundException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getRoleByName"));
-        }
         try {
             final SRole role = persistenceService.selectOne(SelectDescriptorBuilder.getRoleByName(roleName));
             if (role == null) {
                 throw new SRoleNotFoundException("The role named " + roleName + " does not exist");
             }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getRoleByName"));
-            }
             return role;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getRoleByName", e));
-            }
             throw new SRoleNotFoundException(e);
         }
     }
 
     @Override
     public SGroup getGroupByPath(final String groupPath) throws SGroupNotFoundException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getGroupByPath"));
-        }
         SelectOneDescriptor<SGroup> descriptor;
         final int lastIndexOf = groupPath.lastIndexOf('/');
         if (lastIndexOf > 0) {
@@ -1259,325 +982,159 @@ public class IdentityServiceImpl implements IdentityService {
             if (group == null) {
                 throw new SGroupNotFoundException("The group '" + groupPath + "' does not exist");
             }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getGroupByPath"));
-            }
             return group;
         } catch (final SBonitaReadException bre) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getGroupByPath", bre));
-            }
             throw new SGroupNotFoundException(bre);
         }
     }
 
     @Override
     public List<SRole> getRoles(final int fromIndex, final int numberOfRoles) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getRoles"));
-        }
         try {
-            final List<SRole> listSRole = persistenceService.selectList(SelectDescriptorBuilder.getElements(SRole.class, "Role", fromIndex, numberOfRoles));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getRoles"));
-            }
-            return listSRole;
+            return persistenceService.selectList(SelectDescriptorBuilder.getElements(SRole.class, "Role", fromIndex, numberOfRoles));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getRoles", e));
-            }
             throw new SIdentityException("Can't get the roles", e);
         }
     }
 
     @Override
     public List<SRole> getRoles(final int fromIndex, final int numberOfRoles, final String field, final OrderByType order) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getRoles"));
-        }
         try {
-            final List<SRole> listSRole = persistenceService.selectList(SelectDescriptorBuilder.getElements(SRole.class, "Role", field, order, fromIndex,
+            return persistenceService.selectList(SelectDescriptorBuilder.getElements(SRole.class, "Role", field, order, fromIndex,
                     numberOfRoles));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getRoles"));
-            }
-            return listSRole;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getRoles", e));
-            }
             throw new SIdentityException("Can't get the roles", e);
         }
     }
 
     @Override
     public List<SRole> getRoles(final List<Long> roleIds) throws SRoleNotFoundException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getRoles"));
-        }
         if (roleIds == null || roleIds.isEmpty()) {
             return Collections.emptyList();
         }
         try {
-            final List<SRole> listSRoles = persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(SRole.class, "Role", roleIds));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getRoles"));
-            }
-            return listSRoles;
+            return persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(SRole.class, "Role", roleIds));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getRoles", e));
-            }
             throw new SRoleNotFoundException(e);
         }
     }
 
     @Override
     public SUser getUser(final long userId) throws SUserNotFoundException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUser"));
-        }
         try {
             final SUser user = persistenceService.selectById(SelectDescriptorBuilder.getElementById(SUser.class, "User", userId));
+
             if (user == null) {
                 throw new SUserNotFoundException(userId);
             }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUser"));
-            }
             return user;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUser", e));
-            }
             throw new SUserNotFoundException("Cannot get user with id: " + userId, e);
         }
     }
 
     @Override
     public SContactInfo getUserContactInfo(final long userId, final boolean isPersonal) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserContactInfo"));
-        }
         try {
-            final SContactInfo contactInfo = persistenceService.selectOne(SelectDescriptorBuilder.getUserContactInfo(userId, isPersonal));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserContactInfo"));
-            }
-            return contactInfo;
+            return persistenceService.selectOne(SelectDescriptorBuilder.getUserContactInfo(userId, isPersonal));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserContactInfo", e));
-            }
             throw new SUserNotFoundException("Cannot get user contact info for user id: " + userId, e);
         }
     }
 
     @Override
     public SUser getUserByUserName(final String userName) throws SUserNotFoundException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserByUserName"));
-        }
         try {
             final SUser user = persistenceService.selectOne(SelectDescriptorBuilder.getUserByUserName(userName));
             if (user == null) {
                 throw new SUserNotFoundException(userName);
             }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserByUserName"));
-            }
             return user;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserByUserName", e));
-            }
             throw new SUserNotFoundException("Cannot get user: " + userName, e);
         }
     }
 
     @Override
     public SUserMembership getUserMembership(final long userMembershipId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserMembership"));
-        }
         try {
             final Map<String, Object> parameters = Collections.singletonMap("id", (Object) userMembershipId);
-            final SelectOneDescriptor<SUserMembership> desc = new SelectOneDescriptor<SUserMembership>("getSUserMembershipById", parameters,
+            final SelectOneDescriptor<SUserMembership> desc = new SelectOneDescriptor<>("getSUserMembershipById", parameters,
                     SUserMembership.class);
             final SUserMembership selectOne = persistenceService.selectOne(desc);
             if (selectOne == null) {
                 throw new SIdentityException("Can't get the userMembership with id " + userMembershipId, null);
             }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserMembership"));
-            }
             return selectOne;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserMembership", e));
-            }
             throw new SIdentityException("Can't get the user membership with id " + userMembershipId, e);
-        }
-    }
-
-    @Override
-    public List<SUserMembership> getUserMembershipsOfUser(final long userId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserMembershipsOfUser"));
-        }
-        try {
-            final List<SUserMembership> listSUserMembership = persistenceService.selectList(SelectDescriptorBuilder.getUserMembershipsOfUser(userId));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserMembershipsOfUser"));
-            }
-            return listSUserMembership;
-        } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserMembershipsOfUser", e));
-            }
-            throw new SIdentityException("Can't get memberships of user: " + userId, e);
         }
     }
 
     @Override
     public List<SUserMembership> getUserMemberships(final List<Long> userMembershipIds) throws SIdentityException {
         List<Long> localUserMembershipIds = userMembershipIds;
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserMemberships"));
-        }
         if (localUserMembershipIds == null || localUserMembershipIds.isEmpty()) {
             localUserMembershipIds = Collections.emptyList();
         }
         try {
-            final List<SUserMembership> listSUserMembership = persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(SUserMembership.class,
+            return persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(SUserMembership.class,
                     "SUserMembership", localUserMembershipIds));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserMemberships"));
-            }
-            return listSUserMembership;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserMemberships", e));
-            }
             throw new SIdentityException("Can't get users memberships with ids " + Arrays.toString(localUserMembershipIds.toArray()), e);
         }
     }
 
     @Override
     public List<SUser> getUsers(final int fromIndex, final int numberOfUsers) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUsers"));
-        }
         try {
-            final List<SUser> listSUsers = persistenceService.selectList(SelectDescriptorBuilder.getElements(SUser.class, "User", fromIndex, numberOfUsers));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUsers"));
-            }
-            return listSUsers;
+            return persistenceService.selectList(SelectDescriptorBuilder.getElements(SUser.class, "User", fromIndex, numberOfUsers));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUsers", e));
-            }
             throw new SIdentityException("Can't get the users", e);
         }
     }
 
     @Override
     public List<SUser> getUsers(final int fromIndex, final int numberOfUsers, final String field, final OrderByType order) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUsers"));
-        }
         try {
-            final List<SUser> listsUsers = persistenceService.selectList(SelectDescriptorBuilder.getElements(SUser.class, "User", field, order, fromIndex,
+            return persistenceService.selectList(SelectDescriptorBuilder.getElements(SUser.class, "User", field, order, fromIndex,
                     numberOfUsers));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUsers"));
-            }
-            return listsUsers;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUsers", e));
-            }
             throw new SIdentityException("Can't get the users", e);
         }
     }
 
     @Override
     public List<SUser> getUsers(final List<Long> userIds) throws SUserNotFoundException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUsers"));
-        }
         if (userIds == null || userIds.isEmpty()) {
             return Collections.emptyList();
         }
         try {
-            final List<SUser> listsUsers = persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(SUser.class, "User", userIds));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUsers"));
-            }
-            return listsUsers;
+            return persistenceService.selectList(SelectDescriptorBuilder.getElementsByIds(SUser.class, "User", userIds));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUsers", e));
-            }
             throw new SUserNotFoundException(e);
         }
     }
 
     @Override
-    public List<SUser> getUsersByDelegee(final long delegateId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUsersByDelegee"));
+    public List<SUser> getUsersByUsername(final List<String> userNames) throws SIdentityException {
+        if (userNames == null || userNames.isEmpty()) {
+            return Collections.emptyList();
         }
         try {
-            final SUser delegee = getUser(delegateId);
-            final List<SUser> listsUsers = persistenceService.selectList(SelectDescriptorBuilder.getUsersByDelegee(delegee.getUserName()));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUsersByDelegee"));
-            }
-            return listsUsers;
+            final QueryOptions queryOptions = new QueryOptions(0, userNames.size(), SUser.class, "userName", OrderByType.ASC);
+            final Map<String, Object> parameters = Collections.singletonMap("userNames", (Object) userNames);
+            return persistenceService.selectList(new SelectListDescriptor<SUser>("getUsersByName", parameters, SUser.class, queryOptions));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUsersByDelegee", e));
-            }
-            throw new SIdentityException("Can't get the users having the delegee " + delegateId, e);
-        }
-    }
-
-    @Override
-    public List<SUser> getUsersByGroup(final long groupId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUsersByGroup"));
-        }
-        try {
-            final List<SUser> listsUsers = persistenceService.selectList(SelectDescriptorBuilder.getUsersByGroup(groupId));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUsersByGroup"));
-            }
-            return listsUsers;
-        } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUsersByGroup", e));
-            }
-            throw new SIdentityException("Can't get the users having the group " + groupId, e);
+            throw new SUserNotFoundException(e);
         }
     }
 
     @Override
     public List<SUser> getUsersByGroup(final long groupId, final int fromIndex, final int numberOfUsers) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUsersByGroup"));
-        }
         try {
-            final List<SUser> listsUsers = persistenceService.selectList(SelectDescriptorBuilder.getUsersByGroup(groupId, fromIndex, numberOfUsers));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUsersByGroup"));
-            }
-            return listsUsers;
+            return persistenceService.selectList(SelectDescriptorBuilder.getUsersByGroup(groupId, fromIndex, numberOfUsers));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUsersByGroup", e));
-            }
             throw new SIdentityException("Can't get the users having the group " + groupId, e);
         }
     }
@@ -1585,77 +1142,29 @@ public class IdentityServiceImpl implements IdentityService {
     @Override
     public List<SUser> getUsersByGroup(final long groupId, final int fromIndex, final int numberOfUsers, final String field, final OrderByType order)
             throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUsersByGroup"));
-        }
         try {
-            final List<SUser> listsSUsers = persistenceService.selectList(SelectDescriptorBuilder.getUsersByGroup(groupId, field, order, fromIndex,
+            return persistenceService.selectList(SelectDescriptorBuilder.getUsersByGroup(groupId, field, order, fromIndex,
                     numberOfUsers));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUsersByGroup"));
-            }
-            return listsSUsers;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUsersByGroup", e));
-            }
             throw new SIdentityException("Can't get the users having the group " + groupId, e);
         }
     }
 
     @Override
-    public List<SUser> getUsersByManager(final long managerId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUsersByManager"));
-        }
+    public List<SUser> getUsersByManager(final long managerId, final int fromIndex, final int numberMaxOfUsers) throws SIdentityException {
         try {
-            final List<SUser> listsSUsers = persistenceService.selectList(SelectDescriptorBuilder.getUsersByManager(managerId));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUsersByManager"));
-            }
-            return listsSUsers;
+            final QueryOptions queryOptions = new QueryOptions(fromIndex, numberMaxOfUsers, SUser.class, "id", OrderByType.DESC);
+            return persistenceService.selectList(SelectDescriptorBuilder.getUsersByManager(managerId, queryOptions));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUsersByManager", e));
-            }
             throw new SIdentityException("Can't get the users having the manager " + managerId, e);
         }
     }
 
     @Override
-    public List<SUser> getUsersByRole(final long roleId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUsersByRole"));
-        }
-        try {
-            final List<SUser> listsUsers = persistenceService.selectList(SelectDescriptorBuilder.getUsersByRole(roleId));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUsersByRole"));
-            }
-            return listsUsers;
-        } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUsersByRole", e));
-            }
-            throw new SIdentityException("Can't get the users having the role " + roleId, e);
-        }
-    }
-
-    @Override
     public List<SUser> getUsersByRole(final long roleId, final int fromIndex, final int numberOfUsers) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUsersByRole"));
-        }
         try {
-            final List<SUser> listsSUsers = persistenceService.selectList(SelectDescriptorBuilder.getUsersByRole(roleId, fromIndex, numberOfUsers));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUsersByRole"));
-            }
-            return listsSUsers;
+            return persistenceService.selectList(SelectDescriptorBuilder.getUsersByRole(roleId, fromIndex, numberOfUsers));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUsersByRole", e));
-            }
             throw new SIdentityException("Can't get the users having the role " + roleId, e);
         }
     }
@@ -1663,124 +1172,90 @@ public class IdentityServiceImpl implements IdentityService {
     @Override
     public List<SUser> getUsersByRole(final long roleId, final int fromIndex, final int numberOfUsers, final String field, final OrderByType order)
             throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUsersByRole"));
-        }
         try {
-            final List<SUser> listsUsers = persistenceService
+            return persistenceService
                     .selectList(SelectDescriptorBuilder.getUsersByRole(roleId, field, order, fromIndex, numberOfUsers));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUsersByRole"));
-            }
-            return listsUsers;
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUsersByRole", e));
-            }
             throw new SIdentityException("Can't get the users having the role " + roleId, e);
         }
     }
 
     @Override
-    public void updateGroup(final SGroup group, final EntityUpdateDescriptor descriptor) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "updateGroup"));
-        }
+    public void updateGroup(final SGroup group, final EntityUpdateDescriptor descriptor, EntityUpdateDescriptor iconUpdater) throws SIdentityException {
         final SGroupLogBuilder logBuilder = getGroupLog(ActionType.UPDATED, "Updating the group");
         try {
+            if (iconUpdater != null && iconUpdater.getFields().containsKey("content")) {
+                updateIcon(descriptor, iconUpdater, group);
+            }
             final UpdateRecord updateRecord = UpdateRecord.buildSetFields(group, descriptor);
             SUpdateEvent updateEvent = null;
             if (eventService.hasHandlers(GROUP, EventActionType.UPDATED)) {
-                updateEvent = (SUpdateEvent) eventBuilder.createUpdateEvent(GROUP).setObject(group).done();
+                updateEvent = (SUpdateEvent) BuilderFactory.get(SEventBuilderFactory.class).createUpdateEvent(GROUP).setObject(group).done();
             }
             recorder.recordUpdate(updateRecord, updateEvent);
-            initiateLogBuilder(group.getId(), SQueriableLog.STATUS_OK, logBuilder, "updateGroup");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "updateGroup"));
-            }
-        } catch (final SRecorderException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "updateGroup", e));
-            }
-            initiateLogBuilder(group.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "updateGroup");
+            log(group.getId(), SQueriableLog.STATUS_OK, logBuilder, "updateGroup");
+        } catch (final SRecorderException | SBonitaReadException e) {
+            log(group.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "updateGroup");
             throw new SIdentityException("Can't update group " + group, e);
         }
     }
 
     @Override
-    public void updateProfileMetadataDefinition(final SProfileMetadataDefinition metadata, final EntityUpdateDescriptor descriptor) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "updateProfileMetadataDefinition"));
-        }
-        final SProfileMetadataDefinitionLogBuilder logBuilder = getSProfileMetadataDefinitionLog(ActionType.UPDATED,
-                "Updating the profile metadata definition with name " + metadata.getName());
+    public void updateCustomUserInfoDefinition(final SCustomUserInfoDefinition customUserInfo, final EntityUpdateDescriptor descriptor)
+            throws SIdentityException {
+        final String methodName = "updateCustomUserInfoDefinition";
+        final SCustomUserInfoDefinitionLogBuilder logBuilder = getSCustomUserInfoDefinitionLog(ActionType.UPDATED,
+                "Updating the custom user info definition with name " + customUserInfo.getName());
         try {
-            final UpdateRecord updateRecord = UpdateRecord.buildSetFields(metadata, descriptor);
+            final UpdateRecord updateRecord = UpdateRecord.buildSetFields(customUserInfo, descriptor);
             SUpdateEvent updateEvent = null;
-            if (eventService.hasHandlers(METADATA, EventActionType.UPDATED)) {
-                updateEvent = (SUpdateEvent) eventBuilder.createUpdateEvent(METADATA).setObject(metadata).done();
+            if (eventService.hasHandlers(CUSTOM_USER_INFO_DEFINITION, EventActionType.UPDATED)) {
+                updateEvent = (SUpdateEvent) BuilderFactory.get(SEventBuilderFactory.class).createUpdateEvent(CUSTOM_USER_INFO_DEFINITION)
+                        .setObject(customUserInfo).done();
             }
             recorder.recordUpdate(updateRecord, updateEvent);
-            initiateLogBuilder(metadata.getId(), SQueriableLog.STATUS_OK, logBuilder, "updateProfileMetadataDefinition");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "updateProfileMetadataDefinition"));
-            }
+            log(customUserInfo.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
         } catch (final SRecorderException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "updateProfileMetadataDefinition", e));
-            }
-            initiateLogBuilder(metadata.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "updateProfileMetadataDefinition");
-            throw new SIdentityException("Can't update profile metadata definition " + metadata, e);
+            log(customUserInfo.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
+            throw new SIdentityException("Can't update custom user info definition " + customUserInfo, e);
         }
     }
 
     @Override
-    public void updateProfileMetadataValue(final SProfileMetadataValue metadataValue, final EntityUpdateDescriptor descriptor) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "updateProfileMetadataValue"));
-        }
+    public void updateCustomUserInfoValue(final SCustomUserInfoValue customUserInfo, final EntityUpdateDescriptor descriptor) throws SIdentityException {
         try {
-            final UpdateRecord updateRecord = UpdateRecord.buildSetFields(metadataValue, descriptor);
+            final UpdateRecord updateRecord = UpdateRecord.buildSetFields(customUserInfo, descriptor);
             SUpdateEvent updateEvent = null;
-            if (eventService.hasHandlers(METADATAVALUE, EventActionType.UPDATED)) {
-                updateEvent = (SUpdateEvent) eventBuilder.createUpdateEvent(METADATAVALUE).setObject(metadataValue).done();
+            if (eventService.hasHandlers(CUSTOM_USER_INFO_VALUE, EventActionType.UPDATED)) {
+                updateEvent = (SUpdateEvent) BuilderFactory.get(SEventBuilderFactory.class).createUpdateEvent(CUSTOM_USER_INFO_VALUE).setObject(customUserInfo)
+                        .done();
             }
             recorder.recordUpdate(updateRecord, updateEvent);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "updateProfileMetadataValue"));
-            }
         } catch (final SRecorderException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "updateProfileMetadataValue", e));
-            }
-            throw new SIdentityException("Can't update profile metadata definition " + metadataValue, e);
+            throw new SIdentityException("Can't update custom user info definition " + customUserInfo, e);
         }
     }
 
     @Override
-    public void updateRole(final SRole role, final EntityUpdateDescriptor descriptor) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "updateRole"));
-        }
+    public SRole updateRole(final SRole role, final EntityUpdateDescriptor descriptor, EntityUpdateDescriptor iconUpdater) throws SIdentityException {
+        final String methodName = "updateRole";
         final SRoleLogBuilder logBuilder = getRoleLog(ActionType.UPDATED, "Updating the role with name " + role.getName());
         try {
+            if (iconUpdater != null && iconUpdater.getFields().containsKey("content")) {
+                updateIcon(descriptor, iconUpdater, role);
+            }
             final UpdateRecord updateRecord = UpdateRecord.buildSetFields(role, descriptor);
             SUpdateEvent updateEvent = null;
             if (eventService.hasHandlers(ROLE, EventActionType.UPDATED)) {
-                updateEvent = (SUpdateEvent) eventBuilder.createUpdateEvent(ROLE).setObject(role).done();
+                updateEvent = (SUpdateEvent) BuilderFactory.get(SEventBuilderFactory.class).createUpdateEvent(ROLE).setObject(role).done();
             }
             recorder.recordUpdate(updateRecord, updateEvent);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "updateRole"));
-            }
-            initiateLogBuilder(role.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "updateRole");
-        } catch (final SRecorderException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "updateRole", e));
-            }
-            initiateLogBuilder(role.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "updateRole");
+            log(role.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
+        } catch (final SRecorderException | SBonitaReadException e) {
+            log(role.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
             throw new SIdentityException("Can't update role " + role, e);
         }
+        return role;
     }
 
     @Override
@@ -1791,16 +1266,7 @@ public class IdentityServiceImpl implements IdentityService {
     @Deprecated
     @Override
     public void updateUser(final SUser user, final EntityUpdateDescriptor descriptor, final boolean isPasswordEncrypted) throws SUserUpdateException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "updateUser"));
-        }
-        final StringBuilder sb = new StringBuilder();
-        sb.append("Updating user with user name ");
-        sb.append(user.getUserName());
-        sb.append(", first name ");
-        sb.append(user.getFirstName());
-        sb.append(", last name ");
-        sb.append(user.getLastName());
+        final String methodName = "updateUser";
         if (!isPasswordEncrypted) {
             final String password = (String) descriptor.getFields().get("password");
             if (password != null) {
@@ -1808,132 +1274,91 @@ public class IdentityServiceImpl implements IdentityService {
                 descriptor.getFields().put("password", hash);
             }
         }
-        final SUserLogBuilder logBuilder = getUserLog(ActionType.UPDATED, sb.toString());
+        final SUserLogBuilder logBuilder = getUserLog(ActionType.UPDATED, "Updating user with user name " +
+                user.getUserName() +
+                ", first name " +
+                user.getFirstName() +
+                ", last name " +
+                user.getLastName());
         try {
-            final SUserBuilder userBuilder = identityModelBuilder.getUserBuilder();
             final UpdateRecord updateRecord = UpdateRecord.buildSetFields(user, descriptor);
             SUpdateEvent updateEvent = null;
             if (eventService.hasHandlers(USER, EventActionType.UPDATED)) {
-                updateEvent = (SUpdateEvent) eventBuilder.createUpdateEvent(USER).setObject(user).done();
-                final SUser oldUser = userBuilder.createNewInstance(user).done();
+                updateEvent = (SUpdateEvent) BuilderFactory.get(SEventBuilderFactory.class).createUpdateEvent(USER).setObject(user).done();
+                final SUser oldUser = BuilderFactory.get(SUserBuilderFactory.class).createNewInstance(user).done();
                 updateEvent.setOldObject(oldUser);
             }
             recorder.recordUpdate(updateRecord, updateEvent);
-            initiateLogBuilder(user.getId(), SQueriableLog.STATUS_OK, logBuilder, "updateUser");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "updateUser"));
-            }
+            log(user.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
         } catch (final SRecorderException re) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "updateUser", re));
-            }
-            initiateLogBuilder(user.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "updateUser");
+            log(user.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
             throw new SUserUpdateException(re);
         }
     }
 
     @Override
     public void updateUserContactInfo(final SContactInfo contactInfo, final EntityUpdateDescriptor descriptor) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "updateUserContactInfo"));
-        }
-        final StringBuilder sb = new StringBuilder();
-        sb.append("Updating " + (contactInfo.isPersonal() ? "personal" : "professional") + " user contact Info for user with Id ");
-        sb.append(contactInfo.getUserId());
-        final SContactInfoLogBuilder logBuilder = getUserContactInfoLog(ActionType.UPDATED, sb.toString(), contactInfo);
+        final String methodName = "updateUserContactInfo";
+        final SContactInfoLogBuilder logBuilder = getUserContactInfoLog(ActionType.UPDATED,
+                "Updating " + (contactInfo.isPersonal() ? "personal" : "professional") + " user contact Info for user with Id " +
+                        contactInfo.getUserId(),
+                contactInfo);
         try {
-            final SContactInfoBuilder contactInfoBuilder = identityModelBuilder.getUserContactInfoBuilder();
             final UpdateRecord updateRecord = UpdateRecord.buildSetFields(contactInfo, descriptor);
             SUpdateEvent updateEvent = null;
             if (eventService.hasHandlers(USER_CONTACT_INFO, EventActionType.UPDATED)) {
-                updateEvent = (SUpdateEvent) eventBuilder.createUpdateEvent(USER_CONTACT_INFO).setObject(contactInfo).done();
-                final SContactInfo oldContactInfo = contactInfoBuilder.createNewInstance(contactInfo).done();
+                updateEvent = (SUpdateEvent) BuilderFactory.get(SEventBuilderFactory.class).createUpdateEvent(USER_CONTACT_INFO).setObject(contactInfo).done();
+                final SContactInfo oldContactInfo = BuilderFactory.get(SContactInfoBuilderFactory.class).createNewInstance(contactInfo).done();
                 updateEvent.setOldObject(oldContactInfo);
             }
             recorder.recordUpdate(updateRecord, updateEvent);
-            initiateLogBuilder(contactInfo.getId(), SQueriableLog.STATUS_OK, logBuilder, "updateUserContactInfo");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "updateUserContactInfo"));
-            }
+            log(contactInfo.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
         } catch (final SRecorderException re) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "updateUserContactInfo", re));
-            }
-            initiateLogBuilder(contactInfo.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "updateUserContactInfo");
+            log(contactInfo.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
             throw new SUserUpdateException(re);
         }
     }
 
     @Override
     public void updateUserMembership(final SUserMembership userMembership, final EntityUpdateDescriptor descriptor) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "updateUserMembership"));
-        }
-        final StringBuilder sb = new StringBuilder();
-        sb.append("Updating user membership for user ");
-        sb.append(userMembership.getUsername());
-        sb.append(" with role ");
-        sb.append(userMembership.getRoleName());
-        sb.append(" in group ");
-        sb.append(userMembership.getGroupName());
-        final SUserMembershipLogBuilder logBuilder = getUserMembershipLog(ActionType.UPDATED, sb.toString(), userMembership);
+        final String methodName = "updateUserMembership";
+        final SUserMembershipLogBuilder logBuilder = getUserMembershipLog(ActionType.UPDATED, "Updating user membership for user " +
+                userMembership.getUsername() +
+                " with role " +
+                userMembership.getRoleName() +
+                " in group " +
+                userMembership.getGroupName(), userMembership);
         try {
             final UpdateRecord updateRecord = UpdateRecord.buildSetFields(userMembership, descriptor);
             SUpdateEvent updateEvent = null;
             if (eventService.hasHandlers(USERMEMBERSHIP, EventActionType.UPDATED)) {
-                updateEvent = (SUpdateEvent) eventBuilder.createUpdateEvent(USERMEMBERSHIP).setObject(userMembership).done();
+                updateEvent = (SUpdateEvent) BuilderFactory.get(SEventBuilderFactory.class).createUpdateEvent(USERMEMBERSHIP).setObject(userMembership).done();
             }
             recorder.recordUpdate(updateRecord, updateEvent);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "updateUserMembership"));
-            }
-            initiateLogBuilder(userMembership.getId(), SQueriableLog.STATUS_OK, logBuilder, "updateUserMembership");
+            log(userMembership.getId(), SQueriableLog.STATUS_OK, logBuilder, methodName);
         } catch (final SRecorderException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "updateUserMembership", e));
-            }
-            initiateLogBuilder(userMembership.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "updateUserMembership");
+            log(userMembership.getId(), SQueriableLog.STATUS_FAIL, logBuilder, methodName);
             throw new SIdentityException("Can't update user membership " + userMembership, e);
         }
     }
 
     @Override
     public List<SUserMembership> getUserMemberships(final int fromIndex, final int numberOfUserMemberships) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserMemberships"));
-        }
         final SelectListDescriptor<SUserMembership> descriptor = SelectDescriptorBuilder.getElements(SUserMembership.class, "UserMembership", fromIndex,
                 numberOfUserMemberships);
         try {
-            final List<SUserMembership> listsUserMemberships = persistenceService.selectList(descriptor);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserMemberships"));
-            }
-            return listsUserMemberships;
+            return persistenceService.selectList(descriptor);
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserMemberships", e));
-            }
             throw new SIdentityException("Can't get the user memberships", e);
         }
     }
 
     @Override
     public List<SUserMembership> getUserMembershipsOfUser(final long userId, final int fromIndex, final int numberOfUsers) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserMembershipsOfUser"));
-        }
         try {
             final SelectListDescriptor<SUserMembership> descriptor = SelectDescriptorBuilder.getUserMembershipsOfUser(userId, fromIndex, numberOfUsers);
-            final List<SUserMembership> listsSUserMemberships = persistenceService.selectList(descriptor);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserMembershipsOfUser"));
-            }
-            return listsSUserMemberships;
+            return persistenceService.selectList(descriptor);
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserMembershipsOfUser", e));
-            }
             throw new SIdentityException("Can't get the memberships having the user " + userId, e);
         }
     }
@@ -1941,21 +1366,11 @@ public class IdentityServiceImpl implements IdentityService {
     @Override
     public List<SUserMembership> getUserMembershipsOfUser(final long userId, final int fromIndex, final int numberOfMemberships, final String field,
             final OrderByType order) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserMembershipsOfUser"));
-        }
         try {
             final SelectListDescriptor<SUserMembership> descriptor = SelectDescriptorBuilder.getUserMembershipsOfUser(userId, field, order, fromIndex,
                     numberOfMemberships);
-            final List<SUserMembership> listsSUserMemberships = persistenceService.selectList(descriptor);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserMembershipsOfUser"));
-            }
-            return listsSUserMemberships;
+            return persistenceService.selectList(descriptor);
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserMembershipsOfUser", e));
-            }
             throw new SIdentityException("Can't get the memberships having the user" + userId, e);
         }
     }
@@ -1963,226 +1378,95 @@ public class IdentityServiceImpl implements IdentityService {
     @Override
     public List<SUserMembership> getUserMembershipsOfUser(final long userId, final int fromIndex, final int numberPerPage, final OrderByOption orderByOption)
             throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserMembershipsOfUser"));
-        }
         try {
             final SelectListDescriptor<SUserMembership> descriptor = SelectDescriptorBuilder.getUserMembershipsOfUser(userId, new QueryOptions(fromIndex,
                     numberPerPage, Collections.singletonList(orderByOption)));
-            final List<SUserMembership> listsUserMemberships = persistenceService.selectList(descriptor);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserMembershipsOfUser"));
-            }
-            return listsUserMemberships;
+            return persistenceService.selectList(descriptor);
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserMembershipsOfUser", e));
-            }
             throw new SIdentityException("Can't get the memberships having the user" + userId, e);
         }
     }
 
     @Override
     public SUserMembership getUserMembership(final long userId, final long groupId, final long roleId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getUserMembership"));
-        }
         final SelectOneDescriptor<SUserMembership> descriptor = SelectDescriptorBuilder.getUserMembership(userId, groupId, roleId);
         try {
-            final SUserMembership sUserMembership = persistenceService.selectOne(descriptor);
-            if (sUserMembership == null) {
-                throw new SIdentityException("Can't get the userMembership with userId = " + userId + ", groupId = " + groupId + ", roleId = " + roleId);
-            }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getUserMembership"));
-            }
-            return sUserMembership;
+            return getUserMembership(userId, groupId, roleId, descriptor);
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getUserMembership", e));
-            }
             throw new SIdentityException("Can't get the userMembership with userId = " + userId + ", groupId = " + groupId + ", roleId = " + roleId, e);
         }
     }
 
     @Override
     public SUserMembership getLightUserMembership(final long userId, final long groupId, final long roleId) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getLightUserMembership"));
-        }
         final SelectOneDescriptor<SUserMembership> descriptor = SelectDescriptorBuilder.getLightUserMembership(userId, groupId, roleId);
         try {
-            final SUserMembership sUserMembership = persistenceService.selectOne(descriptor);
-            if (sUserMembership == null) {
-                throw new SIdentityException("Can't get the userMembership with userId = " + userId + ", groupId = " + groupId + ", roleId = " + roleId);
-            }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getLightUserMembership"));
-            }
-            return sUserMembership;
+            return getUserMembership(userId, groupId, roleId, descriptor);
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getLightUserMembership", e));
-            }
             throw new SIdentityException("Can't get the userMembership with userId = " + userId + ", groupId = " + groupId + ", roleId = " + roleId, e);
         }
     }
 
+    private SUserMembership getUserMembership(final long userId, final long groupId, final long roleId, final SelectOneDescriptor<SUserMembership> descriptor)
+            throws SBonitaReadException, SIdentityException {
+        final SUserMembership sUserMembership = persistenceService.selectOne(descriptor);
+        if (sUserMembership == null) {
+            throw new SIdentityException("Can't get the userMembership with userId = " + userId + ", groupId = " + groupId + ", roleId = " + roleId);
+        }
+        return sUserMembership;
+    }
+
     @Override
     public long getNumberOfUserMemberships() throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfUserMemberships"));
-        }
         try {
-            final long number = persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfElement("UserMembership", SUserMembership.class));
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfUserMemberships"));
-            }
-            return number;
+            return persistenceService.selectOne(SelectDescriptorBuilder.getNumberOfElement("UserMembership", SUserMembership.class));
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfUserMemberships", e));
-            }
             throw new SIdentityException("Can't get the number of user membership", e);
         }
     }
 
     @Override
     public List<SUserMembership> getLightUserMemberships(final int startIndex, final int numberOfElements) throws SIdentityException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getLightUserMemberships"));
-        }
         final SelectListDescriptor<SUserMembership> descriptor = SelectDescriptorBuilder.getElements(SUserMembership.class, "LightUserMembership", startIndex,
                 numberOfElements);
         try {
-            final List<SUserMembership> listsUserMemberships = persistenceService.selectList(descriptor);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getLightUserMemberships"));
-            }
-            return listsUserMemberships;
+            return persistenceService.selectList(descriptor);
         } catch (final SBonitaReadException e) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getLightUserMemberships", e));
-            }
             throw new SIdentityException("Can't get the user memberships", e);
         }
     }
 
     @Override
-    public long getNumberOfUsers(final QueryOptions options) throws SBonitaSearchException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfUsers"));
-        }
-        try {
-            final long number = persistenceService.getNumberOfEntities(SUser.class, options, null);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfUsers"));
-            }
-            return number;
-        } catch (final SBonitaReadException bre) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfUsers", bre));
-            }
-            throw new SBonitaSearchException(bre);
-        }
+    public long getNumberOfUsers(final QueryOptions options) throws SBonitaReadException {
+        return persistenceService.getNumberOfEntities(SUser.class, options, null);
     }
 
     @Override
-    public List<SUser> searchUsers(final QueryOptions options) throws SBonitaSearchException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "searchUsers"));
-        }
-        try {
-            final List<SUser> listsSUsers = persistenceService.searchEntity(SUser.class, options, null);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "searchUsers"));
-            }
-            return listsSUsers;
-        } catch (final SBonitaReadException bre) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "searchUsers", bre));
-            }
-            throw new SBonitaSearchException(bre);
-        }
+    public List<SUser> searchUsers(final QueryOptions options) throws SBonitaReadException {
+        return persistenceService.searchEntity(SUser.class, options, null);
     }
 
     @Override
-    public long getNumberOfRoles(final QueryOptions options) throws SBonitaSearchException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfRoles"));
-        }
-        try {
-            final long number = persistenceService.getNumberOfEntities(SRole.class, options, null);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfRoles"));
-            }
-            return number;
-        } catch (final SBonitaReadException bre) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfRoles", bre));
-            }
-            throw new SBonitaSearchException(bre);
-        }
+    public long getNumberOfRoles(final QueryOptions options) throws SBonitaReadException {
+        return persistenceService.getNumberOfEntities(SRole.class, options, null);
     }
 
     @Override
-    public List<SRole> searchRoles(final QueryOptions options) throws SBonitaSearchException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "searchRoles"));
-        }
-        try {
-            final List<SRole> listsRoles = persistenceService.searchEntity(SRole.class, options, null);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "searchRoles"));
-            }
-            return listsRoles;
-        } catch (final SBonitaReadException bre) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "searchRoles", bre));
-            }
-            throw new SBonitaSearchException(bre);
-        }
+    public List<SRole> searchRoles(final QueryOptions options) throws SBonitaReadException {
+        return persistenceService.searchEntity(SRole.class, options, null);
     }
 
     @Override
-    public long getNumberOfGroups(final QueryOptions options) throws SBonitaSearchException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfGroups"));
-        }
-        try {
-            final long number = persistenceService.getNumberOfEntities(SGroup.class, options, null);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "getNumberOfGroups"));
-            }
-            return number;
-        } catch (final SBonitaReadException bre) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfGroups", bre));
-            }
-            throw new SBonitaSearchException(bre);
-        }
+    public long getNumberOfGroups(final QueryOptions options) throws SBonitaReadException {
+        return persistenceService.getNumberOfEntities(SGroup.class, options, null);
     }
 
     @Override
-    public List<SGroup> searchGroups(final QueryOptions options) throws SBonitaSearchException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "searchGroups"));
-        }
-        try {
-            final List<SGroup> listsGroups = persistenceService.searchEntity(SGroup.class, options, null);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "searchGroups"));
-            }
-            return listsGroups;
-        } catch (final SBonitaReadException bre) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "searchGroups", bre));
-            }
-            throw new SBonitaSearchException(bre);
-        }
+    public List<SGroup> searchGroups(final QueryOptions options) throws SBonitaReadException {
+        return persistenceService.searchEntity(SGroup.class, options, null);
     }
 
-    private void initiateLogBuilder(final long objectId, final int sQueriableLogStatus, final SPersistenceLogBuilder logBuilder, final String methodName) {
+    private void log(final long objectId, final int sQueriableLogStatus, final SPersistenceLogBuilder logBuilder, final String methodName) {
         logBuilder.actionScope(String.valueOf(objectId));
         logBuilder.actionStatus(sQueriableLogStatus);
         logBuilder.objectId(objectId);
@@ -2193,38 +1477,120 @@ public class IdentityServiceImpl implements IdentityService {
     }
 
     @Override
-    public boolean chechCredentials(final SUser user, final String password) {
+    public boolean checkCredentials(final SUser user, final String password) {
         final String hashPassword = user.getPassword();
         return encrypter.check(password, hashPassword);
     }
 
     @Override
-    @Deprecated
-    public SUser createUserWithoutEncryptingPassword(final SUser user) throws SUserCreationException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "createUser"));
-        }
-        final String message = "Adding a new user with user name " + user.getUserName() + ", first name " + user.getFirstName() + ", last name "
-                + user.getLastName();
-        final SUserLogBuilder logBuilder = getUserLog(ActionType.CREATED, message);
+    public List<SCustomUserInfoValue> searchCustomUserInfoValue(final QueryOptions options) throws SBonitaReadException {
+        return persistenceService.searchEntity(SCustomUserInfoValue.class, options, null);
+    }
 
-        final SUser hashedUser = identityModelBuilder.getUserBuilder().createNewInstance(user).done();
-        try {
-            final InsertRecord insertRecord = new InsertRecord(hashedUser);
-            final SInsertEvent insertEvent = getInsertEvent(hashedUser, USER);
-            recorder.recordInsert(insertRecord, insertEvent);
-            initiateLogBuilder(hashedUser.getId(), SQueriableLog.STATUS_OK, logBuilder, "createUser");
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "createUser"));
+    @Override
+    public SUser updateUser(long userId, EntityUpdateDescriptor userUpdateDescriptor, EntityUpdateDescriptor personalDataUpdateDescriptor,
+            EntityUpdateDescriptor professionalDataUpdateDescriptor, EntityUpdateDescriptor iconUpdater) throws SIdentityException {
+        // User change
+        SUser sUser = getUser(userId);
+        if (iconUpdater.getFields().containsKey("content")) {
+            try {
+                updateIcon(userUpdateDescriptor, iconUpdater, sUser);
+            } catch (SBonitaReadException | SRecorderException e) {
+                throw new SIdentityException(e);
             }
-            return hashedUser;
-        } catch (final SRecorderException re) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "createUser", re));
+        }
+        if (userUpdateDescriptor != null && !userUpdateDescriptor.getFields().isEmpty()) {
+            updateUser(sUser, userUpdateDescriptor);
+        }
+
+        // Personal data change
+        if (personalDataUpdateDescriptor != null && !personalDataUpdateDescriptor.getFields().isEmpty()) {
+            SContactInfo persoContactInfo = getUserContactInfo(userId, true);
+            if (persoContactInfo == null) {
+                persoContactInfo = BuilderFactory.get(SContactInfoBuilderFactory.class).createNewInstance(userId, true).done();
+                createUserContactInfo(persoContactInfo);
             }
-            initiateLogBuilder(hashedUser.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "createUser");
-            throw new SUserCreationException(re);
+            updateUserContactInfo(persoContactInfo, personalDataUpdateDescriptor);
+        }
+
+        // Professional data change
+        if (professionalDataUpdateDescriptor != null && !professionalDataUpdateDescriptor.getFields().isEmpty()) {
+            SContactInfo professContactInfo = getUserContactInfo(userId, false);
+            if (professContactInfo == null) {
+                professContactInfo = BuilderFactory.get(SContactInfoBuilderFactory.class).createNewInstance(userId, false).done();
+                createUserContactInfo(professContactInfo);
+            }
+            updateUserContactInfo(professContactInfo, professionalDataUpdateDescriptor);
+        }
+        return sUser;
+    }
+
+    private void updateIcon(EntityUpdateDescriptor updateDescriptor, EntityUpdateDescriptor iconUpdater, SHavingIcon element)
+            throws SBonitaReadException, SRecorderException {
+        byte[] content = (byte[]) iconUpdater.getFields().get("content");
+        String filename = (String) iconUpdater.getFields().get("filename");
+        if (content != null) {
+            replaceIcon(updateDescriptor, content, filename, element);
+        } else {
+            removeIcon(updateDescriptor, element);
         }
     }
 
+    private void removeIcon(EntityUpdateDescriptor updateDescriptor, SHavingIcon element)
+            throws SBonitaReadException, SRecorderException {
+        Long previousIconId = element.getIconId();
+        if (previousIconId != null) {
+            deleteIcon(previousIconId);
+            updateDescriptor.addField("iconId", null);
+        }
+    }
+
+    private void replaceIcon(EntityUpdateDescriptor updateDescriptor, byte[] content, String filename, SHavingIcon element)
+            throws SRecorderException, SBonitaReadException {
+        SIcon newIcon = createIcon(filename, content);
+        updateDescriptor.addField("iconId", newIcon.getId());
+        Long previousIconId = element.getIconId();
+        if (previousIconId != null) {
+            deleteIcon(previousIconId);
+        }
+    }
+
+    @Override
+    public SUser createUser(SUser sUser, SContactInfo personalContactInfo, SContactInfo proContactInfo, String iconFilename, byte[] iconContent)
+            throws SUserCreationException {
+        if (iconFilename != null && iconContent != null) {
+            try {
+                SIcon icon = createIcon(iconFilename, iconContent);
+                ((SUserImpl) sUser).setIconId(icon.getId());
+            } catch (SRecorderException e) {
+                throw new SUserCreationException(e);
+            }
+        }
+        SUser user = createUser(sUser);
+        if (personalContactInfo != null) {
+            createUserContactInfo(BuilderFactory.get(SContactInfoBuilderFactory.class).createNewInstance(personalContactInfo).setUserId(user.getId()).done());
+        }
+        if (proContactInfo != null) {
+            createUserContactInfo(BuilderFactory.get(SContactInfoBuilderFactory.class).createNewInstance(proContactInfo).setUserId(user.getId()).done());
+        }
+        return user;
+    }
+
+    private SIcon createIcon(String iconFilename, byte[] iconContent) throws SRecorderException {
+        SIconImpl entity = new SIconImpl(getContentType(iconFilename), iconContent);
+        recorder.recordInsert(new InsertRecord(entity), null);
+        return entity;
+    }
+
+    private String getContentType(String iconFilename) {
+        if (iconFilename == null) {
+            return "image/png";
+        }
+        return MIMETYPES_FILE_TYPE_MAP.getContentType(iconFilename);
+    }
+
+    @Override
+    public SIcon getIcon(long id) throws SBonitaReadException {
+        return persistenceService.selectById(new SelectByIdDescriptor<>(SIcon.class, id));
+    }
 }

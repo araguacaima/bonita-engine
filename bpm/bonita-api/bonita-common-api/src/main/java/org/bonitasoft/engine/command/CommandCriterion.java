@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,10 +14,15 @@
 package org.bonitasoft.engine.command;
 
 /**
+ * Sort criterion used to specify the sort order of the {@link org.bonitasoft.engine.command.CommandDescriptor}. <br>
+ * Used by {@link org.bonitasoft.engine.api.CommandAPI#getAllCommands(int, int, CommandCriterion)} and $
+ * {@link org.bonitasoft.engine.api.CommandAPI#getUserCommands(int, int, CommandCriterion)} indicate in what order we should return the list of the results.
+ *
  * @author Matthieu Chaffotte
+ * @since 6.0.0
  */
 public enum CommandCriterion {
 
-    NAME_ASC, NAME_DESC;
+    NAME_ASC, NAME_DESC
 
 }

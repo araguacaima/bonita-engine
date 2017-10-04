@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,12 +16,24 @@ package org.bonitasoft.engine.bpm.data;
 import org.bonitasoft.engine.exception.NotFoundException;
 
 /**
+ * Thrown when it's not possible to find the data.
+ *
  * @author Matthieu Chaffotte
+ * @author Celine Souchet
+ * @since 6.0.0
+ * @version 6.4.1
  */
 public class DataNotFoundException extends NotFoundException {
 
     private static final long serialVersionUID = 882339840751819686L;
 
+    /**
+     * Constructs a new exception with the specified detail cause.
+     *
+     * @param cause
+     *        The cause (which is saved for later retrieval by the {@link Throwable#getCause()} method). (A null value is permitted, and indicates that the
+     *        cause is nonexistent or unknown.)
+     */
     public DataNotFoundException(final Throwable cause) {
         super(cause);
     }

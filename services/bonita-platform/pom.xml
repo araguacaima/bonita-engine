@@ -5,7 +5,7 @@
 	<parent>
 		<artifactId>services</artifactId>
 		<groupId>org.bonitasoft.engine</groupId>
-		<version>6.1.0-SNAPSHOT</version>
+		<version>7.5.3-SNAPSHOT</version>
 	</parent>
 
 	<groupId>org.bonitasoft.engine.platform</groupId>
@@ -15,10 +15,7 @@
 	<name>Bonita Platform</name>
 
 	<modules>
-		<module>bonita-platform-model</module>
-		<module>bonita-platform-model-impl</module>
-		<module>bonita-platform-model-impl-hibernate</module>
 		<module>bonita-platform-api</module>
-		<module>bonita-platform-api-impl</module>
+		<module>bonita-platform-impl</module>
 	</modules>
 </project>

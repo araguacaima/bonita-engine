@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -18,67 +18,91 @@ import java.util.List;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.commons.transaction.TransactionContent;
 import org.bonitasoft.engine.core.process.definition.ProcessDefinitionService;
-import org.bonitasoft.engine.core.process.definition.SProcessDefinitionNotFoundException;
-import org.bonitasoft.engine.core.process.definition.exception.SProcessDefinitionReadException;
+import org.bonitasoft.engine.core.process.definition.exception.SProcessDisablementException;
 import org.bonitasoft.engine.core.process.definition.model.SProcessDefinition;
 import org.bonitasoft.engine.core.process.definition.model.event.SStartEventDefinition;
 import org.bonitasoft.engine.core.process.instance.api.event.EventInstanceService;
-import org.bonitasoft.engine.core.process.instance.api.exceptions.event.trigger.SEventTriggerInstanceReadException;
 import org.bonitasoft.engine.core.process.instance.api.exceptions.event.trigger.SWaitingEventModificationException;
 import org.bonitasoft.engine.core.process.instance.model.event.handling.SWaitingEvent;
 import org.bonitasoft.engine.execution.job.JobNameBuilder;
-import org.bonitasoft.engine.scheduler.SSchedulerException;
+import org.bonitasoft.engine.log.technical.TechnicalLogSeverity;
+import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
+import org.bonitasoft.engine.persistence.OrderByType;
+import org.bonitasoft.engine.persistence.QueryOptions;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
 import org.bonitasoft.engine.scheduler.SchedulerService;
+import org.bonitasoft.engine.scheduler.exception.SSchedulerException;
+import org.bonitasoft.platform.configuration.ConfigurationService;
 
 /**
  * @author Baptiste Mesta
  * @author Elias Ricken de Medeiros
  * @author Matthieu Chaffotte
+ * @author Celine Souchet
  */
 public final class DisableProcess implements TransactionContent {
 
     private final ProcessDefinitionService processDefinitionService;
-
     private final EventInstanceService eventInstanceService;
-
-    private final long processId;
-
+    private final long processDefinitionId;
+    private final ConfigurationService configurationService;
     private final SchedulerService scheduler;
+    private final TechnicalLoggerService logger;
+    private final String username;
+    private final long tenantId;
 
     public DisableProcess(final ProcessDefinitionService processDefinitionService, final long processId, final EventInstanceService eventInstanceService,
-            final SchedulerService scheduler) {
+            ConfigurationService configurationService, final SchedulerService scheduler, final TechnicalLoggerService logger, final String username,
+            long tenantId) {
         this.processDefinitionService = processDefinitionService;
         this.eventInstanceService = eventInstanceService;
-        this.processId = processId;
+        this.processDefinitionId = processId;
+        this.configurationService = configurationService;
         this.scheduler = scheduler;
+        this.logger = logger;
+        this.username = username;
+        this.tenantId = tenantId;
     }
 
     @Override
     public void execute() throws SBonitaException {
-        processDefinitionService.disableProcessDeploymentInfo(processId);
-        disableStartEvents();
+        processDefinitionService.disableProcessDeploymentInfo(processDefinitionId);
+        final SProcessDefinition processDefinition = processDefinitionService.getProcessDefinition(processDefinitionId);
+        handleAutoLoginConfiguration(processDefinition);
+        disableStartEvents(processDefinition);
+        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.INFO)) {
+            logger.log(this.getClass(), TechnicalLogSeverity.INFO, "The user <" + username + "> has disabled process <" + processDefinition.getName()
+                    + "> in version <" + processDefinition.getVersion() + "> with id <" + processDefinition.getId() + ">");
+        }
     }
 
-    private void disableStartEvents() throws SBonitaException {
+    private void handleAutoLoginConfiguration(SProcessDefinition sProcessDefinition) throws SProcessDisablementException {
+        AutoLoginConfigurationHelper autoLoginConfigurationHelper = new AutoLoginConfigurationHelper(configurationService, tenantId, sProcessDefinition);
+        autoLoginConfigurationHelper.disableAutoLogin();
+    }
+
+    private void disableStartEvents(final SProcessDefinition processDefinition) throws SBonitaException {
         deleteWaitingEvents();
-        deleteJobs();
-
+        deleteJobs(processDefinition);
     }
 
-    private void deleteJobs() throws SProcessDefinitionNotFoundException, SProcessDefinitionReadException, SSchedulerException {
-        final SProcessDefinition processDefinition = processDefinitionService.getProcessDefinition(processId);
+    private void deleteJobs(final SProcessDefinition processDefinition) throws SSchedulerException {
         final List<SStartEventDefinition> startEvents = processDefinition.getProcessContainer().getStartEvents();
         for (final SStartEventDefinition startEvent : startEvents) {
             if (!startEvent.getTimerEventTriggerDefinitions().isEmpty()) {
-                scheduler.delete(JobNameBuilder.getTimerEventJobName(processId, startEvent, null));
+                scheduler.delete(JobNameBuilder.getTimerEventJobName(processDefinitionId, startEvent, null));
             }
         }
     }
 
-    private void deleteWaitingEvents() throws SEventTriggerInstanceReadException, SWaitingEventModificationException {
-        final List<SWaitingEvent> waitingEvents = eventInstanceService.getStartWaitingEvents(processId);
-        for (final SWaitingEvent startEvent : waitingEvents) {
-            eventInstanceService.deleteWaitingEvent(startEvent);
+    private void deleteWaitingEvents() throws SWaitingEventModificationException, SBonitaReadException {
+        final QueryOptions queryOptions = new QueryOptions(0, 100, SWaitingEvent.class, "id", OrderByType.ASC);
+        List<SWaitingEvent> waitingEvents = eventInstanceService.searchStartWaitingEvents(processDefinitionId, queryOptions);
+        while (!waitingEvents.isEmpty()) {
+            for (final SWaitingEvent startEvent : waitingEvents) {
+                eventInstanceService.deleteWaitingEvent(startEvent);
+            }
+            waitingEvents = eventInstanceService.searchStartWaitingEvents(processDefinitionId, queryOptions);
         }
     }
 

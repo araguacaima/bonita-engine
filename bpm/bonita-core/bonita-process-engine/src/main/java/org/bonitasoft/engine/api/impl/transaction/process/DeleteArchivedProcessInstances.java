@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -49,7 +49,7 @@ public class DeleteArchivedProcessInstances implements TransactionContent {
         List<Long> sourceProcessInstanceIds;
         do {
             // from index always will be zero because elements will be deleted
-            sourceProcessInstanceIds = processInstanceService.getSourceProcesInstanceIdsOfArchProcessInstancesFromDefinition(processDefinitionId, 0,
+            sourceProcessInstanceIds = processInstanceService.getSourceProcessInstanceIdsOfArchProcessInstancesFromDefinition(processDefinitionId, 0,
                     BATCH_SIZE, OrderByType.DESC);
             for (final Long orgProcessId : sourceProcessInstanceIds) {
                 processInstanceService.deleteArchivedProcessInstanceElements(orgProcessId, processDefinitionId);

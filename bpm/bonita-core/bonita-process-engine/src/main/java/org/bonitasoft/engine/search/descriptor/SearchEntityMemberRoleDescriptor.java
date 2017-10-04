@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -18,11 +18,10 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.entitymember.EntityMemberSearchDescriptor;
-import org.bonitasoft.engine.external.identity.mapping.model.SExternalIdentityMappingBuilders;
 import org.bonitasoft.engine.identity.model.SRole;
-import org.bonitasoft.engine.identity.model.builder.IdentityModelBuilder;
-import org.bonitasoft.engine.identity.model.builder.RoleBuilder;
+import org.bonitasoft.engine.identity.model.builder.SRoleBuilderFactory;
 import org.bonitasoft.engine.persistence.PersistentObject;
 
 /**
@@ -33,14 +32,13 @@ public class SearchEntityMemberRoleDescriptor extends SearchEntityMemberDescript
 
     private final Map<Class<? extends PersistentObject>, Set<String>> entityMemberAllFields;
 
-    public SearchEntityMemberRoleDescriptor(final SExternalIdentityMappingBuilders builders, final IdentityModelBuilder identityModelBuilder) {
-        super(builders, identityModelBuilder);
-        final RoleBuilder roleBuilder = identityModelBuilder.getRoleBuilder();
-        putField(EntityMemberSearchDescriptor.DISPLAY_NAME_PART1, new FieldDescriptor(SRole.class, roleBuilder.getNameKey()));
+    public SearchEntityMemberRoleDescriptor() {
+        super();
+        putField(EntityMemberSearchDescriptor.DISPLAY_NAME_PART1, new FieldDescriptor(SRole.class, BuilderFactory.get(SRoleBuilderFactory.class).getNameKey()));
 
         entityMemberAllFields = new HashMap<Class<? extends PersistentObject>, Set<String>>(1);
         final Set<String> roleFields = new HashSet<String>(1);
-        roleFields.add(roleBuilder.getNameKey());
+        roleFields.add(BuilderFactory.get(SRoleBuilderFactory.class).getNameKey());
         entityMemberAllFields.put(SRole.class, roleFields);
     }
 

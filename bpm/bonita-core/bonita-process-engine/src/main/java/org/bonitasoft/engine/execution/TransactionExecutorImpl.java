@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -45,10 +45,9 @@ public class TransactionExecutorImpl implements TransactionExecutor {
                 return null;
             }
         };
-
         try {
             transactionService.executeInTransaction(txContentCallable);
-        } catch (SBonitaException e) {
+        } catch (SBonitaException | RuntimeException e) {
             throw e;
         } catch (Exception e) {
             throw new SBonitaRuntimeException(e);

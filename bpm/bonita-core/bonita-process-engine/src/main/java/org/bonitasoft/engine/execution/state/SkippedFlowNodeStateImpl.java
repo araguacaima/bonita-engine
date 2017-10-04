@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -25,6 +25,8 @@ import org.bonitasoft.engine.core.process.instance.model.SStateCategory;
  */
 public class SkippedFlowNodeStateImpl implements FlowNodeState {
 
+    public static final int ID = 12;
+
     public SkippedFlowNodeStateImpl() {
     }
 
@@ -35,7 +37,7 @@ public class SkippedFlowNodeStateImpl implements FlowNodeState {
 
     @Override
     public int getId() {
-        return 12;
+        return ID;
     }
 
     @Override
@@ -60,7 +62,7 @@ public class SkippedFlowNodeStateImpl implements FlowNodeState {
 
     @Override
     public boolean hit(final SProcessDefinition processDefinition, final SFlowNodeInstance parentInstance, final SFlowNodeInstance childInstance) {
-        return false;
+        return parentInstance.getTokenCount() == 0;
     }
 
     @Override

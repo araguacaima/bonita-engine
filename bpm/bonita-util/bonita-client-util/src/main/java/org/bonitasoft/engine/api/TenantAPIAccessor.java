@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,10 +14,8 @@
 package org.bonitasoft.engine.api;
 
 import java.lang.reflect.Proxy;
-import java.util.Map;
 
 import org.bonitasoft.engine.api.impl.ClientInterceptor;
-import org.bonitasoft.engine.api.impl.LocalServerAPIFactory;
 import org.bonitasoft.engine.api.internal.ServerAPI;
 import org.bonitasoft.engine.exception.BonitaHomeNotSetException;
 import org.bonitasoft.engine.exception.ServerAPIException;
@@ -26,40 +24,29 @@ import org.bonitasoft.engine.session.APISession;
 import org.bonitasoft.engine.util.APITypeManager;
 
 /**
- * <b>Accessor class that retrieve APIs</b>
- * <p>
+ * Accessor class that retrieve APIs in Bonita BPM <b>Community</b> Edition.
  * <ul>
- * <li>{@link ProcessAPI}</li>
- * <li>{@link CommandAPI}</li>
- * <li>{@link IdentityAPI}</li>
+ * <li>{@link ProcessAPI},</li>
+ * <li>{@link CommandAPI},</li>
+ * <li>{@link IdentityAPI},</li>
  * <li>{@link LoginAPI}</li>
  * </ul>
- * 
+ *
  * @author Matthieu Chaffotte
  * @author Elias Ricken de Medeiros
  */
 public final class TenantAPIAccessor {
 
     private static ServerAPI getServerAPI() throws BonitaHomeNotSetException, ServerAPIException, UnknownAPITypeException {
-        final ApiAccessType apiType = APITypeManager.getAPIType();
-        Map<String, String> parameters = null;
-        switch (apiType) {
-            case LOCAL:
-                return LocalServerAPIFactory.getServerAPI();
-            case EJB3:
-                parameters = APITypeManager.getAPITypeParameters();
-                return new EJB3ServerAPI(parameters);
-            case EJB2:
-                parameters = APITypeManager.getAPITypeParameters();
-                return new EJB2ServerAPI(parameters);
-            case HTTP:
-                parameters = APITypeManager.getAPITypeParameters();
-                return new HTTPServerAPI(parameters);
-            default:
-                throw new UnknownAPITypeException("Unsupported API Type: " + apiType);
-        }
+        return PlatformAPIAccessor.getServerAPI();
     }
 
+    /**
+     * Refreshes the way the engine client communicates to the engine server.
+     *
+     * @see APITypeManager
+     * @see ApiAccessType
+     */
     public static void refresh() {
         APITypeManager.refresh();
     }
@@ -69,7 +56,7 @@ public final class TenantAPIAccessor {
         final ClientInterceptor sessionInterceptor = new ClientInterceptor(clazz.getName(), serverAPI, session);
         return (T) Proxy.newProxyInstance(APIAccessor.class.getClassLoader(), new Class[] { clazz }, sessionInterceptor);
     }
-    
+
     private static <T> T getAPI(final Class<T> clazz) throws BonitaHomeNotSetException, ServerAPIException, UnknownAPITypeException {
         final ServerAPI serverAPI = getServerAPI();
         final ClientInterceptor sessionInterceptor = new ClientInterceptor(clazz.getName(), serverAPI);
@@ -77,7 +64,7 @@ public final class TenantAPIAccessor {
     }
 
     public static LoginAPI getLoginAPI() throws BonitaHomeNotSetException, ServerAPIException, UnknownAPITypeException {
-    	return getAPI(LoginAPI.class);
+        return getAPI(LoginAPI.class);
     }
 
     public static IdentityAPI getIdentityAPI(final APISession session) throws BonitaHomeNotSetException, ServerAPIException, UnknownAPITypeException {
@@ -94,6 +81,33 @@ public final class TenantAPIAccessor {
 
     public static ProfileAPI getProfileAPI(final APISession session) throws BonitaHomeNotSetException, ServerAPIException, UnknownAPITypeException {
         return getAPI(ProfileAPI.class, session);
+    }
+
+    public static ThemeAPI getThemeAPI(final APISession session) throws BonitaHomeNotSetException, ServerAPIException, UnknownAPITypeException {
+        return getAPI(ThemeAPI.class, session);
+    }
+
+    public static PermissionAPI getPermissionAPI(final APISession session) throws BonitaHomeNotSetException, ServerAPIException, UnknownAPITypeException {
+        return getAPI(PermissionAPI.class, session);
+    }
+
+    public static PageAPI getCustomPageAPI(final APISession session) throws BonitaHomeNotSetException, ServerAPIException, UnknownAPITypeException {
+        return getAPI(PageAPI.class, session);
+    }
+
+    public static ApplicationAPI getLivingApplicationAPI(final APISession session)
+            throws BonitaHomeNotSetException, ServerAPIException, UnknownAPITypeException {
+        return getAPI(ApplicationAPI.class, session);
+    }
+
+    public static TenantAdministrationAPI getTenantAdministrationAPI(final APISession session) throws BonitaHomeNotSetException, ServerAPIException,
+            UnknownAPITypeException {
+        return getAPI(TenantAdministrationAPI.class, session);
+    }
+
+    public static BusinessDataAPI getBusinessDataAPI(APISession session) throws BonitaHomeNotSetException, ServerAPIException,
+            UnknownAPITypeException {
+        return getAPI(BusinessDataAPI.class, session);
     }
 
 }

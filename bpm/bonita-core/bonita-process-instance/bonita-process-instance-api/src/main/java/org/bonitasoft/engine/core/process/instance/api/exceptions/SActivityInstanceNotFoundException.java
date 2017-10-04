@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -24,6 +24,10 @@ public class SActivityInstanceNotFoundException extends SBonitaException {
 
     public SActivityInstanceNotFoundException(final long activityInstanceId) {
         super("Activity instance with id " + activityInstanceId + " not found");
+    }
+
+    public SActivityInstanceNotFoundException(final long activityInstanceId, final int stateId) {
+        super("Activity instance with id " + activityInstanceId + " and stateId " + stateId + " not found");
     }
 
 }

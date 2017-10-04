@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,12 +14,16 @@
 package org.bonitasoft.engine.persistence;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 
 import javax.sql.DataSource;
 
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
 import org.bonitasoft.engine.sequence.SequenceManager;
 import org.bonitasoft.engine.services.SPersistenceException;
+import org.hibernate.SessionFactory;
 
 /**
  * @author Baptiste Mesta
@@ -29,10 +33,18 @@ import org.bonitasoft.engine.services.SPersistenceException;
  */
 public class PlatformHibernatePersistenceService extends AbstractHibernatePersistenceService {
 
+    protected PlatformHibernatePersistenceService(final SessionFactory sessionFactory, final List<Class<? extends PersistentObject>> classMapping,
+            final Map<String, String> classAliasMappings, final boolean enableWordSearch, final Set<String> wordSearchExclusionMappings,
+            final TechnicalLoggerService logger) throws ClassNotFoundException {
+        super(sessionFactory, classMapping, classAliasMappings, enableWordSearch, wordSearchExclusionMappings, logger);
+    }
+
     public PlatformHibernatePersistenceService(final String name, final HibernateConfigurationProvider hbmConfigurationProvider,
-            final DBConfigurationsProvider dbConfigurationsProvider, final String statementDelimiter, final String likeEscapeCharacter,
-            final TechnicalLoggerService logger, final SequenceManager sequenceManager, final DataSource datasource) throws SPersistenceException {
-        super(name, hbmConfigurationProvider, dbConfigurationsProvider, statementDelimiter, likeEscapeCharacter, logger, sequenceManager, datasource);
+            final Properties extraHibernateProperties,
+            final char likeEscapeCharacter, final TechnicalLoggerService logger, final SequenceManager sequenceManager, final DataSource datasource,
+            final boolean enableWordSearch, final Set<String> wordSearchExclusionMappings) throws SPersistenceException, ClassNotFoundException {
+        super(name, hbmConfigurationProvider, extraHibernateProperties, likeEscapeCharacter, logger,
+                sequenceManager, datasource, enableWordSearch, wordSearchExclusionMappings);
     }
 
     @Override
@@ -46,7 +58,7 @@ public class PlatformHibernatePersistenceService extends AbstractHibernatePersis
     }
 
     @Override
-    public void deleteByTenant(Class<? extends PersistentObject> entityClass, final List<FilterOption> filters) {
+    public void deleteByTenant(final Class<? extends PersistentObject> entityClass, final List<FilterOption> filters) {
         // FIXME : Method for tenant. TODO: Refactor code for PlatformHibernatePersistenceService don't implements TenantPersistenceService
     }
 

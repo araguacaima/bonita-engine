@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -23,13 +23,11 @@ import org.bonitasoft.engine.core.process.instance.api.ProcessInstanceService;
 import org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance;
 import org.bonitasoft.engine.core.process.instance.model.SProcessInstance;
 import org.bonitasoft.engine.core.process.instance.model.SStateCategory;
-import org.bonitasoft.engine.core.process.instance.model.builder.BPMInstanceBuilders;
 import org.bonitasoft.engine.core.process.instance.model.event.SCatchEventInstance;
 import org.bonitasoft.engine.core.process.instance.model.event.SThrowEventInstance;
 import org.bonitasoft.engine.core.process.instance.model.event.handling.SWaitingEvent;
 import org.bonitasoft.engine.execution.ContainerRegistry;
-import org.bonitasoft.engine.execution.TransactionContainedProcessInstanceInterruptor;
-import org.bonitasoft.engine.lock.LockService;
+import org.bonitasoft.engine.execution.ProcessInstanceInterruptor;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
 
 /**
@@ -40,36 +38,30 @@ public class TerminateEventHandlerStrategy extends EventHandlerStrategy {
 
     private static final OperationsWithContext EMPTY = new OperationsWithContext(null, null);
 
-    private final BPMInstanceBuilders bpmInstanceBuilders;
-
     private final ProcessInstanceService processInstanceService;
 
     private final FlowNodeInstanceService activityInstanceService;
 
     private final ContainerRegistry containerRegistry;
 
-    private final LockService lockService;
-
     private final TechnicalLoggerService logger;
 
-    public TerminateEventHandlerStrategy(final BPMInstanceBuilders bpmInstanceBuilders, final ProcessInstanceService processInstanceService,
-            final FlowNodeInstanceService activityInstanceService, final ContainerRegistry containerRegistry, final LockService lockService,
+    public TerminateEventHandlerStrategy(final ProcessInstanceService processInstanceService,
+            final FlowNodeInstanceService activityInstanceService, final ContainerRegistry containerRegistry,
             final TechnicalLoggerService logger) {
         super();
-        this.bpmInstanceBuilders = bpmInstanceBuilders;
         this.processInstanceService = processInstanceService;
         this.activityInstanceService = activityInstanceService;
         this.containerRegistry = containerRegistry;
-        this.lockService = lockService;
         this.logger = logger;
     }
 
     @Override
     public void handleThrowEvent(final SProcessDefinition processDefinition, final SEventDefinition eventDefinition, final SThrowEventInstance eventInstance,
             final SEventTriggerDefinition sEventTriggerDefinition) throws SBonitaException {
-        final TransactionContainedProcessInstanceInterruptor processInstanceInterruptor = new TransactionContainedProcessInstanceInterruptor(
-                bpmInstanceBuilders, processInstanceService, activityInstanceService, containerRegistry, lockService, logger);
-        processInstanceInterruptor.interruptChildrenOnly(eventInstance.getParentContainerId(), SStateCategory.ABORTING, -1, eventInstance.getId());
+        final ProcessInstanceInterruptor processInstanceInterruptor = new ProcessInstanceInterruptor(
+                processInstanceService, activityInstanceService, containerRegistry, logger);
+        processInstanceInterruptor.interruptChildrenOnly(eventInstance.getParentContainerId(), SStateCategory.ABORTING, eventInstance.getId());
         // Parent should always be process for event (but must change that id it's not the case anymore
     }
 

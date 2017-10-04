@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,13 +17,12 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 
+import org.bonitasoft.engine.expression.ContainerState;
 import org.bonitasoft.engine.expression.ExpressionExecutorStrategy;
-import org.bonitasoft.engine.expression.exception.SExpressionDependencyMissingException;
 import org.bonitasoft.engine.expression.exception.SExpressionEvaluationException;
 import org.bonitasoft.engine.expression.exception.SInvalidExpressionException;
 import org.bonitasoft.engine.expression.model.ExpressionKind;
@@ -37,12 +36,12 @@ import org.bonitasoft.engine.expression.model.SExpression;
  */
 public class ConstantExpressionExecutorStrategy implements ExpressionExecutorStrategy {
 
-    private static final String REGEX_PARSE_DATE = "(\\d{4})(-([01]\\d)((-([0-3]\\d)(T(\\d\\d)\\:(\\d\\d)(((\\:(\\d\\d))?(\\.(\\d\\d))?(([\\+-])(\\d\\d)\\:(\\d\\d))?)?)?)?)?)?)?";
+    private static final String REGEX_PARSE_DATE = "(\\d{4})(-([01]\\d)((-([0-3]\\d)(T(\\d\\d):(\\d\\d)(((:(\\d\\d))?(\\.(\\d\\d))?(([\\+-])(\\d\\d):(\\d\\d))?)?)?)?)?)?)?";
 
     @Override
     public void validate(final SExpression expression) throws SInvalidExpressionException {
-        if (expression.getContent().trim().equals("")) {
-            throw new SInvalidExpressionException("The expresssion content cannot be empty. Expression: " + expression);
+        if ("".equals(expression.getContent().trim())) {
+            throw new SInvalidExpressionException("The expression content cannot be empty. Expression : " + expression, expression.getName());
         }
     }
 
@@ -52,8 +51,8 @@ public class ConstantExpressionExecutorStrategy implements ExpressionExecutorStr
     }
 
     @Override
-    public Object evaluate(final SExpression expression, final Map<String, Object> dependencyValues, final Map<Integer, Object> resolvedExpressions)
-            throws SExpressionEvaluationException, SExpressionDependencyMissingException {
+    public Object evaluate(final SExpression expression, final Map<String, Object> context, final Map<Integer, Object> resolvedExpressions,
+            final ContainerState containerState) throws SExpressionEvaluationException {
         final String expressionContent = expression.getContent();
         Serializable result;
         final String returnType = expression.getReturnType();
@@ -74,20 +73,22 @@ public class ConstantExpressionExecutorStrategy implements ExpressionExecutorStr
             } else if (Date.class.getName().equals(returnType)) { // "2013-01-02T02:42:12.17+02:00"
                 result = parseDate(expressionContent);
             } else {
-                throw new SExpressionEvaluationException("unknown return type: " + returnType);
+                throw new SExpressionEvaluationException("Unknown return type: " + returnType + " for expression " + expression.getName() + " : "
+                        + expressionContent, expression.getName());
             }
         } catch (final NumberFormatException e) {
-            throw new SExpressionEvaluationException("The content of the expression \"" + expression.getName() + "\" is not a number :" + expressionContent);
+            throw new SExpressionEvaluationException("The content of the expression \"" + expression.getName() + "\" is not a number :" + expressionContent, e,
+                    expression.getName());
         }
         return result;
     }
 
     @Override
-    public List<Object> evaluate(final List<SExpression> expressions, final Map<String, Object> dependencyValues, final Map<Integer, Object> resolvedExpressions)
-            throws SExpressionEvaluationException, SExpressionDependencyMissingException {
-        final List<Object> list = new ArrayList<Object>(expressions.size());
+    public List<Object> evaluate(final List<SExpression> expressions, final Map<String, Object> context, final Map<Integer, Object> resolvedExpressions,
+            final ContainerState containerState) throws SExpressionEvaluationException {
+        final List<Object> list = new ArrayList<>(expressions.size());
         for (final SExpression expression : expressions) {
-            list.add(evaluate(expression, dependencyValues, resolvedExpressions));
+            list.add(evaluate(expression, context, resolvedExpressions, containerState));
         }
         return list;
     }
@@ -98,13 +99,12 @@ public class ConstantExpressionExecutorStrategy implements ExpressionExecutorStr
     }
 
     /**
-     * 
-     * @param dateToParse
+     * @param dateToParse the date to parse, as a String
      * @return null if not a Date, new Date with properties is ISO format is recognized
      */
-    private Date parseDate(String dateToParse) {
+    private Date parseDate(final String dateToParse) {
         if (dateToParse.matches(REGEX_PARSE_DATE)) {
-            final Calendar calendar = GregorianCalendar.getInstance();
+            final Calendar calendar = Calendar.getInstance();
             final String year = dateToParse.replaceFirst(REGEX_PARSE_DATE, "$1");
             if (year != null && !year.isEmpty() && Integer.valueOf(year) > 1900) {
                 calendar.set(Calendar.YEAR, Integer.valueOf(year));
@@ -112,7 +112,8 @@ public class ConstantExpressionExecutorStrategy implements ExpressionExecutorStr
 
             final String month = dateToParse.replaceFirst(REGEX_PARSE_DATE, "$3");
             if (month != null && !month.isEmpty() && Integer.valueOf(month) < 13) {
-                calendar.set(Calendar.MONTH, Integer.valueOf(month) - 1); // MONTH value from 0 to 11
+                // MONTH value from 0 to 11
+                calendar.set(Calendar.MONTH, Integer.valueOf(month) - 1);
             }
 
             final String day = dateToParse.replaceFirst(REGEX_PARSE_DATE, "$6");
@@ -130,9 +131,9 @@ public class ConstantExpressionExecutorStrategy implements ExpressionExecutorStr
                 calendar.set(Calendar.MINUTE, Integer.valueOf(minutes));
             }
 
-            final String secondes = dateToParse.replaceFirst(REGEX_PARSE_DATE, "$13");
-            if (secondes != null && !secondes.isEmpty() && Integer.valueOf(secondes) < 60) {
-                calendar.set(Calendar.SECOND, Integer.valueOf(secondes));
+            final String seconds = dateToParse.replaceFirst(REGEX_PARSE_DATE, "$13");
+            if (seconds != null && !seconds.isEmpty() && Integer.valueOf(seconds) < 60) {
+                calendar.set(Calendar.SECOND, Integer.valueOf(seconds));
             }
 
             final String fractional = dateToParse.replaceFirst(REGEX_PARSE_DATE, "$15");
@@ -140,11 +141,11 @@ public class ConstantExpressionExecutorStrategy implements ExpressionExecutorStr
                 calendar.set(Calendar.MILLISECOND, Integer.valueOf(fractional));
             }
 
-            final String TZsign = dateToParse.replaceFirst(REGEX_PARSE_DATE, "$17");
-            final String TZhour = dateToParse.replaceFirst(REGEX_PARSE_DATE, "$18");
-            final String TZminutes = dateToParse.replaceFirst(REGEX_PARSE_DATE, "$19");
-            final TimeZone tz = TimeZone.getTimeZone("GMT" + TZsign + TZhour + TZminutes);
-            if (!TZsign.isEmpty() && !TZhour.isEmpty() && !TZminutes.isEmpty() && tz != null) {
+            final String tzSign = dateToParse.replaceFirst(REGEX_PARSE_DATE, "$17");
+            final String tzHour = dateToParse.replaceFirst(REGEX_PARSE_DATE, "$18");
+            final String tzMinutes = dateToParse.replaceFirst(REGEX_PARSE_DATE, "$19");
+            final TimeZone tz = TimeZone.getTimeZone("GMT" + tzSign + tzHour + tzMinutes);
+            if (!tzSign.isEmpty() && !tzHour.isEmpty() && !tzMinutes.isEmpty() && tz != null) {
                 calendar.setTimeZone(tz);
             }
 

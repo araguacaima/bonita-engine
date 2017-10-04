@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -18,14 +18,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
+ * Updater for <code>Commands</code> <br>
+ *
  * @author Matthieu Chaffotte
+ * @see org.bonitasoft.engine.api.CommandAPI#update(long, CommandUpdater)
+ * @see org.bonitasoft.engine.api.CommandAPI#update(String, CommandUpdater)
  */
 public class CommandUpdater implements Serializable {
 
     private static final long serialVersionUID = 1326464578602375090L;
 
     public enum CommandField {
-        NAME, DESCRIPTION;
+        NAME, DESCRIPTION
     }
 
     private final Map<CommandField, Serializable> fields;

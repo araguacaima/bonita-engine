@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,16 +13,10 @@
  **/
 package org.bonitasoft.engine.execution;
 
-import java.util.List;
-
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
-import org.bonitasoft.engine.core.expression.control.model.SExpressionContext;
-import org.bonitasoft.engine.core.operation.model.SOperation;
-import org.bonitasoft.engine.core.process.definition.model.SProcessDefinition;
 import org.bonitasoft.engine.core.process.instance.api.exceptions.SFlowNodeExecutionException;
 import org.bonitasoft.engine.core.process.instance.api.exceptions.SFlowNodeReadException;
 import org.bonitasoft.engine.core.process.instance.api.states.FlowNodeState;
-import org.bonitasoft.engine.core.process.instance.model.STransitionInstance;
 
 /**
  * @author Baptiste Mesta
@@ -31,31 +25,38 @@ import org.bonitasoft.engine.core.process.instance.model.STransitionInstance;
 public interface ContainerExecutor {
 
     /**
-     * method called to notify this container executor that a child reached the given state
+     * Method called to notify this container executor that a child reached the given state
      * 
      * @param processDefinitionId
+     *            The identifier of the process definition
      * @param flowNodeInstanceId
-     * @param stateId
+     *            The identifier of the flow node instance
      * @param parentId
+     *            The identifier of the parent of the flow node
      * @throws SBonitaException
      */
-    void childFinished(long processDefinitionId, long flowNodeInstanceId, int stateId, long parentId) throws SBonitaException;
+    void childFinished(long processDefinitionId, long flowNodeInstanceId, long parentId) throws SBonitaException;
 
     /**
-     * execute a flow node in the context of this container executor
+     * Execute a flow node in the context of this container executor
      * 
-     * @param contextDependency
-     * @param operations
-     * @return
+     * @param flowNodeInstanceId
+     *            The identifier of the flow node instance
+     * @param executerId
+     *            The identifier of the user which execute the flow node
+     * @param executerSubstituteId
+     *            The identifier of the delegated user which execute the flow node
+     * @return The new state of the flow node after execution
+     * @throws SFlowNodeReadException
+     * @throws SFlowNodeExecutionException
+     *             Throw if there is an error when execute the flow node
      */
-    FlowNodeState executeFlowNode(long flowNodeInstanceId, SExpressionContext contextDependency, List<SOperation> operations, long processInstanceId,
-            final Long executerId, final Long executerDelegateId) throws SFlowNodeReadException, SFlowNodeExecutionException;
+    FlowNodeState executeFlowNode(long flowNodeInstanceId,
+                                  final Long executerId, final Long executerSubstituteId) throws SFlowNodeReadException, SFlowNodeExecutionException;
 
     /**
-     * execute a transition in the context of this container executor
+     * @return The handled type
      */
-    void executeTransition(SProcessDefinition sDefinition, STransitionInstance transitionInstance) throws SBonitaException;
-
     String getHandledType();
 
 }

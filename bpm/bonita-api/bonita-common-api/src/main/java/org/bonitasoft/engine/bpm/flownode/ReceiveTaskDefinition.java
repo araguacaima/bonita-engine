@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -14,12 +14,13 @@
 package org.bonitasoft.engine.bpm.flownode;
 
 
+import org.bonitasoft.engine.bpm.process.Visitable;
 
 /**
  * @author Julien Molinaro
  * @author Matthieu Chaffotte
  */
-public interface ReceiveTaskDefinition extends TaskDefinition {
+public interface ReceiveTaskDefinition extends TaskDefinition, Visitable {
 
     CatchMessageEventTriggerDefinition getTrigger();
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -21,26 +21,25 @@ import org.bonitasoft.engine.commons.transaction.TransactionContentWithResult;
 import org.bonitasoft.engine.core.process.instance.api.FlowNodeInstanceService;
 import org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance;
 import org.bonitasoft.engine.persistence.OrderByOption;
-import org.bonitasoft.engine.persistence.PersistentObject;
 import org.bonitasoft.engine.persistence.QueryOptions;
 
 /**
  * @author Elias Ricken de Medeiros
  */
-public class SearchFlowNodeInstances implements TransactionContentWithResult<List<SFlowNodeInstance>> {
+public class SearchFlowNodeInstances<T extends SFlowNodeInstance> implements TransactionContentWithResult<List<T>> {
 
     private final FlowNodeInstanceService flowNodeInstanceService;
 
     private final QueryOptions queryOptions;
 
-    private final Class<? extends PersistentObject> entityClass;
+    private final Class<T> entityClass;
 
-    private List<SFlowNodeInstance> result;
+    private List<T> result;
 
     private long count;
 
     public SearchFlowNodeInstances(final FlowNodeInstanceService flowNodeInstanceService, final QueryOptions queryOptions,
-            final Class<? extends PersistentObject> entityClass) {
+            final Class<T> entityClass) {
         super();
         this.flowNodeInstanceService = flowNodeInstanceService;
         this.queryOptions = queryOptions;
@@ -56,7 +55,7 @@ public class SearchFlowNodeInstances implements TransactionContentWithResult<Lis
     }
 
     @Override
-    public List<SFlowNodeInstance> getResult() {
+    public List<T> getResult() {
         return result;
     }
 

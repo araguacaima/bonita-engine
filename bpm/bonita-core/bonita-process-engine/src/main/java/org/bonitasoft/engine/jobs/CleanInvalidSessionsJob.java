@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,7 +16,7 @@ package org.bonitasoft.engine.jobs;
 import java.io.Serializable;
 import java.util.Map;
 
-import org.bonitasoft.engine.scheduler.JobExecutionException;
+import org.bonitasoft.engine.scheduler.exception.SJobExecutionException;
 import org.bonitasoft.engine.service.PlatformServiceAccessor;
 import org.bonitasoft.engine.service.impl.ServiceAccessorFactory;
 import org.bonitasoft.engine.session.SessionService;
@@ -39,13 +39,12 @@ public class CleanInvalidSessionsJob extends InternalJob {
     }
 
     @Override
-    public void execute() throws JobExecutionException {
+    public void execute() throws SJobExecutionException {
         try {
-            final PlatformServiceAccessor platformServiceAccessor = ServiceAccessorFactory.getInstance().createPlatformServiceAccessor();
-            final SessionService sessionService = platformServiceAccessor.getSessionService();
+            final SessionService sessionService = getTenantServiceAccessor().getSessionService();
             sessionService.cleanInvalidSessions();
         } catch (final Exception e) {
-            throw new JobExecutionException("Unable to clean invalid sessions", e);
+            throw new SJobExecutionException("Unable to clean invalid sessions", e);
         }
     }
 

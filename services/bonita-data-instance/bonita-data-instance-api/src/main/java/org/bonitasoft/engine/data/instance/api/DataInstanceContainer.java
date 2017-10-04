@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -19,22 +19,10 @@ package org.bonitasoft.engine.data.instance.api;
  */
 public enum DataInstanceContainer {
 
-    PROCESS_INSTANCE("process instance"),
+    PROCESS_INSTANCE,
 
-    ACTIVITY_INSTANCE("activity instance"),
+    ACTIVITY_INSTANCE,
 
-    MESSAGE_INSTANCE("message instance"),
-
-    WAITING_MESSAGE("waiting message");
-
-    private final String value;
-
-    private DataInstanceContainer(final String value) {
-        this.value = value;
-    }
-
-    public String getValue() {
-        return value;
-    }
+    MESSAGE_INSTANCE
 
 }

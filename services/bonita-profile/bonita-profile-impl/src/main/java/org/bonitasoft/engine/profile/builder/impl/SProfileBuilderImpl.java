@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -23,25 +23,11 @@ import org.bonitasoft.engine.profile.model.impl.SProfileImpl;
  */
 public class SProfileBuilderImpl implements SProfileBuilder {
 
-    private SProfileImpl profile;
+    private final SProfileImpl profile;
 
-    @Override
-    public SProfileBuilder createNewInstance(final SProfile profile) {
-        this.profile = new SProfileImpl(profile);
-        return this;
-    }
-
-    @Override
-    public SProfileBuilder createNewInstance(final String name, final boolean isDefault, final long creationDate, final long createdBy,
-            final long lastUpdateDate, final long lastUpdatedBy) {
-        profile = new SProfileImpl();
-        profile.setName(name);
-        profile.setDefault(isDefault);
-        profile.setCreationDate(creationDate);
-        profile.setCreatedBy(createdBy);
-        profile.setLastUpdateDate(lastUpdateDate);
-        profile.setLastUpdatedBy(lastUpdatedBy);
-        return this;
+    public SProfileBuilderImpl(final SProfileImpl profile) {
+        super();
+        this.profile = profile;
     }
 
     @Override
@@ -59,12 +45,6 @@ public class SProfileBuilderImpl implements SProfileBuilder {
     @Override
     public SProfileBuilder setDescription(final String description) {
         profile.setDescription(description);
-        return this;
-    }
-
-    @Override
-    public SProfileBuilder setIconPath(final String iconPath) {
-        profile.setIconPath(iconPath);
         return this;
     }
 

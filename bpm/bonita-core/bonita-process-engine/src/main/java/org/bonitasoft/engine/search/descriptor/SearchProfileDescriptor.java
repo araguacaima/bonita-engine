@@ -1,17 +1,16 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
- * BonitaSoft, 31 rue Gustave Eiffel - 38000 Grenoble
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2.0 of the License, or
- * (at your option) any later version.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
+ * Copyright (C) 2015 BonitaSoft S.A.
+ * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
+ * This library is free software; you can redistribute it and/or modify it under the terms
+ * of the GNU Lesser General Public License as published by the Free Software Foundation
+ * version 2.1 of the License.
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Lesser General Public License for more details.
+ * You should have received a copy of the GNU Lesser General Public License along with this
+ * program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+ * Floor, Boston, MA 02110-1301, USA.
+ **/
 package org.bonitasoft.engine.search.descriptor;
 
 import java.util.HashMap;
@@ -21,7 +20,7 @@ import java.util.Set;
 
 import org.bonitasoft.engine.persistence.PersistentObject;
 import org.bonitasoft.engine.profile.ProfileSearchDescriptor;
-import org.bonitasoft.engine.profile.builder.SProfileBuilder;
+import org.bonitasoft.engine.profile.builder.SProfileBuilderFactory;
 import org.bonitasoft.engine.profile.model.SProfile;
 
 /**
@@ -37,12 +36,12 @@ public class SearchProfileDescriptor extends SearchEntityDescriptor {
 
     public SearchProfileDescriptor() {
         searchEntityKeys = new HashMap<String, FieldDescriptor>(1);
-        searchEntityKeys.put(ProfileSearchDescriptor.ID, new FieldDescriptor(SProfile.class, SProfileBuilder.ID));
-        searchEntityKeys.put(ProfileSearchDescriptor.NAME, new FieldDescriptor(SProfile.class, SProfileBuilder.NAME));
+        searchEntityKeys.put(ProfileSearchDescriptor.ID, new FieldDescriptor(SProfile.class, SProfileBuilderFactory.ID));
+        searchEntityKeys.put(ProfileSearchDescriptor.NAME, new FieldDescriptor(SProfile.class, SProfileBuilderFactory.NAME));
 
         profileAllFields = new HashMap<Class<? extends PersistentObject>, Set<String>>(1);
         final Set<String> fields = new HashSet<String>(3);
-        fields.add(SProfileBuilder.NAME);
+        fields.add(SProfileBuilderFactory.NAME);
         profileAllFields.put(SProfile.class, fields);
     }
 

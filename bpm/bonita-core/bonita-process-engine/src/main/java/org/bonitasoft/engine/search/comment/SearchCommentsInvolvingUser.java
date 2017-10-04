@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -18,7 +18,7 @@ import java.util.List;
 import org.bonitasoft.engine.core.process.comment.api.SCommentService;
 import org.bonitasoft.engine.core.process.comment.model.SComment;
 import org.bonitasoft.engine.persistence.QueryOptions;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
+import org.bonitasoft.engine.persistence.SBonitaReadException;
 import org.bonitasoft.engine.search.AbstractCommentSearchEntity;
 import org.bonitasoft.engine.search.SearchOptions;
 import org.bonitasoft.engine.search.descriptor.SearchEntityDescriptor;
@@ -40,12 +40,12 @@ public class SearchCommentsInvolvingUser extends AbstractCommentSearchEntity {
     }
 
     @Override
-    public long executeCount(QueryOptions searchOptions) throws SBonitaSearchException {
+    public long executeCount(QueryOptions searchOptions) throws SBonitaReadException {
         return commentService.getNumberOfCommentsInvolvingUser(userId, searchOptions);
     }
 
     @Override
-    public List<SComment> executeSearch(QueryOptions searchOptions) throws SBonitaSearchException {
+    public List<SComment> executeSearch(QueryOptions searchOptions) throws SBonitaReadException {
         return commentService.searchCommentsInvolvingUser(userId, searchOptions);
     }
 

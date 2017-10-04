@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -31,6 +31,11 @@ public class UpdateDescriptor {
 
     private Map<String, Object> fields;
 
+    public UpdateDescriptor(final PersistentObject entity) {
+        super();
+        this.entity = entity;
+    }
+
     public static UpdateDescriptor buildSetField(final PersistentObject entity, final String fieldName, final Object fieldValue) {
         final UpdateDescriptor updateDescriptor = new UpdateDescriptor(entity);
         updateDescriptor.addField(fieldName, fieldValue);
@@ -41,11 +46,6 @@ public class UpdateDescriptor {
         final UpdateDescriptor updateDescriptor = new UpdateDescriptor(entity);
         updateDescriptor.addFields(fields);
         return updateDescriptor;
-    }
-
-    public UpdateDescriptor(final PersistentObject entity) {
-        super();
-        this.entity = entity;
     }
 
     public void addField(final String fieldName, final Object fieldValue) {

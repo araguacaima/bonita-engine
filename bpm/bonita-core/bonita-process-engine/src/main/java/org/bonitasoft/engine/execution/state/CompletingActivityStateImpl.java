@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -23,12 +23,12 @@ import org.bonitasoft.engine.execution.StateBehaviors;
  * @author Baptiste Mesta
  * @author Matthieu Chaffotte
  */
-public class CompletingActivityStateImpl extends FlowNodeStateWithConnectors {
+public class CompletingActivityStateImpl extends OnFinishConnectorState {
 
     protected final StateBehaviors stateBehaviors;
 
     public CompletingActivityStateImpl(final StateBehaviors stateBehaviors) {
-        super(stateBehaviors, false, true);
+        super(stateBehaviors);
         this.stateBehaviors = stateBehaviors;
     }
 
@@ -83,19 +83,13 @@ public class CompletingActivityStateImpl extends FlowNodeStateWithConnectors {
     }
 
     @Override
-    protected void beforeOnEnter(final SProcessDefinition processDefinition, final SFlowNodeInstance flowNodeInstance) {
-    }
-
-    @SuppressWarnings("unused")
-    @Override
-    protected void onEnterToOnFinish(final SProcessDefinition processDefinition, final SFlowNodeInstance flowNodeInstance)
-            throws SActivityStateExecutionException {
-    }
-
-    @Override
-    protected void afterOnFinish(final SProcessDefinition processDefinition, final SFlowNodeInstance flowNodeInstance) throws SActivityStateExecutionException {
+    protected void afterConnectors(SProcessDefinition processDefinition, SFlowNodeInstance flowNodeInstance) throws SActivityStateExecutionException {
         stateBehaviors.mapDataOutputOfMultiInstance(processDefinition, flowNodeInstance);
         stateBehaviors.updateDisplayDescriptionAfterCompletion(processDefinition, flowNodeInstance);
     }
 
+    @Override
+    protected void beforeConnectors(SProcessDefinition processDefinition, SFlowNodeInstance flowNodeInstance) throws SActivityStateExecutionException {
+
+    }
 }

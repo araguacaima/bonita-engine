@@ -5,7 +5,7 @@
 	<parent>
 		<artifactId>services</artifactId>
 		<groupId>org.bonitasoft.engine</groupId>
-		<version>6.1.0-SNAPSHOT</version>
+		<version>7.5.3-SNAPSHOT</version>
 	</parent>
 
 	<groupId>org.bonitasoft.engine.data.instance</groupId>
@@ -15,12 +15,7 @@
 	<name>Bonita Data Instance</name>
 
 	<modules>
-		<module>bonita-data-instance-model</module>
-		<module>bonita-data-instance-model-impl</module>
 		<module>bonita-data-instance-api</module>
-		<module>bonita-data-instance-api-impl</module>
-		<module>bonita-data-instance-model-impl-hibernate</module>
-		<module>bonita-data-instance-data-source</module>
-        <module>bonita-data-instance-data-source-impl</module>
+		<module>bonita-data-instance-impl</module>
     </modules>
 </project>

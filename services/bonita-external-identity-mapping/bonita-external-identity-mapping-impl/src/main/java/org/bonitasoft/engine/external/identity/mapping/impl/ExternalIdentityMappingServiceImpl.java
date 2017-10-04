@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,31 +17,30 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.commons.LogUtil;
 import org.bonitasoft.engine.events.EventActionType;
 import org.bonitasoft.engine.events.EventService;
 import org.bonitasoft.engine.events.model.SDeleteEvent;
 import org.bonitasoft.engine.events.model.SInsertEvent;
-import org.bonitasoft.engine.events.model.builders.SEventBuilder;
+import org.bonitasoft.engine.events.model.builders.SEventBuilderFactory;
 import org.bonitasoft.engine.external.identity.mapping.ExternalIdentityMappingService;
-import org.bonitasoft.engine.external.identity.mapping.SExternalIdentityMappingAlreadyExistsException;
 import org.bonitasoft.engine.external.identity.mapping.SExternalIdentityMappingCreationException;
 import org.bonitasoft.engine.external.identity.mapping.SExternalIdentityMappingDeletionException;
 import org.bonitasoft.engine.external.identity.mapping.SExternalIdentityMappingNotFoundException;
 import org.bonitasoft.engine.external.identity.mapping.model.SExternalIdentityMapping;
-import org.bonitasoft.engine.external.identity.mapping.model.SExternalIdentityMappingBuilders;
 import org.bonitasoft.engine.external.identity.mapping.model.SExternalIdentityMappingLogBuilder;
+import org.bonitasoft.engine.external.identity.mapping.model.SExternalIdentityMappingLogBuilderFactory;
 import org.bonitasoft.engine.log.technical.TechnicalLogSeverity;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
 import org.bonitasoft.engine.persistence.QueryOptions;
 import org.bonitasoft.engine.persistence.ReadPersistenceService;
 import org.bonitasoft.engine.persistence.SBonitaReadException;
-import org.bonitasoft.engine.persistence.SBonitaSearchException;
 import org.bonitasoft.engine.persistence.SelectByIdDescriptor;
 import org.bonitasoft.engine.queriablelogger.model.SQueriableLog;
 import org.bonitasoft.engine.queriablelogger.model.SQueriableLogSeverity;
+import org.bonitasoft.engine.queriablelogger.model.builder.ActionType;
 import org.bonitasoft.engine.queriablelogger.model.builder.HasCRUDEAction;
-import org.bonitasoft.engine.queriablelogger.model.builder.HasCRUDEAction.ActionType;
 import org.bonitasoft.engine.queriablelogger.model.builder.SLogBuilder;
 import org.bonitasoft.engine.queriablelogger.model.builder.SPersistenceLogBuilder;
 import org.bonitasoft.engine.recorder.Recorder;
@@ -65,26 +64,23 @@ public class ExternalIdentityMappingServiceImpl implements ExternalIdentityMappi
 
     private final EventService eventService;
 
-    private final SExternalIdentityMappingBuilders sExternalIdentityMappingBuilders;
-
     private final TechnicalLoggerService logger;
 
     private final QueriableLoggerService queriableLoggerService;
 
     public ExternalIdentityMappingServiceImpl(final ReadPersistenceService persistenceService, final Recorder recorder, final EventService eventService,
-            final SExternalIdentityMappingBuilders sExternalIdentityMappingBuilders, final TechnicalLoggerService logger,
+            final TechnicalLoggerService logger,
             final QueriableLoggerService queriableLoggerService) {
         this.persistenceService = persistenceService;
         this.recorder = recorder;
         this.eventService = eventService;
-        this.sExternalIdentityMappingBuilders = sExternalIdentityMappingBuilders;
         this.logger = logger;
         this.queriableLoggerService = queriableLoggerService;
     }
 
     @Override
     public SExternalIdentityMapping createExternalIdentityMapping(final SExternalIdentityMapping externalIdentityMapping)
-            throws SExternalIdentityMappingAlreadyExistsException, SExternalIdentityMappingCreationException {
+            throws SExternalIdentityMappingCreationException {
         if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
             logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "createExternalIdentityMapping"));
         }
@@ -94,11 +90,11 @@ public class ExternalIdentityMappingServiceImpl implements ExternalIdentityMappi
             final InsertRecord insertRecord = new InsertRecord(externalIdentityMapping);
             SInsertEvent insertEvent = null;
             if (eventService.hasHandlers(EXTERNAL_IDENTITY_MAPPING, EventActionType.CREATED)) {
-                final SEventBuilder eventBuilder = eventService.getEventBuilder();
-                insertEvent = (SInsertEvent) eventBuilder.createInsertEvent(EXTERNAL_IDENTITY_MAPPING).setObject(externalIdentityMapping).done();
+                insertEvent = (SInsertEvent) BuilderFactory.get(SEventBuilderFactory.class).createInsertEvent(EXTERNAL_IDENTITY_MAPPING)
+                        .setObject(externalIdentityMapping).done();
             }
             recorder.recordInsert(insertRecord, insertEvent);
-            initiateLogBuilder(externalIdentityMapping.getId(), SQueriableLog.STATUS_OK, logBuilder, "createExternalIdentityMapping");
+            log(externalIdentityMapping.getId(), SQueriableLog.STATUS_OK, logBuilder, "createExternalIdentityMapping");
             if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
                 logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "createExternalIdentityMapping"));
             }
@@ -107,7 +103,7 @@ public class ExternalIdentityMappingServiceImpl implements ExternalIdentityMappi
             if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
                 logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "createExternalIdentityMapping", re));
             }
-            initiateLogBuilder(externalIdentityMapping.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "createExternalIdentityMapping");
+            log(externalIdentityMapping.getId(), SQueriableLog.STATUS_FAIL, logBuilder, "createExternalIdentityMapping");
             throw new SExternalIdentityMappingCreationException(re);
         }
     }
@@ -182,7 +178,7 @@ public class ExternalIdentityMappingServiceImpl implements ExternalIdentityMappi
 
     @Override
     public void deleteExternalIdentityMapping(final long mappingId) throws SExternalIdentityMappingNotFoundException, SExternalIdentityMappingDeletionException {
-        final SExternalIdentityMapping sExternalIdentityMapping = getExternalIdentityMappingWithoutDisplayName(mappingId);
+        final SExternalIdentityMapping sExternalIdentityMapping = getExternalIdentityMappingById(mappingId);
         deleteExternalIdentityMapping(sExternalIdentityMapping);
     }
 
@@ -193,14 +189,14 @@ public class ExternalIdentityMappingServiceImpl implements ExternalIdentityMappi
         }
         SDeleteEvent deleteEvent = null;
         if (eventService.hasHandlers(EXTERNAL_IDENTITY_MAPPING, EventActionType.DELETED)) {
-            final SEventBuilder eventBuilder = eventService.getEventBuilder();
-            deleteEvent = (SDeleteEvent) eventBuilder.createDeleteEvent(EXTERNAL_IDENTITY_MAPPING).setObject(externalIdentityMapping).done();
+            deleteEvent = (SDeleteEvent) BuilderFactory.get(SEventBuilderFactory.class).createDeleteEvent(EXTERNAL_IDENTITY_MAPPING)
+                    .setObject(externalIdentityMapping).done();
         }
         final DeleteRecord record = new DeleteRecord(externalIdentityMapping);
         final SExternalIdentityMappingLogBuilder queriableLog = getQueriableLog(ActionType.DELETED, "deleting external identity mapping");
         try {
             recorder.recordDelete(record, deleteEvent);
-            initiateLogBuilder(externalIdentityMapping.getId(), SQueriableLog.STATUS_OK, queriableLog, "deleteExternalIdentityMapping");
+            log(externalIdentityMapping.getId(), SQueriableLog.STATUS_OK, queriableLog, "deleteExternalIdentityMapping");
             if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
                 logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "deleteExternalIdentityMapping"));
             }
@@ -208,7 +204,7 @@ public class ExternalIdentityMappingServiceImpl implements ExternalIdentityMappi
             if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
                 logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "deleteExternalIdentityMapping", e));
             }
-            initiateLogBuilder(externalIdentityMapping.getId(), SQueriableLog.STATUS_FAIL, queriableLog, "deleteExternalIdentityMapping");
+            log(externalIdentityMapping.getId(), SQueriableLog.STATUS_FAIL, queriableLog, "deleteExternalIdentityMapping");
             throw new SExternalIdentityMappingDeletionException("Can't delete process external identity mapping " + externalIdentityMapping, e);
         }
     }
@@ -224,14 +220,14 @@ public class ExternalIdentityMappingServiceImpl implements ExternalIdentityMappi
     }
 
     private SExternalIdentityMappingLogBuilder getQueriableLog(final ActionType actionType, final String message) {
-        final SExternalIdentityMappingLogBuilder logBuilder = sExternalIdentityMappingBuilders.getSExternalIdentityMappingLogBuilder();
+        final SExternalIdentityMappingLogBuilder logBuilder = BuilderFactory.get(SExternalIdentityMappingLogBuilderFactory.class).createNewInstance();
         this.initializeLogBuilder(logBuilder, message);
         this.updateLog(actionType, logBuilder);
         return logBuilder;
     }
 
     private <T extends SLogBuilder> void initializeLogBuilder(final T logBuilder, final String message) {
-        logBuilder.createNewInstance().actionStatus(SQueriableLog.STATUS_FAIL).severity(SQueriableLogSeverity.INTERNAL).rawMessage(message);
+        logBuilder.actionStatus(SQueriableLog.STATUS_FAIL).severity(SQueriableLogSeverity.INTERNAL).rawMessage(message);
     }
 
     private <T extends HasCRUDEAction> void updateLog(final ActionType actionType, final T logBuilder) {
@@ -240,7 +236,7 @@ public class ExternalIdentityMappingServiceImpl implements ExternalIdentityMappi
 
     @Override
     public long getNumberOfExternalIdentityMappingsForUser(final String kind, final long userId, final String externalId, final QueryOptions searchOptions,
-            final String querySuffix) throws SBonitaSearchException {
+            final String querySuffix) throws SBonitaReadException {
         if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
             logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfExternalIdentityMappingsForUser"));
         }
@@ -260,39 +256,31 @@ public class ExternalIdentityMappingServiceImpl implements ExternalIdentityMappi
                 logger.log(this.getClass(), TechnicalLogSeverity.TRACE,
                         LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfExternalIdentityMappingsForUser", bre));
             }
-            throw new SBonitaSearchException(bre);
+            throw new SBonitaReadException(bre);
         }
     }
 
     @Override
     public List<SExternalIdentityMapping> searchExternalIdentityMappingsForUser(final String kind, final long userId, final String externalId,
-            final QueryOptions queryOptions, final String querySuffix) throws SBonitaSearchException {
+            final QueryOptions queryOptions, final String querySuffix) throws SBonitaReadException {
         if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
             logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "searchExternalIdentityMappingsForUser"));
         }
-        try {
-            final Map<String, Object> parameters = new HashMap<String, Object>(2);
-            parameters.put("kind", kind);
-            parameters.put("userId", userId);
-            parameters.put("externalId", externalId);
-            final List<SExternalIdentityMapping> listSExternalIdentityMapping = persistenceService.searchEntity(SExternalIdentityMapping.class, querySuffix,
-                    queryOptions, parameters);
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "searchExternalIdentityMappingsForUser"));
-            }
-            return listSExternalIdentityMapping;
-        } catch (final SBonitaReadException bre) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE,
-                        LogUtil.getLogOnExceptionMethod(this.getClass(), "searchExternalIdentityMappingsForUser", bre));
-            }
-            throw new SBonitaSearchException(bre);
+        final Map<String, Object> parameters = new HashMap<String, Object>(2);
+        parameters.put("kind", kind);
+        parameters.put("userId", userId);
+        parameters.put("externalId", externalId);
+        final List<SExternalIdentityMapping> listSExternalIdentityMapping = persistenceService.searchEntity(SExternalIdentityMapping.class, querySuffix,
+                queryOptions, parameters);
+        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
+            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogAfterMethod(this.getClass(), "searchExternalIdentityMappingsForUser"));
         }
+        return listSExternalIdentityMapping;
     }
 
     @Override
     public long getNumberOfExternalIdentityMappings(final String kind, final QueryOptions searchOptions, final String querySuffix)
-            throws SBonitaSearchException {
+            throws SBonitaReadException {
         if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
             logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getNumberOfExternalIdentityMappings"));
         }
@@ -309,13 +297,13 @@ public class ExternalIdentityMappingServiceImpl implements ExternalIdentityMappi
                 logger.log(this.getClass(), TechnicalLogSeverity.TRACE,
                         LogUtil.getLogOnExceptionMethod(this.getClass(), "getNumberOfExternalIdentityMappings", bre));
             }
-            throw new SBonitaSearchException(bre);
+            throw new SBonitaReadException(bre);
         }
     }
 
     @Override
     public List<SExternalIdentityMapping> searchExternalIdentityMappings(final String kind, final QueryOptions queryOptions, final String querySuffix)
-            throws SBonitaSearchException {
+            throws SBonitaReadException {
         if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
             logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "searchExternalIdentityMappings"));
         }
@@ -332,13 +320,13 @@ public class ExternalIdentityMappingServiceImpl implements ExternalIdentityMappi
             if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
                 logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "searchExternalIdentityMappings", bre));
             }
-            throw new SBonitaSearchException(bre);
+            throw new SBonitaReadException(bre);
         }
     }
 
     @Override
     public List<SExternalIdentityMapping> searchExternalIdentityMappings(final String kind, final String externalId, final QueryOptions queryOptions)
-            throws SBonitaSearchException {
+            throws SBonitaReadException {
         if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
             logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "searchExternalIdentityMappings"));
         }
@@ -354,36 +342,11 @@ public class ExternalIdentityMappingServiceImpl implements ExternalIdentityMappi
             if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
                 logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogOnExceptionMethod(this.getClass(), "searchExternalIdentityMappings", bre));
             }
-            throw new SBonitaSearchException(bre);
+            throw new SBonitaReadException(bre);
         }
     }
 
-    @Override
-    public SExternalIdentityMapping getExternalIdentityMappingWithoutDisplayName(final long mappingId) throws SExternalIdentityMappingNotFoundException {
-        if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-            logger.log(this.getClass(), TechnicalLogSeverity.TRACE, LogUtil.getLogBeforeMethod(this.getClass(), "getExternalIdentityMappingWithoutDisplayName"));
-        }
-        final SelectByIdDescriptor<SExternalIdentityMapping> selectByIdDescriptor = SelectDescriptorBuilder.getExternalIdentityMappingById(mappingId);
-        try {
-            final SExternalIdentityMapping mapping = persistenceService.selectById(selectByIdDescriptor);
-            if (mapping == null) {
-                throw new SExternalIdentityMappingNotFoundException(mappingId + " does not refer to any external identity mapping");
-            }
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE,
-                        LogUtil.getLogAfterMethod(this.getClass(), "getExternalIdentityMappingWithoutDisplayName"));
-            }
-            return mapping;
-        } catch (final SBonitaReadException bre) {
-            if (logger.isLoggable(this.getClass(), TechnicalLogSeverity.TRACE)) {
-                logger.log(this.getClass(), TechnicalLogSeverity.TRACE,
-                        LogUtil.getLogOnExceptionMethod(this.getClass(), "getExternalIdentityMappingWithoutDisplayName", bre));
-            }
-            throw new SExternalIdentityMappingNotFoundException(bre);
-        }
-    }
-
-    private void initiateLogBuilder(final long objectId, final int sQueriableLogStatus, final SPersistenceLogBuilder logBuilder, final String callerMethodName) {
+    private void log(final long objectId, final int sQueriableLogStatus, final SPersistenceLogBuilder logBuilder, final String callerMethodName) {
         logBuilder.actionScope(String.valueOf(objectId));
         logBuilder.actionStatus(sQueriableLogStatus);
         logBuilder.objectId(objectId);

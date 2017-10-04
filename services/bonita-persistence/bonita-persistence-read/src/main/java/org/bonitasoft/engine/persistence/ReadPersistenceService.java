@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -74,28 +74,26 @@ public interface ReadPersistenceService {
      * @param options
      * @param parameters
      * @return
-     * @throws SBonitaSearchException
      * @throws SBonitaReadException
      * @throws SRetryableException
      */
     <T extends PersistentObject> List<T> searchEntity(Class<T> entityClass, QueryOptions options, Map<String, Object> parameters)
-            throws SBonitaSearchException, SBonitaReadException;
+            throws SBonitaReadException;
 
     /**
      * @param entityClass
-     *            class of the object we want to search on
+     *        class of the object we want to search on
      * @param querySuffix
-     *            Used to define customized search query
+     *        Used to define customized search query
      * @param options
-     *            query options
+     *        query options
      * @param parameters
      * @return
-     * @throws SBonitaSearchException
      * @throws SBonitaReadException
      * @throws SRetryableException
      */
     <T extends PersistentObject> List<T> searchEntity(Class<T> entityClass, String querySuffix, QueryOptions options, Map<String, Object> parameters)
-            throws SBonitaSearchException, SBonitaReadException;
+            throws SBonitaReadException;
 
     /**
      * @return

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.persistence.OrderByOption;
 import org.bonitasoft.engine.persistence.OrderByType;
 import org.bonitasoft.engine.persistence.QueryOptions;
@@ -24,7 +25,7 @@ import org.bonitasoft.engine.persistence.SelectByIdDescriptor;
 import org.bonitasoft.engine.persistence.SelectListDescriptor;
 import org.bonitasoft.engine.persistence.SelectOneDescriptor;
 import org.bonitasoft.engine.supervisor.mapping.model.SProcessSupervisor;
-import org.bonitasoft.engine.supervisor.mapping.model.SProcessSupervisorBuilders;
+import org.bonitasoft.engine.supervisor.mapping.model.SProcessSupervisorBuilderFactory;
 
 /**
  * @author Yanyan Liu
@@ -34,7 +35,7 @@ import org.bonitasoft.engine.supervisor.mapping.model.SProcessSupervisorBuilders
 public class SelectDescriptorBuilder {
 
     public static SelectByIdDescriptor<SProcessSupervisor> getSupervisor(final long supervisorId) {
-        return new SelectByIdDescriptor<SProcessSupervisor>("getSupervisorById", SProcessSupervisor.class, supervisorId);
+        return new SelectByIdDescriptor<SProcessSupervisor>(SProcessSupervisor.class, supervisorId);
     }
 
     public static SelectOneDescriptor<Long> getNumberOfSupervisors(final long processDefId) {
@@ -49,12 +50,11 @@ public class SelectDescriptorBuilder {
         return new SelectOneDescriptor<SProcessSupervisor>("getSupervisor", parameters, SProcessSupervisor.class);
     }
 
-    public static SelectListDescriptor<Long> getProcessDefIdsOfUser(final long userId, final int fromIndex, final int maxResult, final OrderByType orderByType,
-            final SProcessSupervisorBuilders supervisorBuilders) {
+    public static SelectListDescriptor<Long> getProcessDefIdsOfUser(final long userId, final int fromIndex, final int maxResult, final OrderByType orderByType) {
         final Map<String, Object> parameters = new HashMap<String, Object>();
         parameters.put("userId", userId);
 
-        final OrderByOption orderByOption = new OrderByOption(SProcessSupervisor.class, supervisorBuilders.getSSupervisorBuilder().getProcessDefIdKey(),
+        final OrderByOption orderByOption = new OrderByOption(SProcessSupervisor.class, BuilderFactory.get(SProcessSupervisorBuilderFactory.class).getProcessDefIdKey(),
                 orderByType);
         final QueryOptions queryOptions = new QueryOptions(fromIndex, maxResult, Collections.singletonList(orderByOption));
 

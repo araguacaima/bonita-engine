@@ -1,6 +1,6 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
- * BonitaSoft, 31 rue Gustave Eiffel - 38000 Grenoble
+ * Copyright (C) 2015 BonitaSoft S.A.
+ * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
  * version 2.1 of the License.
@@ -13,7 +13,7 @@
  **/
 package org.bonitasoft.engine.profile.builder.impl;
 
-import org.bonitasoft.engine.profile.builder.SProfileBuilder;
+import org.bonitasoft.engine.profile.builder.SProfileBuilderFactory;
 import org.bonitasoft.engine.profile.builder.SProfileUpdateBuilder;
 import org.bonitasoft.engine.recorder.model.EntityUpdateDescriptor;
 
@@ -24,37 +24,37 @@ public class SProfileUpdateBuilderImpl implements SProfileUpdateBuilder {
 
     protected final EntityUpdateDescriptor descriptor;
 
-    public SProfileUpdateBuilderImpl() {
-        descriptor = new EntityUpdateDescriptor();
+    public SProfileUpdateBuilderImpl(final EntityUpdateDescriptor descriptor) {
+        this.descriptor = descriptor;
     }
 
     @Override
     public SProfileUpdateBuilder setName(final String name) {
-        descriptor.addField(SProfileBuilder.NAME, name);
+        descriptor.addField(SProfileBuilderFactory.NAME, name);
         return this;
     }
 
     @Override
     public SProfileUpdateBuilder setDescription(final String description) {
-        descriptor.addField(SProfileBuilder.DESCRIPTION, description);
+        descriptor.addField(SProfileBuilderFactory.DESCRIPTION, description);
         return this;
     }
 
     @Override
     public SProfileUpdateBuilder setIconPath(final String iconPath) {
-        descriptor.addField(SProfileBuilder.ICON_PATH, iconPath);
+        descriptor.addField(SProfileBuilderFactory.ICON_PATH, iconPath);
         return this;
     }
 
     @Override
     public SProfileUpdateBuilder setLastUpdateDate(final long lastUpdateDate) {
-        descriptor.addField(SProfileBuilder.LAST_UPDATE_DATE, lastUpdateDate);
+        descriptor.addField(SProfileBuilderFactory.LAST_UPDATE_DATE, lastUpdateDate);
         return this;
     }
 
     @Override
     public SProfileUpdateBuilder setLastUpdatedBy(final long lastUpdatedBy) {
-        descriptor.addField(SProfileBuilder.LAST_UPDATED_BY, lastUpdatedBy);
+        descriptor.addField(SProfileBuilderFactory.LAST_UPDATED_BY, lastUpdatedBy);
         return this;
     }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -21,6 +21,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import org.hibernate.HibernateException;
+import org.hibernate.engine.spi.SessionImplementor;
 import org.hibernate.type.IntegerType;
 import org.hibernate.usertype.ParameterizedType;
 import org.hibernate.usertype.UserType;
@@ -85,8 +86,9 @@ public class IntegerEnumUserType implements UserType, ParameterizedType, Seriali
     }
 
     @Override
-    public Object nullSafeGet(final ResultSet rs, final String[] names, final Object owner) throws SQLException {
-        final Object identifier = type.get(rs, names[0]);
+    public Object nullSafeGet(final ResultSet rs, final String[] names, final SessionImplementor session, final Object owner) throws HibernateException,
+            SQLException {
+        final Object identifier = type.get(rs, names[0], session);
         if (identifier == null) {
             return null;
         }
@@ -103,13 +105,13 @@ public class IntegerEnumUserType implements UserType, ParameterizedType, Seriali
     }
 
     @Override
-    public void nullSafeSet(final PreparedStatement st, final Object value, final int index) throws SQLException {
+    public void nullSafeSet(final PreparedStatement st, final Object value, final int index, final SessionImplementor session) throws HibernateException {
         try {
             if (value == null) {
                 st.setNull(index, type.sqlType());
             } else {
                 final Integer identifier = (Integer) identifierMethod.invoke(value, new Object[0]);
-                type.set(st, identifier, index);
+                type.set(st, identifier, index, session);
             }
         } catch (final Exception e) {
             final StringBuilder stb = new StringBuilder("Exception while invoking identifierMethod '");
@@ -119,6 +121,7 @@ public class IntegerEnumUserType implements UserType, ParameterizedType, Seriali
             stb.append('\'');
             throw new HibernateException(stb.toString(), e);
         }
+
     }
 
     @Override

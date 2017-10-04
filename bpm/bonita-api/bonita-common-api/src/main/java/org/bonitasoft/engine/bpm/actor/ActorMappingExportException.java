@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -16,12 +16,24 @@ package org.bonitasoft.engine.bpm.actor;
 import org.bonitasoft.engine.exception.ExecutionException;
 
 /**
+ * Thrown when it's not possible to export the actor mappings.
+ *
  * @author Matthieu Chaffotte
+ * @author Celine Souchet
+ * @since 6.0.0
+ * @version 6.4.1
  */
 public class ActorMappingExportException extends ExecutionException {
 
     private static final long serialVersionUID = -8085581554578731228L;
 
+    /**
+     * Constructs a new exception with the specified detail cause.
+     *
+     * @param cause
+     *        The cause (which is saved for later retrieval by the {@link Throwable#getCause()} method). (A null value is permitted, and indicates that the
+     *        cause is nonexistent or unknown.)
+     */
     public ActorMappingExportException(final Throwable cause) {
         super(cause);
     }

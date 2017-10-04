@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,13 +13,15 @@
  **/
 package org.bonitasoft.engine.expression;
 
-import java.io.Serializable;
 import java.util.List;
+
+import org.bonitasoft.engine.bpm.BaseElement;
+import org.bonitasoft.engine.bpm.process.Visitable;
 
 /**
  * @author Feng Hui
  */
-public interface Expression extends Serializable {
+public interface Expression extends BaseElement, Visitable, Cloneable {
 
     String getName();
 
@@ -33,4 +35,7 @@ public interface Expression extends Serializable {
 
     List<Expression> getDependencies();
 
+    Expression copy();
+
+    boolean isEquivalent(Expression e);
 }

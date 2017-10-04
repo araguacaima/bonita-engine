@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,25 +13,24 @@
  **/
 package org.bonitasoft.engine.execution.state;
 
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.core.process.definition.model.SProcessDefinition;
 import org.bonitasoft.engine.core.process.instance.api.ActivityInstanceService;
-import org.bonitasoft.engine.core.process.instance.api.TokenService;
 import org.bonitasoft.engine.core.process.instance.api.exceptions.SActivityStateExecutionException;
 import org.bonitasoft.engine.core.process.instance.api.states.FlowNodeState;
 import org.bonitasoft.engine.core.process.instance.api.states.StateCode;
 import org.bonitasoft.engine.core.process.instance.model.SActivityInstance;
-import org.bonitasoft.engine.core.process.instance.model.SFlowElementsContainerType;
 import org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance;
 import org.bonitasoft.engine.core.process.instance.model.SStateCategory;
-import org.bonitasoft.engine.core.process.instance.model.SToken;
-import org.bonitasoft.engine.core.process.instance.model.builder.BPMInstanceBuilders;
-import org.bonitasoft.engine.core.process.instance.model.builder.SFlowNodeInstanceBuilder;
+import org.bonitasoft.engine.core.process.instance.model.builder.SFlowNodeInstanceBuilderFactory;
+import org.bonitasoft.engine.core.process.instance.model.builder.SUserTaskInstanceBuilderFactory;
 import org.bonitasoft.engine.core.process.instance.model.event.SBoundaryEventInstance;
 import org.bonitasoft.engine.execution.ContainerRegistry;
 
 /**
  * @author Elias Ricken de Medeiros
+ * @author Celine Souchet
  */
 public class ExecutingBoundaryEventStateImpl implements FlowNodeState {
 
@@ -39,16 +38,9 @@ public class ExecutingBoundaryEventStateImpl implements FlowNodeState {
 
     private final ContainerRegistry containerRegistry;
 
-    private final BPMInstanceBuilders bpmInstanceBuilders;
-
-    private final TokenService tokenService;
-
-    public ExecutingBoundaryEventStateImpl(final ActivityInstanceService activityInstanceService, final ContainerRegistry containerRegistry,
-            final BPMInstanceBuilders bpmInstanceBuilders, TokenService tokenService) {
+    public ExecutingBoundaryEventStateImpl(final ActivityInstanceService activityInstanceService, final ContainerRegistry containerRegistry) {
         this.activityInstanceService = activityInstanceService;
         this.containerRegistry = containerRegistry;
-        this.bpmInstanceBuilders = bpmInstanceBuilders;
-        this.tokenService = tokenService;
     }
 
     @Override
@@ -70,51 +62,24 @@ public class ExecutingBoundaryEventStateImpl implements FlowNodeState {
     public StateCode execute(final SProcessDefinition processDefinition, final SFlowNodeInstance instance) throws SActivityStateExecutionException {
         final SBoundaryEventInstance boundaryEventInstance = (SBoundaryEventInstance) instance;
         if (boundaryEventInstance.isInterrupting()) {
-            aborteRelatedActivity(boundaryEventInstance);
+            abortRelatedActivity(boundaryEventInstance);
         }
-        // we create token here to be sure the token is put synchronously
-        createToken(boundaryEventInstance);
 
         return StateCode.DONE;
     }
 
-    private void createToken(final SBoundaryEventInstance boundaryEventInstance) throws SActivityStateExecutionException {
-        // we have always 1 outgoing transition with no condition so we create one token
-        Long outputTokenRefId;
-        Long outputParentTokenRefId;
-        try {
-            if (boundaryEventInstance.isInterrupting()) {
-                // we create the same token that activated the activity
-                // the activity is canceled so a token will be consumed by the aborted activity
-                final SToken token = tokenService.getToken(boundaryEventInstance.getParentProcessInstanceId(), boundaryEventInstance.getTokenRefId());
-                outputTokenRefId = token.getRefId();
-                outputParentTokenRefId = token.getParentRefId();
-            } else {
-                // a token with no parent is produced -> not the same "execution" than activity
-                outputTokenRefId = boundaryEventInstance.getId();
-                outputParentTokenRefId = null;
-            }
-            tokenService.createTokens(boundaryEventInstance.getParentProcessInstanceId(), outputTokenRefId, outputParentTokenRefId, 1);
-        } catch (SBonitaException e) {
-            throw new SActivityStateExecutionException(e);
-        }
-    }
-
-    private void aborteRelatedActivity(final SBoundaryEventInstance boundaryEventInstance) throws SActivityStateExecutionException {
-        final SFlowNodeInstanceBuilder flowNodeKeyProvider = bpmInstanceBuilders.getSUserTaskInstanceBuilder();
+    private void abortRelatedActivity(final SBoundaryEventInstance boundaryEventInstance) throws SActivityStateExecutionException {
+        final SFlowNodeInstanceBuilderFactory flowNodeKeyProvider = BuilderFactory.get(SUserTaskInstanceBuilderFactory.class);
         if (SStateCategory.NORMAL.equals(boundaryEventInstance.getStateCategory())) {
             try {
                 final SActivityInstance relatedActivityInst = activityInstanceService.getActivityInstance(boundaryEventInstance.getActivityInstanceId());
                 activityInstanceService.setStateCategory(relatedActivityInst, SStateCategory.ABORTING);
                 activityInstanceService.setAbortedByBoundaryEvent(relatedActivityInst, boundaryEventInstance.getId());
                 if (relatedActivityInst.isStable() || relatedActivityInst.isStateExecuting()) {
-                    String containerType = SFlowElementsContainerType.PROCESS.name();
-                    final long parentActivityInstanceId = relatedActivityInst.getParentActivityInstanceId();
-                    if (parentActivityInstanceId > 0) {
-                        containerType = SFlowElementsContainerType.FLOWNODE.name();
-                    }
-                    containerRegistry.executeFlowNode(relatedActivityInst.getId(), null, null, containerType,
-                            boundaryEventInstance.getLogicalGroup(flowNodeKeyProvider.getParentProcessInstanceIndex()));
+                    containerRegistry
+                            .executeFlowNode(relatedActivityInst.getProcessDefinitionId(),
+                                    boundaryEventInstance.getLogicalGroup(flowNodeKeyProvider.getParentProcessInstanceIndex()), relatedActivityInst.getId()
+                            );
                 }
             } catch (final SBonitaException e) {
                 throw new SActivityStateExecutionException(e);

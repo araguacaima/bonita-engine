@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,6 +13,10 @@
  **/
 package org.bonitasoft.engine.core.login;
 
+import java.io.Serializable;
+import java.util.Map;
+
+import org.bonitasoft.engine.identity.SUserNotFoundException;
 import org.bonitasoft.engine.session.SSessionNotFoundException;
 import org.bonitasoft.engine.session.model.SSession;
 
@@ -21,7 +25,18 @@ import org.bonitasoft.engine.session.model.SSession;
  */
 public interface LoginService {
 
-    SSession login(final long tenantId, final String userName, final String password) throws SLoginException;
+    /**
+     * generic login approach to handle outer authentication service like CAS or OAuth or whatever...
+     * 
+     * @param credentials
+     *            the parameters to use to login
+     * @return the session created if login succeeds
+     * @throws SLoginException
+     *             if login fails
+     * @throws SUserNotFoundException 
+     *             if the user does not exist in the database
+     */
+    SSession login(Map<String, Serializable> credentials) throws SLoginException, SUserNotFoundException;
 
     boolean isValid(final long sessionId);
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,12 +13,12 @@
  **/
 package org.bonitasoft.engine.execution.state;
 
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.bonitasoft.engine.bpm.model.impl.BPMInstancesCreator;
+import org.bonitasoft.engine.builder.BuilderFactory;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
 import org.bonitasoft.engine.core.expression.control.api.ExpressionResolverService;
 import org.bonitasoft.engine.core.expression.control.model.SExpressionContext;
@@ -36,7 +36,7 @@ import org.bonitasoft.engine.core.process.instance.model.SFlowElementsContainerT
 import org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance;
 import org.bonitasoft.engine.core.process.instance.model.SLoopActivityInstance;
 import org.bonitasoft.engine.core.process.instance.model.SStateCategory;
-import org.bonitasoft.engine.core.process.instance.model.builder.SLoopActivityInstanceBuilder;
+import org.bonitasoft.engine.core.process.instance.model.builder.SLoopActivityInstanceBuilderFactory;
 import org.bonitasoft.engine.data.instance.api.DataInstanceContainer;
 import org.bonitasoft.engine.execution.ContainerRegistry;
 import org.bonitasoft.engine.expression.ExpressionConstants;
@@ -44,6 +44,7 @@ import org.bonitasoft.engine.expression.ExpressionConstants;
 /**
  * @author Baptiste Mesta
  * @author Matthieu Chaffotte
+ * @author Celine Souchet
  */
 public class ExecutingLoopActivityStateImpl implements FlowNodeState {
 
@@ -97,9 +98,14 @@ public class ExecutingLoopActivityStateImpl implements FlowNodeState {
     public boolean hit(final SProcessDefinition processDefinition, final SFlowNodeInstance flowNodeInstance, final SFlowNodeInstance childInstance)
             throws SActivityStateExecutionException {
         try {
+            final SLoopActivityInstance loopActivity = (SLoopActivityInstance) activityInstanceService.getFlowNodeInstance(flowNodeInstance.getId());// get it
+            if (loopActivity.getStateCategory() != SStateCategory.NORMAL) {
+                // if is not a normal state (aborting / canceling), return true to change state from executing to aborting / cancelling (ChildReadstate),
+                // without create a new child task
+                return true;
+            }
             final SFlowElementContainerDefinition processContainer = processDefinition.getProcessContainer();
             final SActivityDefinition activity = (SActivityDefinition) processContainer.getFlowNode(flowNodeInstance.getFlowNodeDefinitionId());
-            final SLoopActivityInstance loopActivity = (SLoopActivityInstance) activityInstanceService.getFlowNodeInstance(flowNodeInstance.getId());// get it
             final SStandardLoopCharacteristics loopCharacteristics = (SStandardLoopCharacteristics) activity.getLoopCharacteristics();
             boolean loop = false;
             final int loopCounter = loopActivity.getLoopCounter();
@@ -108,20 +114,21 @@ public class ExecutingLoopActivityStateImpl implements FlowNodeState {
             }
 
             final SStandardLoopCharacteristics standardLoop = loopCharacteristics;
-            final Map<String, Serializable> input = new HashMap<String, Serializable>(1);
+            final Map<String, Object> input = new HashMap<>(1);
             input.put(ExpressionConstants.LOOP_COUNTER.getEngineConstantName(), loopActivity.getLoopCounter());
-            final SExpressionContext sExpressionContext = new SExpressionContext(loopActivity.getId(), DataInstanceContainer.ACTIVITY_INSTANCE.name(), input);
+            final SExpressionContext sExpressionContext = new SExpressionContext(loopActivity.getId(), DataInstanceContainer.ACTIVITY_INSTANCE.name(),
+                    loopActivity.getProcessDefinitionId(), input);
             loop = (Boolean) expressionResolverService.evaluate(standardLoop.getLoopCondition(), sExpressionContext);
             if (loop) {
-                final SLoopActivityInstanceBuilder loopActivityInstanceBuilder = bpmInstancesCreator.getBPMInstanceBuilders().getSLoopActivityInstanceBuilder();
-                final long rootProcessInstanceId = flowNodeInstance.getLogicalGroup(loopActivityInstanceBuilder.getRootProcessInstanceIndex());
-                final long parentProcessInstanceId = flowNodeInstance.getLogicalGroup(loopActivityInstanceBuilder.getParentProcessInstanceIndex());
+                final SLoopActivityInstanceBuilderFactory keyProvider = BuilderFactory.get(SLoopActivityInstanceBuilderFactory.class);
+                final long rootProcessInstanceId = flowNodeInstance.getLogicalGroup(keyProvider.getRootProcessInstanceIndex());
+                final long parentProcessInstanceId = flowNodeInstance.getLogicalGroup(keyProvider.getParentProcessInstanceIndex());
                 final SFlowNodeInstance child = bpmInstancesCreator.createFlowNodeInstance(processDefinition.getId(), flowNodeInstance.getRootContainerId(),
                         flowNodeInstance.getId(), SFlowElementsContainerType.FLOWNODE, activity, rootProcessInstanceId, parentProcessInstanceId, true,
-                        loopCounter + 1, SStateCategory.NORMAL, -1, null);
+                        loopCounter + 1, SStateCategory.NORMAL, -1);
                 activityInstanceService.incrementLoopCounter(loopActivity);
                 activityInstanceService.setTokenCount(loopActivity, loopActivity.getTokenCount() + 1);
-                containerRegistry.executeFlowNode(child.getId(), null, null, SFlowElementsContainerType.FLOWNODE.name(), parentProcessInstanceId);
+                containerRegistry.executeFlowNode(processDefinition.getId(), parentProcessInstanceId, child.getId());
             }
             return !loop;
         } catch (final SBonitaException e) {
@@ -135,8 +142,8 @@ public class ExecutingLoopActivityStateImpl implements FlowNodeState {
         try {
             childrenOfAnActivity = activityInstanceService.getChildrenOfAnActivity(flowNodeInstance.getId(), 0, 1);
             if (!childrenOfAnActivity.isEmpty()) {
-                containerRegistry.executeFlowNode(childrenOfAnActivity.get(0).getId(), null, null, SFlowElementsContainerType.FLOWNODE.name(),
-                        flowNodeInstance.getLogicalGroup(3));
+                containerRegistry.executeFlowNode(processDefinition.getId(), flowNodeInstance.getLogicalGroup(3), childrenOfAnActivity.get(0).getId()
+                );
             }
             return !childrenOfAnActivity.isEmpty();
         } catch (final SBonitaException e) {

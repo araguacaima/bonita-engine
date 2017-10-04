@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -20,14 +20,18 @@ import org.bonitasoft.engine.core.process.instance.api.states.StateCode;
 import org.bonitasoft.engine.core.process.instance.model.SFlowNodeInstance;
 import org.bonitasoft.engine.core.process.instance.model.SReceiveTaskInstance;
 import org.bonitasoft.engine.execution.StateBehaviors;
+import org.bonitasoft.engine.execution.WaitingEventsInterrupter;
 
 /**
  * @author Julien Molinaro
  */
 public class AbortingReceiveTaskStateImpl extends AbortingFlowNodeContainerStateImpl {
 
-    public AbortingReceiveTaskStateImpl(final StateBehaviors stateBehaviors) {
+    private final WaitingEventsInterrupter waitingEventsInterrupter;
+
+    public AbortingReceiveTaskStateImpl(final StateBehaviors stateBehaviors, WaitingEventsInterrupter waitingEventsInterrupter) {
         super(stateBehaviors);
+        this.waitingEventsInterrupter = waitingEventsInterrupter;
     }
 
     @Override
@@ -39,7 +43,7 @@ public class AbortingReceiveTaskStateImpl extends AbortingFlowNodeContainerState
     public StateCode execute(final SProcessDefinition processDefinition, final SFlowNodeInstance instance) throws SActivityStateExecutionException {
         try {
             final SReceiveTaskInstance receiveTaskInstance = (SReceiveTaskInstance) instance;
-            getStateBehaviors().interrupWaitinEvents(receiveTaskInstance);
+            waitingEventsInterrupter.interruptWaitingEvents(receiveTaskInstance);
         } catch (final SBonitaException e) {
             throw new SActivityStateExecutionException(e);
         }

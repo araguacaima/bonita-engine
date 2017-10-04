@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,7 +13,6 @@
  **/
 package org.bonitasoft.engine.execution.handler;
 
-import org.bonitasoft.engine.core.process.instance.api.ProcessInstanceService;
 import org.bonitasoft.engine.events.model.SEvent;
 import org.bonitasoft.engine.events.model.SHandler;
 
@@ -21,7 +20,5 @@ import org.bonitasoft.engine.events.model.SHandler;
  * @author Baptiste Mesta
  */
 public interface SProcessInstanceHandler<T extends SEvent> extends SHandler<T> {
-
-    void setProcessInstanceService(ProcessInstanceService processInstanceService);
 
 }

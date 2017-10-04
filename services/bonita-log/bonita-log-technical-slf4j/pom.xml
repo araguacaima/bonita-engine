@@ -6,7 +6,7 @@
 	<parent>
 		<artifactId>bonita-log</artifactId>
 		<groupId>org.bonitasoft.engine.log</groupId>
-		<version>6.1.0-SNAPSHOT</version>
+		<version>7.5.3-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>bonita-log-technical-slf4j</artifactId>
@@ -26,12 +26,10 @@
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>ch.qos.logback</groupId>
 			<artifactId>logback-classic</artifactId>
-			<version>0.9.28</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

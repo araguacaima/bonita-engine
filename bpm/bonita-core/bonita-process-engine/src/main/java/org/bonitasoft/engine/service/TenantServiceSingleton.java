@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -23,7 +23,7 @@ import org.bonitasoft.engine.service.impl.ServiceAccessorFactory;
  */
 public final class TenantServiceSingleton {
 
-    private static Map<Long, TenantServiceAccessor> instances = new HashMap<Long, TenantServiceAccessor>();
+    private static final Map<Long, TenantServiceAccessor> instances = new HashMap<Long, TenantServiceAccessor>();
 
     private TenantServiceSingleton() {
         super();
@@ -35,6 +35,16 @@ public final class TenantServiceSingleton {
         } catch (final Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static TenantServiceAccessor getInstance() {
+        long tenantId;
+        try {
+            tenantId = ServiceAccessorFactory.getInstance().createSessionAccessor().getTenantId();
+        } catch (final Exception e) {
+            throw new RuntimeException(e);
+        }
+        return getInstance(tenantId);
     }
 
     public static TenantServiceAccessor getInstance(final long tenantId) {

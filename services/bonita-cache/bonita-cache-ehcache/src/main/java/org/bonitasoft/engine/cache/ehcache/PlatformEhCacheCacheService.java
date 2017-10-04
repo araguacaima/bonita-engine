@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,30 +13,25 @@
  **/
 package org.bonitasoft.engine.cache.ehcache;
 
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.bonitasoft.engine.cache.CacheConfigurations;
+import org.bonitasoft.engine.cache.CacheConfiguration;
 import org.bonitasoft.engine.cache.PlatformCacheService;
+import org.bonitasoft.engine.cache.SCacheException;
+import org.bonitasoft.engine.commons.exceptions.SBonitaRuntimeException;
 import org.bonitasoft.engine.log.technical.TechnicalLoggerService;
-import org.bonitasoft.engine.sessionaccessor.ReadSessionAccessor;
 
 /**
  * Platform version of the EhCacheCacheService
- * 
+ *
  * @author Baptiste Mesta
  */
 public class PlatformEhCacheCacheService extends CommonEhCacheCacheService implements PlatformCacheService {
 
-    public PlatformEhCacheCacheService(final TechnicalLoggerService logger, final ReadSessionAccessor sessionAccessor,
-            final CacheConfigurations cacheConfigurations, final URL configFile) {
-        super(logger, sessionAccessor, cacheConfigurations, configFile);
-    }
-
-    public PlatformEhCacheCacheService(final TechnicalLoggerService logger, final ReadSessionAccessor sessionAccessor,
-            final CacheConfigurations cacheConfigurations) {
-        super(logger, sessionAccessor, cacheConfigurations);
+    public PlatformEhCacheCacheService(final TechnicalLoggerService logger, final List<CacheConfiguration> cacheConfigurations,
+            final CacheConfiguration defaultCacheConfiguration, final String diskStorePath) {
+        super(logger, cacheConfigurations, defaultCacheConfiguration, diskStorePath);
     }
 
     @Override
@@ -47,9 +42,8 @@ public class PlatformEhCacheCacheService extends CommonEhCacheCacheService imple
     @Override
     public List<String> getCachesNames() {
         final String[] cacheNames = cacheManager.getCacheNames();
-        final ArrayList<String> cacheNamesList = new ArrayList<String>(cacheNames.length);
-        String prefix;
-        prefix = "P_";
+        final List<String> cacheNamesList = new ArrayList<>(cacheNames.length);
+        final String prefix = "P_";
         for (final String cacheName : cacheNames) {
             if (cacheName.startsWith(prefix)) {
                 cacheNamesList.add(getCacheNameFromKey(cacheName));
@@ -58,12 +52,38 @@ public class PlatformEhCacheCacheService extends CommonEhCacheCacheService imple
         return cacheNamesList;
     }
 
-    /**
-     * @param cacheName
-     * @return
-     */
     private String getCacheNameFromKey(final String cacheNameKey) {
         return cacheNameKey.substring(cacheNameKey.indexOf('_') + 1);
     }
 
+    @Override
+    public synchronized void start() throws SCacheException {
+        buildCacheManagerWithDefaultConfiguration();
+    }
+
+    @Override
+    public synchronized void stop() {
+        shutdownCacheManager();
+    }
+
+    @Override
+    public void pause() {
+        try {
+            clearAll();
+        } catch (final SCacheException sce) {
+            throw new SBonitaRuntimeException(sce);
+        }
+    }
+
+    @Override
+    public void resume() throws SCacheException {
+        if (cacheManager == null) {
+            start();
+        }
+    }
+
+    @Override
+    protected String getCacheManagerIdentifier() {
+        return "platform";
+    }
 }

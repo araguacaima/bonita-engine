@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -13,12 +13,9 @@
  **/
 package org.bonitasoft.engine.execution;
 
-import java.util.List;
-
+import org.bonitasoft.engine.SArchivingException;
 import org.bonitasoft.engine.bpm.process.ProcessInstanceState;
 import org.bonitasoft.engine.commons.exceptions.SBonitaException;
-import org.bonitasoft.engine.core.expression.control.model.SExpressionContext;
-import org.bonitasoft.engine.core.operation.model.SOperation;
 import org.bonitasoft.engine.core.process.definition.model.SProcessDefinition;
 import org.bonitasoft.engine.core.process.instance.api.exceptions.SActivityExecutionException;
 import org.bonitasoft.engine.core.process.instance.api.exceptions.SActivityStateExecutionException;
@@ -39,27 +36,21 @@ public interface FlowNodeExecutor extends ContainerExecutor {
     /**
      * 
      * @param flowNodeInstanceId
-     * @param expressionContext
-     * @param operations
-     * @param processInstanceId
      * @param executerId
-     * @param executerDelegateId
+     * @param executerSubstituteId
      * @return
      * @throws SFlowNodeExecutionException
      * @since 6.0
      */
-    FlowNodeState stepForward(long flowNodeInstanceId, final SExpressionContext expressionContext, final List<SOperation> operations, long processInstanceId,
-            Long executerId, Long executerDelegateId) throws SFlowNodeExecutionException;
+    FlowNodeState stepForward(long flowNodeInstanceId,
+                              Long executerId, Long executerSubstituteId) throws SFlowNodeExecutionException;
 
     /**
-     * 
-     * @param sProcessDefinitionId
+     *  force the state of a flow node toa particular state
      * @param flowNodeInstanceId
      * @param stateId
-     * @throws SActivityStateExecutionException
-     * @since 6.1
      */
-    void setStateByStateId(long sProcessDefinitionId, long flowNodeInstanceId, int stateId) throws SActivityStateExecutionException;
+    void setStateByStateId(long flowNodeInstanceId, int stateId) throws SActivityStateExecutionException;
 
     /**
      * 
@@ -72,7 +63,7 @@ public interface FlowNodeExecutor extends ContainerExecutor {
     void childReachedState(SProcessInstance childProcInst, ProcessInstanceState childState, boolean hasActionsToExecute) throws SBonitaException;
 
     /**
-     * Archive the flownode instance given as parameter. Also archive all related object that needs to be archived as well.
+     * Archive the flow node instance given as parameter. Also archive all related object that needs to be archived as well.
      * 
      * @param flowNodeInstance
      *            The flow node instance to be archived.
@@ -83,7 +74,7 @@ public interface FlowNodeExecutor extends ContainerExecutor {
      *             in case an error occurs
      * @since 6.1
      */
-    void archiveFlowNodeInstance(SFlowNodeInstance flowNodeInstance, boolean deleteAfterArchive, long processDefinitionId) throws SActivityExecutionException;
+    void archiveFlowNodeInstance(SFlowNodeInstance flowNodeInstance, boolean deleteAfterArchive, long processDefinitionId) throws SArchivingException;
 
     /**
      * @param processDefinition
@@ -101,15 +92,5 @@ public interface FlowNodeExecutor extends ContainerExecutor {
      */
     StateCode executeState(SProcessDefinition processDefinition, SFlowNodeInstance flowNodeInstance, FlowNodeState state)
             throws SActivityStateExecutionException, SActivityExecutionException;
-
-    /**
-     * 
-     * @param fFlowNodeInstance
-     * @param processDefinitionId
-     * @param sbe
-     * @throws SFlowNodeExecutionException
-     * @since 6.1
-     */
-    void setFlowNodeFailedInTransaction(SFlowNodeInstance fFlowNodeInstance, long processDefinitionId, SBonitaException sbe) throws SFlowNodeExecutionException;
 
 }

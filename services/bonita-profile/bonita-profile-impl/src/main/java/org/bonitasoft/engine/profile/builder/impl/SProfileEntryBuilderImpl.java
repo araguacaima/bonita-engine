@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 BonitaSoft S.A.
+ * Copyright (C) 2015 BonitaSoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This library is free software; you can redistribute it and/or modify it under the terms
  * of the GNU Lesser General Public License as published by the Free Software Foundation
@@ -23,18 +23,11 @@ import org.bonitasoft.engine.profile.model.impl.SProfileEntryImpl;
  */
 public class SProfileEntryBuilderImpl implements SProfileEntryBuilder {
 
-    private SProfileEntryImpl profileEntry;
+    private final SProfileEntryImpl profileEntry;
 
-    @Override
-    public SProfileEntryBuilder createNewInstance(final String name, final long profileId) {
-        profileEntry = new SProfileEntryImpl(name, profileId);
-        return this;
-    }
-
-    @Override
-    public SProfileEntryBuilder createNewInstance(final SProfileEntry profileEntry) {
-        this.profileEntry = new SProfileEntryImpl(profileEntry);
-        return this;
+    public SProfileEntryBuilderImpl(final SProfileEntryImpl profileEntry) {
+        super();
+        this.profileEntry = profileEntry;
     }
 
     @Override
@@ -70,6 +63,12 @@ public class SProfileEntryBuilderImpl implements SProfileEntryBuilder {
     @Override
     public SProfileEntryBuilder setIndex(final long index) {
         profileEntry.setIndex(index);
+        return this;
+    }
+
+    @Override
+    public SProfileEntryBuilder setCustom(final Boolean custom) {
+        profileEntry.setCustom(custom);
         return this;
     }
 
